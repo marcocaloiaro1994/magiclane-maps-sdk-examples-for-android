@@ -35,16 +35,22 @@ import android.os.Build
 import android.os.Bundle
 import android.util.Log
 import android.view.View
+import android.view.ViewGroup
 import android.view.WindowManager
 import android.widget.Button
 import android.widget.ImageView
 import android.widget.ProgressBar
 import android.widget.TextView
 import androidx.activity.addCallback
-import androidx.annotation.VisibleForTesting
+import androidx.activity.enableEdgeToEdge
 import androidx.appcompat.app.AppCompatActivity
 import androidx.constraintlayout.widget.ConstraintLayout
 import androidx.core.app.ActivityCompat
+import androidx.core.view.ViewCompat
+import androidx.core.view.WindowInsetsCompat
+import androidx.core.view.updateLayoutParams
+import androidx.appcompat.widget.Toolbar
+import androidx.core.content.ContextCompat
 import com.google.android.material.bottomsheet.BottomSheetDialog
 import com.google.android.material.floatingactionbutton.FloatingActionButton
 import com.magiclane.sdk.core.EUnitSystem
@@ -80,9 +86,10 @@ class MainActivity : AppCompatActivity()
 
     // ---------------------------------------------------------------------------------------------------------------------------
 
+    private lateinit var toolbar: Toolbar
     private lateinit var gemSurfaceView: GemSurfaceView
     private lateinit var progressBar: ProgressBar
-    private lateinit var followCursorButton: FloatingActionButton
+    private lateinit var followGPSButton: FloatingActionButton
 
     private lateinit var topPanel: ConstraintLayout
     private lateinit var navInstruction: TextView
@@ -96,6 +103,7 @@ class MainActivity : AppCompatActivity()
     private var lastTurnImageId: Long = Long.MAX_VALUE
     private var turnEvent = byteArrayOf(0, 0, 0, 0)
     private var turnImageSize: Int = 0
+    private var padding: Int = 0
 
     // ---------------------------------------------------------------------------------------------------------------------------
 
@@ -165,8 +173,7 @@ class MainActivity : AppCompatActivity()
                 // -------------------------------------
 
                 val sameTurnImage = TSameImage()
-                val newTurnImage =
-                    getNextTurnImage(instr, turnImageSize, turnImageSize, sameTurnImage)
+                val newTurnImage = getNextTurnImage(instr, turnImageSize, turnImageSize, sameTurnImage)
                 if (!sameTurnImage.value)
                 {
                     SdkCall.execute {
@@ -234,6 +241,7 @@ class MainActivity : AppCompatActivity()
 
             topPanel.visibility = View.GONE
             bottomPanel.visibility = View.GONE
+            followGPSButton.visibility = View.GONE
 
             for (i in turnEvent.indices)
             {
@@ -245,6 +253,7 @@ class MainActivity : AppCompatActivity()
 
         SdkCall.execute {
             gemSurfaceView.mapView?.hideRoutes()
+            disableGPSButton()
         }
     }
 
@@ -632,7 +641,7 @@ class MainActivity : AppCompatActivity()
             {
                 // Register for system Bluetooth events
                 val filter = IntentFilter(BluetoothAdapter.ACTION_STATE_CHANGED)
-                registerReceiver(bluetoothReceiver, filter)
+                ContextCompat.registerReceiver(this, bluetoothReceiver, filter, ContextCompat.RECEIVER_EXPORTED)
                 if (!bluetoothAdapter.isEnabled)
                 {
                     @Suppress("DEPRECATION")
@@ -705,13 +714,16 @@ class MainActivity : AppCompatActivity()
     override fun onCreate(savedInstanceState: Bundle?)
     {
         super.onCreate(savedInstanceState)
+        enableEdgeToEdge()
         setContentView(R.layout.activity_main)
 
         turnImageSize = resources.getDimension(R.dimen.turn_image_size).toInt()
+        padding = resources.getDimension(R.dimen.big_padding).toInt()
 
+        toolbar = findViewById(R.id.toolbar)
         gemSurfaceView = findViewById(R.id.gem_surface)
-        progressBar = findViewById(R.id.progressBar)
-        followCursorButton = findViewById(R.id.followCursor)
+        progressBar = findViewById(R.id.progress_bar)
+        followGPSButton = findViewById(R.id.follow_gps_button)
 
         topPanel = findViewById(R.id.top_panel)
         navInstruction = findViewById(R.id.nav_instruction)
@@ -725,6 +737,8 @@ class MainActivity : AppCompatActivity()
 
         // Devices with a display should not go to sleep
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+        
+        setSupportActionBar(toolbar)
 
         /// MAGIC LANE
         SdkSettings.onMapDataReady = onMapDataReady@{ isReady ->
@@ -765,6 +779,46 @@ class MainActivity : AppCompatActivity()
         onBackPressedDispatcher.addCallback(this) {
             finish()
             exitProcess(0)
+        }
+        
+        ViewCompat.setOnApplyWindowInsetsListener(gemSurfaceView) { _, windowInsets ->
+            val insets = windowInsets.getInsets(WindowInsetsCompat.Type.systemBars())
+            
+            toolbar.updateLayoutParams {
+                if (this is ViewGroup.MarginLayoutParams) 
+                {
+                    topMargin = insets.top
+                    leftMargin = insets.left
+                    rightMargin = insets.right
+                }
+            }
+            
+            topPanel.updateLayoutParams {
+                if (this is ViewGroup.MarginLayoutParams) 
+                {
+                    leftMargin = insets.left + padding 
+                    rightMargin = insets.right + padding
+                }
+            }
+
+            bottomPanel.updateLayoutParams {
+                if (this is ViewGroup.MarginLayoutParams)
+                {
+                    leftMargin = insets.left + padding
+                    rightMargin = insets.right + padding
+                    bottomMargin = insets.bottom + padding
+                }
+            }
+
+            followGPSButton.updateLayoutParams {
+                if (this is ViewGroup.MarginLayoutParams)
+                {
+                    leftMargin = insets.left + padding
+                    rightMargin = insets.right + padding
+                }
+            }
+            
+            WindowInsetsCompat.CONSUMED
         }
     }
 
@@ -815,17 +869,29 @@ class MainActivity : AppCompatActivity()
         // Set actions for entering / exiting following position mode.
         gemSurfaceView.mapView?.apply {
             onExitFollowingPosition = {
-                followCursorButton.visibility = View.VISIBLE
+                followGPSButton.visibility = View.VISIBLE
             }
 
             onEnterFollowingPosition = {
-                followCursorButton.visibility = View.GONE
+                followGPSButton.visibility = View.GONE
             }
 
             // Set on click action for the GPS button.
-            followCursorButton.setOnClickListener {
+            followGPSButton.setOnClickListener {
                 SdkCall.execute { followPosition() }
             }
+        }
+    }
+
+    // ---------------------------------------------------------------------------------------------------------------------------
+
+    private fun disableGPSButton()
+    {
+        gemSurfaceView.mapView?.apply {
+            onExitFollowingPosition = null
+            onEnterFollowingPosition = null
+
+            followGPSButton.setOnClickListener(null)
         }
     }
 

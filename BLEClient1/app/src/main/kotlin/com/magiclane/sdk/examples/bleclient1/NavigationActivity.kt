@@ -25,9 +25,16 @@ import android.os.Looper
 import android.util.DisplayMetrics
 import android.util.Log
 import android.view.View
+import android.view.ViewGroup
 import android.widget.*
 import androidx.appcompat.app.AppCompatActivity
+import androidx.appcompat.widget.Toolbar
 import androidx.constraintlayout.widget.ConstraintLayout
+import androidx.core.content.ContextCompat
+import androidx.core.content.res.ResourcesCompat
+import androidx.core.view.ViewCompat
+import androidx.core.view.WindowInsetsCompat
+import androidx.core.view.updateLayoutParams
 import com.magiclane.sdk.examples.bleclient1.BLEService.LocalBinder
 
 // -------------------------------------------------------------------------------------------------------------------------------
@@ -42,6 +49,7 @@ class NavigationActivity : AppCompatActivity(), BLEService.IBLEServiceObserver
 {
     // ---------------------------------------------------------------------------------------------------------------------------
 
+    private lateinit var toolbar: Toolbar
     private lateinit var topPanel: ConstraintLayout
     private lateinit var navInstruction: TextView
     private lateinit var navInstructionDistance: TextView
@@ -50,6 +58,7 @@ class NavigationActivity : AppCompatActivity(), BLEService.IBLEServiceObserver
     private var deviceAddress: String? = null
     private var bluetoothLeService: BLEService? = null
     private var characteristics: List<BluetoothGattCharacteristic> = listOf()
+    private var padding: Int = 0
     
     // ---------------------------------------------------------------------------------------------------------------------------
 
@@ -291,19 +300,48 @@ class NavigationActivity : AppCompatActivity(), BLEService.IBLEServiceObserver
 
         tag = getString(R.string.app_name)
         deviceAddress = intent.getStringExtra(EXTRAS_DEVICE_ADDRESS)
+        padding = resources.getDimension(R.dimen.big_padding).toInt()
 
+        toolbar = findViewById(R.id.toolbar)
         topPanel = findViewById(R.id.top_panel)
         navInstruction = findViewById(R.id.nav_instruction)
         navInstructionDistance = findViewById(R.id.instr_distance)
         navInstructionIcon = findViewById(R.id.nav_icon)
 
+        setSupportActionBar(toolbar)
         supportActionBar?.setDisplayHomeAsUpEnabled(true)
         supportActionBar?.title = intent.getStringExtra(EXTRAS_DEVICE_NAME).plus(" - ").plus(getString(R.string.disconnected))
+
+        val upArrow = ResourcesCompat.getDrawable(resources, R.drawable.ic_arrow_back_white, theme)
+        supportActionBar?.setHomeAsUpIndicator(upArrow)
 
         val gattServiceIntent = Intent(this, BLEService::class.java)
         bindService(gattServiceIntent, mServiceConnection, BIND_AUTO_CREATE)
 
-        registerReceiver(gattUpdateReceiver, makeGattUpdateIntentFilter())
+        ContextCompat.registerReceiver(this, gattUpdateReceiver, makeGattUpdateIntentFilter(), ContextCompat.RECEIVER_EXPORTED)
+
+        ViewCompat.setOnApplyWindowInsetsListener(toolbar) { _, windowInsets ->
+            val insets = windowInsets.getInsets(WindowInsetsCompat.Type.systemBars())
+
+            toolbar.updateLayoutParams {
+                if (this is ViewGroup.MarginLayoutParams)
+                {
+                    topMargin = insets.top
+                    leftMargin = insets.left
+                    rightMargin = insets.right
+                }
+            }
+
+            topPanel.updateLayoutParams {
+                if (this is ViewGroup.MarginLayoutParams)
+                {
+                    leftMargin = insets.left + padding
+                    rightMargin = insets.right + padding
+                }
+            }
+
+            WindowInsetsCompat.CONSUMED
+        }
     }
 
     // ---------------------------------------------------------------------------------------------------------------------------

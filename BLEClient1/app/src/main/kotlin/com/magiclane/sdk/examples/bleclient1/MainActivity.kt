@@ -40,8 +40,14 @@ import android.widget.ProgressBar
 import android.widget.TextView
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
+import androidx.appcompat.widget.Toolbar
 import androidx.core.app.ActivityCompat
+import androidx.core.content.ContextCompat
+import androidx.core.content.res.ResourcesCompat
 import androidx.core.location.LocationManagerCompat
+import androidx.core.view.ViewCompat
+import androidx.core.view.WindowInsetsCompat
+import androidx.core.view.updateLayoutParams
 import androidx.recyclerview.widget.DividerItemDecoration
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
@@ -59,6 +65,7 @@ class MainActivity: AppCompatActivity()
     private var leDeviceListAdapter: LeDeviceListAdapter? = null
     private var bluetoothAdapter: BluetoothAdapter? = null
     private var scanning = false
+    private lateinit var toolbar: Toolbar
     private lateinit var progressBar: ProgressBar
     private lateinit var listView: RecyclerView
     private lateinit var tag: String
@@ -167,6 +174,7 @@ class MainActivity: AppCompatActivity()
         setContentView(R.layout.main_activity)
         tag = getString(R.string.app_name)
 
+        toolbar = findViewById(R.id.toolbar)
         progressBar = findViewById(R.id.progress_bar)
 
         listView = findViewById<RecyclerView>(R.id.list_view).apply {
@@ -181,6 +189,7 @@ class MainActivity: AppCompatActivity()
             itemAnimator = null
         }
 
+        setSupportActionBar(toolbar)
         supportActionBar?.title = getString(R.string.title_devices)
 
         // Use this check to determine whether BLE is supported on the device.  Then you can
@@ -262,6 +271,21 @@ class MainActivity: AppCompatActivity()
                 }
             }
         }
+
+        ViewCompat.setOnApplyWindowInsetsListener(toolbar) { view, windowInsets ->
+            val insets = windowInsets.getInsets(WindowInsetsCompat.Type.systemBars())
+
+            view.updateLayoutParams {
+                if (this is ViewGroup.MarginLayoutParams)
+                {
+                    topMargin = insets.top
+                    leftMargin = insets.left
+                    rightMargin = insets.right
+                }
+            }
+
+            WindowInsetsCompat.CONSUMED
+        }
     }
 
     // ---------------------------------------------------------------------------------------------------------------------------
@@ -272,7 +296,7 @@ class MainActivity: AppCompatActivity()
 
         appInForeground = true
 
-        registerReceiver(bluetoothBroadcastReceiver, IntentFilter(BluetoothAdapter.ACTION_STATE_CHANGED))
+        ContextCompat.registerReceiver(this, bluetoothBroadcastReceiver, IntentFilter(BluetoothAdapter.ACTION_STATE_CHANGED), ContextCompat.RECEIVER_EXPORTED)
         
         // Ensures Bluetooth is enabled on the device. If Bluetooth is not currently enabled,
         // fire an intent to display a dialog asking the user to grant permission to enable it.
