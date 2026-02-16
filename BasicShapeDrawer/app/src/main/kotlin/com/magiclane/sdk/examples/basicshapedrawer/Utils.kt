@@ -1,32 +1,21 @@
-// -------------------------------------------------------------------------------------------------------------------------------
-
 /*
- * SPDX-FileCopyrightText: 1995-2025 Magic Lane International B.V. <info@magiclane.com>
+ * SPDX-FileCopyrightText: 2021-2026 Magic Lane International B.V. <info@magiclane.com>
  * SPDX-License-Identifier: Apache-2.0
  *
  * Contact Magic Lane at <info@magiclane.com> for SDK licensing options.
  */
 
-// -------------------------------------------------------------------------------------------------------------------------------
-
 package com.magiclane.sdk.examples.basicshapedrawer
-
-// -------------------------------------------------------------------------------------------------------------------------------
 
 import android.annotation.SuppressLint
 import android.widget.Button
 import android.widget.TextView
-import androidx.appcompat.app.AppCompatActivity
 import androidx.fragment.app.FragmentActivity
 import com.google.android.material.bottomsheet.BottomSheetDialog
 
-// -------------------------------------------------------------------------------------------------------------------------------
-object Utils
-{
-    // ---------------------------------------------------------------------------------------------------------------------------
+object Utils {
     @SuppressLint("InflateParams")
-    fun showDialog(text: String, activity: FragmentActivity)
-    {
+    fun showDialog(text: String, activity: FragmentActivity) {
         activity.run {
             val dialog = BottomSheetDialog(this)
             val view = layoutInflater.inflate(R.layout.dialog_layout, null).apply {
@@ -43,6 +32,4 @@ object Utils
             }
         }
     }
-    // ---------------------------------------------------------------------------------------------------------------------------
 }
-// -------------------------------------------------------------------------------------------------------------------------------

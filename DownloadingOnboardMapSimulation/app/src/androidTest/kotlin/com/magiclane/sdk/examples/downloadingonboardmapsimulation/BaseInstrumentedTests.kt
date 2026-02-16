@@ -1,18 +1,13 @@
-// -------------------------------------------------------------------------------------------------------------------------------
-
 /*
- * SPDX-FileCopyrightText: 1995-2025 Magic Lane International B.V. <info@magiclane.com>
+ * SPDX-FileCopyrightText: 2021-2026 Magic Lane International B.V. <info@magiclane.com>
  * SPDX-License-Identifier: Apache-2.0
  *
  * Contact Magic Lane at <info@magiclane.com> for SDK licensing options.
  */
 
-// -------------------------------------------------------------------------------------------------------------------------------
-
 package com.magiclane.sdk.examples.downloadingonboardmapsimulation
 
 import android.content.Context
-import android.net.ConnectivityManager
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.filters.LargeTest
 import androidx.test.internal.runner.junit4.AndroidJUnit4ClassRunner
@@ -22,57 +17,45 @@ import com.magiclane.sdk.core.GemError
 import com.magiclane.sdk.core.GemSdk
 import com.magiclane.sdk.core.MapDetails
 import com.magiclane.sdk.core.ProgressListener
-import com.magiclane.sdk.core.SdkSettings
+import com.magiclane.sdk.examples.testing.GemSdkTestRule
 import com.magiclane.sdk.util.SdkCall
+import java.io.File
+import java.nio.file.Files
+import java.util.stream.Collectors
+import kotlin.io.path.Path
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeout
 import org.junit.AfterClass
-import org.junit.Before
 import org.junit.BeforeClass
 import org.junit.ClassRule
 import org.junit.Test
-import org.junit.rules.TestRule
-import org.junit.runner.Description
 import org.junit.runner.RunWith
-import org.junit.runners.model.Statement
-import java.io.File
-import java.nio.file.Files
-import java.util.stream.Collectors
-import kotlin.io.path.Path
 
 @LargeTest
 @RunWith(AndroidJUnit4ClassRunner::class)
-class BaseInstrumentedTests
-{
-    companion object
-    {
-        const val TIMEOUT = 600000L
+class BaseInstrumentedTests {
+    companion object {
         private val appContext: Context = ApplicationProvider.getApplicationContext()
-        private var initResult = false
 
         @get:ClassRule
         @JvmStatic
-        val sdkInitRule = SDKInitRule()
+        val sdkRule = GemSdkTestRule()
 
         @BeforeClass
         @JvmStatic
-        fun checkSdkInitStartActivity()
-        {
-            assert(initResult) { "GEM SDK not initialized" }
+        fun setUp() {
             deleteMap()
         }
 
         @AfterClass
         @JvmStatic
-        fun deleteResources()
-        {
+        fun deleteResources() {
             deleteMap()
         }
 
-        private fun deleteMap()
-        {
+        private fun deleteMap() {
             appContext.getExternalFilesDirs(null)?.forEach {
                 val pathInt = it.path.toString() + File.separator + "Data" + File.separator + "Maps"
                 val stream = Files.find(Path(pathInt), 20, { filePath, _ ->
@@ -80,75 +63,16 @@ class BaseInstrumentedTests
                 })
                 val list = stream.collect(Collectors.toList())
                 list.forEach { itemList ->
-                    if (Files.exists(itemList))
+                    if (Files.exists(itemList)) {
                         Files.delete(itemList)
-                }
-            }
-        }
-
-    }
-
-    @Before
-    fun checkInternetAndToken(){
-        //verify token and internet connection
-        SdkCall.execute { assert(GemSdk.getTokenFromManifest(appContext)?.isNotEmpty() == true) { "Invalid token." } }
-        assert(appContext.getSystemService(ConnectivityManager::class.java).activeNetwork != null) { " No internet connection." }
-    }
-    // -------------------------------------------------------------------------------------------------
-    // -------------------------------------------------------------------------------------------------
-    class SDKInitRule : TestRule
-    {
-        override fun apply(base: Statement, description: Description) = SDKStatement(base)
-
-        inner class SDKStatement(private val base: Statement) : Statement()
-        {
-            private val channel = Channel<Boolean>()
-
-            init
-            {
-                SdkSettings.onMapDataReady = { isReady ->
-                    if (isReady)
-                        runBlocking {
-                            channel.send(true)
-                        }
-                }
-            }
-
-            @Throws(Throwable::class)
-            override fun evaluate()
-            {
-                //before tests are executed
-                if (!GemSdk.isInitialized())
-                {
-                    runBlocking {
-                        initResult = GemSdk.initSdkWithDefaults(appContext)
-                        // must wait for map data ready
-                        withTimeout(TIMEOUT) {
-                            channel.receive()
-                        }
                     }
                 }
-                else return
-
-                if (!SdkSettings.isMapDataReady)
-                    throw Error(GemError.getMessage(GemError.OperationTimeout))
-
-                try
-                {
-                    base.evaluate() // This executes tests
-                }
-                finally
-                {
-                    GemSdk.release()
-                }
             }
         }
     }
-    // -------------------------------------------------------------------------------------------------
-    // -------------------------------------------------------------------------------------------------
 
     @Test
-    fun downloadResource()  = runBlocking{
+    fun downloadResource() = runBlocking {
         val channel = Channel<Unit>()
         val luxembourg = "Luxembourg"
         val contentStore = ContentStore()
@@ -162,14 +86,14 @@ class BaseInstrumentedTests
                     val contentListPair =
                         contentStore.getStoreContentList(EContentType.RoadMap) ?: return@execute
 
-                    for (map in contentListPair.first)
-                    {
+                    for (map in contentListPair.first) {
                         val mapName = map.name ?: continue
-                        if (mapName.compareTo(luxembourg, true) != 0) // searching another map
+                        if (mapName.compareTo(luxembourg, true) != 0) {
+                            // searching another map
                             continue
+                        }
 
-                        if (!map.isCompleted())
-                        {
+                        if (!map.isCompleted()) {
                             // Define a listener to the progress of the map download action.
                             val downloadProgressListener = ProgressListener.create(
                                 onStarted = {
@@ -184,24 +108,25 @@ class BaseInstrumentedTests
                                         }
                                     }
                                 },
-                                onCompleted = { err , msg ->
-                                    assert(!GemError.isError(err)){"error on onCOmpleted: $msg"}
+                                onCompleted = { err, msg ->
+                                    assert(!GemError.isError(err)) { "error on onCOmpleted: $msg" }
                                     runBlocking {
                                         delay(10000)
                                         channel.send(Unit)
                                     }
-                                })
+                                },
+                            )
                             // Start downloading the first map item.
                             map.asyncDownload(
                                 downloadProgressListener,
                                 GemSdk.EDataSavePolicy.UseDefault,
-                                true
+                                true,
                             )
                         }
                         break
                     }
                 }
-            }
+            },
         )
 
         SdkCall.execute {
@@ -209,7 +134,7 @@ class BaseInstrumentedTests
             contentStore.asyncGetStoreContentList(EContentType.RoadMap, contentListener)
         }
 
-        withTimeout(120000){
+        withTimeout(120000) {
             channel.receive()
         }
     }

@@ -5,4 +5,6 @@
     <dimen name="thumbnail_width">300dp</dimen>
     <dimen name="thumbnail_height">200dp</dimen>
     <dimen name="padding">10dp</dimen>
+    <dimen name="no_extra_inset">0dp</dimen>
+    <dimen name="small_padding">4dp</dimen>
 </resources>

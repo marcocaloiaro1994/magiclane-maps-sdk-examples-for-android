@@ -10,6 +10,12 @@ tasks.register("buildAll") {
     dependsOn(gradle.includedBuilds.filter { it.name != "build-support" }.map { it.task(":app:assemble") })
 }
 
+tasks.register("formatAll") {
+    group = "formatting"
+
+    dependsOn(gradle.includedBuilds.filter { it.name != "build-support" }.map { it.task(":app:ktlintFormat") })
+}
+
 tasks.register("runUnitTestsAll") {
     group = "verification"
 
@@ -20,4 +26,10 @@ tasks.register("checkAll") {
     group = "verification"
 
     dependsOn(gradle.includedBuilds.filter { it.name != "build-support" }.map { it.task(":app:check") })
+}
+
+tasks.register("cleanManagedDevices") {
+    group = "verification"
+
+    dependsOn(gradle.includedBuilds.filter { it.name != "build-support" }.map { it.task(":app:cleanManagedDevices") })
 }

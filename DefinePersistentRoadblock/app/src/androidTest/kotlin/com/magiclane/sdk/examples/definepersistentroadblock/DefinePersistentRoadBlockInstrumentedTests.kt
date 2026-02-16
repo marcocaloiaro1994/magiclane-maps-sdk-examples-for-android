@@ -1,19 +1,14 @@
-// -------------------------------------------------------------------------------------------------------------------------------
-
 /*
- * SPDX-FileCopyrightText: 1995-2025 Magic Lane International B.V. <info@magiclane.com>
+ * SPDX-FileCopyrightText: 2021-2026 Magic Lane International B.V. <info@magiclane.com>
  * SPDX-License-Identifier: Apache-2.0
  *
  * Contact Magic Lane at <info@magiclane.com> for SDK licensing options.
  */
 
-// -------------------------------------------------------------------------------------------------------------------------------
-
 package com.magiclane.sdk.examples.definepersistentroadblock
 
 import android.Manifest
 import android.graphics.Point
-import android.net.ConnectivityManager
 import android.os.SystemClock
 import android.view.MotionEvent
 import android.view.MotionEvent.PointerCoords
@@ -30,9 +25,8 @@ import androidx.test.espresso.matcher.ViewMatchers.withId
 import androidx.test.ext.junit.rules.ActivityScenarioRule
 import androidx.test.filters.LargeTest
 import androidx.test.internal.runner.junit4.AndroidJUnit4ClassRunner
-import androidx.test.platform.app.InstrumentationRegistry
 import androidx.test.rule.GrantPermissionRule
-import com.magiclane.sdk.core.GemSdk
+import com.magiclane.sdk.examples.testing.GemSdkTestRule
 import com.magiclane.sdk.places.Coordinates
 import com.magiclane.sdk.util.SdkCall
 import kotlinx.coroutines.delay
@@ -40,21 +34,25 @@ import kotlinx.coroutines.runBlocking
 import org.hamcrest.Matcher
 import org.junit.After
 import org.junit.Before
+import org.junit.ClassRule
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 
-
 @LargeTest
 @RunWith(AndroidJUnit4ClassRunner::class)
-class DefinePersistentRoadBlockInstrumentedTests
-{
+class DefinePersistentRoadBlockInstrumentedTests {
+
+    companion object {
+        @get:ClassRule
+        @JvmStatic
+        val sdkRule = GemSdkTestRule()
+    }
+
     @Rule
     @JvmField
     val activityScenarioRule: ActivityScenarioRule<MainActivity> =
         ActivityScenarioRule(MainActivity::class.java)
-
-    private val appContext = InstrumentationRegistry.getInstrumentation().targetContext
 
     private lateinit var activityRes: MainActivity
 
@@ -64,25 +62,19 @@ class DefinePersistentRoadBlockInstrumentedTests
         Manifest.permission.ACCESS_FINE_LOCATION,
         Manifest.permission.ACCESS_COARSE_LOCATION,
         Manifest.permission.INTERNET,
-        Manifest.permission.ACCESS_NETWORK_STATE
+        Manifest.permission.ACCESS_NETWORK_STATE,
     )
 
     @Before
-    fun registerIdlingResource()
-    {
+    fun setUp() {
         activityScenarioRule.scenario.moveToState(Lifecycle.State.RESUMED)
-        runBlocking { delay(2000) }
         activityScenarioRule.scenario.onActivity { activity ->
             activityRes = activity
         }
-        //verify token and internet connection
-        SdkCall.execute { assert(GemSdk.getTokenFromManifest(appContext)?.isNotEmpty() == true) { "Invalid token." } }
-        assert(appContext.getSystemService(ConnectivityManager::class.java).activeNetwork != null) { " No internet connection." }
     }
 
     @After
-    fun closeActivity()
-    {
+    fun tearDown() {
         activityScenarioRule.scenario.close()
     }
 
@@ -92,8 +84,9 @@ class DefinePersistentRoadBlockInstrumentedTests
         SdkCall.execute {
             activityRes.gemSurfaceView.mapView?.centerOnCoordinates(
                 Coordinates(
-                    45.651310, 25.604799
-                )
+                    45.651310,
+                    25.604799,
+                ),
             )
         }
         delay(3000)
@@ -102,35 +95,29 @@ class DefinePersistentRoadBlockInstrumentedTests
         }
         onView(withId(R.id.gem_surface_view)).perform(click())
     }
-    
-    private fun pinchOut(): ViewAction
-    {
-        return object : ViewAction
-        {
-            override fun getConstraints(): Matcher<View>
-            {
+
+    private fun pinchOut(): ViewAction {
+        return object : ViewAction {
+            override fun getConstraints(): Matcher<View> {
                 return ViewMatchers.isEnabled()
             }
 
-            override fun getDescription(): String
-            {
+            override fun getDescription(): String {
                 return "Pinch out"
             }
 
-            private fun getCenterPoint(view: View): Point
-            {
+            private fun getCenterPoint(view: View): Point {
                 val locationOnScreen = IntArray(2)
                 view.getLocationOnScreen(locationOnScreen)
                 val viewHeight = view.height * view.scaleY
                 val viewWidth = view.width * view.scaleX
                 return Point(
                     (locationOnScreen[0] + viewWidth / 2).toInt(),
-                    (locationOnScreen[1] + viewHeight / 2).toInt()
+                    (locationOnScreen[1] + viewHeight / 2).toInt(),
                 )
             }
 
-            override fun perform(uiController: UiController, view: View)
-            {
+            override fun perform(uiController: UiController, view: View) {
                 val middlePosition: Point = getCenterPoint(view)
                 val startDelta = 0 // How far from the center point each finger should start
                 val endDelta =
@@ -147,9 +134,8 @@ class DefinePersistentRoadBlockInstrumentedTests
                 startPoint1: Point,
                 startPoint2: Point,
                 endPoint1: Point,
-                endPoint2: Point
-            )
-            {
+                endPoint2: Point,
+            ) {
                 val duration = 500
                 val eventMinInterval: Long = 10
                 val startTime = SystemClock.uptimeMillis()
@@ -188,22 +174,21 @@ class DefinePersistentRoadBlockInstrumentedTests
                 pointerCoords[1] = pc2
 
                 /*
-     * Events sequence of zoom gesture:
-     *
-     * 1. Send ACTION_DOWN event of one start point
-     * 2. Send ACTION_POINTER_DOWN of two start points
-     * 3. Send ACTION_MOVE of two middle points
-     * 4. Repeat step 3 with updated middle points (x,y), until reach the end points
-     * 5. Send ACTION_POINTER_UP of two end points
-     * 6. Send ACTION_UP of one end point
-     */
-                try
-                {
+                 * Events sequence of zoom gesture:
+                 *
+                 * 1. Send ACTION_DOWN event of one start point
+                 * 2. Send ACTION_POINTER_DOWN of two start points
+                 * 3. Send ACTION_MOVE of two middle points
+                 * 4. Repeat step 3 with updated middle points (x,y), until reach the end points
+                 * 5. Send ACTION_POINTER_UP of two end points
+                 * 6. Send ACTION_UP of one end point
+                 */
+                try {
                     // Step 1
                     event = MotionEvent.obtain(
                         startTime, eventTime,
                         MotionEvent.ACTION_DOWN, 1, properties,
-                        pointerCoords, 0, 0, 1f, 1f, 0, 0, 0, 0
+                        pointerCoords, 0, 0, 1f, 1f, 0, 0, 0, 0,
                     )
                     injectMotionEventToUiController(uiController, event)
 
@@ -222,7 +207,7 @@ class DefinePersistentRoadBlockInstrumentedTests
                         0,
                         0,
                         0,
-                        0
+                        0,
                     )
                     injectMotionEventToUiController(uiController, event)
 
@@ -232,8 +217,7 @@ class DefinePersistentRoadBlockInstrumentedTests
                     val stepY1: Float = ((endPoint1.y - startPoint1.y) / moveEventNumber).toFloat()
                     val stepX2: Float = ((endPoint2.x - startPoint2.x) / moveEventNumber).toFloat()
                     val stepY2: Float = ((endPoint2.y - startPoint2.y) / moveEventNumber).toFloat()
-                    for (i in 0 until moveEventNumber)
-                    {
+                    for (i in 0 until moveEventNumber) {
                         // Update the move events
                         eventTime += eventMinInterval
                         eventX1 += stepX1
@@ -249,7 +233,7 @@ class DefinePersistentRoadBlockInstrumentedTests
                         event = MotionEvent.obtain(
                             startTime, eventTime,
                             MotionEvent.ACTION_MOVE, 2, properties,
-                            pointerCoords, 0, 0, 1f, 1f, 0, 0, 0, 0
+                            pointerCoords, 0, 0, 1f, 1f, 0, 0, 0, 0,
                         )
                         injectMotionEventToUiController(uiController, event)
                     }
@@ -276,7 +260,7 @@ class DefinePersistentRoadBlockInstrumentedTests
                         0,
                         0,
                         0,
-                        0
+                        0,
                     )
                     injectMotionEventToUiController(uiController, event)
 
@@ -285,25 +269,19 @@ class DefinePersistentRoadBlockInstrumentedTests
                     event = MotionEvent.obtain(
                         startTime, eventTime,
                         MotionEvent.ACTION_UP, 1, properties,
-                        pointerCoords, 0, 0, 1f, 1f, 0, 0, 0, 0
+                        pointerCoords, 0, 0, 1f, 1f, 0, 0, 0, 0,
                     )
                     injectMotionEventToUiController(uiController, event)
-                } catch (e: InjectEventSecurityException)
-                {
+                } catch (e: InjectEventSecurityException) {
                     throw RuntimeException("Could not perform pinch", e)
                 }
             }
 
             @Throws(InjectEventSecurityException::class)
-            private fun injectMotionEventToUiController(
-                uiController: UiController,
-                event: MotionEvent
-            )
-            {
+            private fun injectMotionEventToUiController(uiController: UiController, event: MotionEvent) {
                 val injectEventSucceeded = uiController.injectMotionEvent(event)
                 check(injectEventSucceeded) { "Error performing event $event" }
             }
         }
-
     }
 }

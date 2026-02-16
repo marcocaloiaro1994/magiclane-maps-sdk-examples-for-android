@@ -4,12 +4,14 @@
     <dimen name="big_text_size">20sp</dimen>
     <dimen name="standard_text_size">18sp</dimen>
     <dimen name="small_text">16sp</dimen>
-    <dimen name="standard_margin">8sp</dimen>
-    <dimen name="double_margin">16sp</dimen>
+    <dimen name="standard_margin">8dp</dimen>
+    <dimen name="double_margin">16dp</dimen>
     <dimen name="big_padding">10dp</dimen>
     <dimen name="image_size">40dp</dimen>
     <dimen name="forecast_image_size">40dp</dimen>
     <dimen name="current_forecast_image_size">160dp</dimen>
     <dimen name="weather_buttons_width">180dp</dimen>
     <dimen name="offset">50dp</dimen>
+    <dimen name="no_extra_inset">0dp</dimen>
+    <dimen name="small_padding">4dp</dimen>
 </resources>

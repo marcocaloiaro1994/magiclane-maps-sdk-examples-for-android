@@ -1,87 +1,71 @@
-// -------------------------------------------------------------------------------------------------
-
 /*
- * SPDX-FileCopyrightText: 1995-2025 Magic Lane International B.V. <info@magiclane.com>
+ * SPDX-FileCopyrightText: 2021-2026 Magic Lane International B.V. <info@magiclane.com>
  * SPDX-License-Identifier: Apache-2.0
  *
  * Contact Magic Lane at <info@magiclane.com> for SDK licensing options.
  */
 
-// -------------------------------------------------------------------------------------------------
-
 package com.magiclane.sdk.examples.ptroutingonmap
-
-// -------------------------------------------------------------------------------------------------
 
 import android.annotation.SuppressLint
 import android.os.Bundle
 import android.view.View
 import android.widget.Button
-import android.widget.ProgressBar
 import android.widget.TextView
 import androidx.activity.addCallback
+import androidx.activity.enableEdgeToEdge
 import androidx.appcompat.app.AppCompatActivity
+import com.google.android.material.bottomsheet.BottomSheetDialog
 import com.magiclane.sdk.core.GemError
 import com.magiclane.sdk.core.GemSdk
-import com.magiclane.sdk.core.GemSurfaceView
 import com.magiclane.sdk.core.SdkSettings
+import com.magiclane.sdk.examples.ptroutingonmap.databinding.ActivityMainBinding
 import com.magiclane.sdk.places.Landmark
 import com.magiclane.sdk.routesandnavigation.ERouteTransportMode
 import com.magiclane.sdk.routesandnavigation.Route
 import com.magiclane.sdk.routesandnavigation.RoutingService
 import com.magiclane.sdk.util.SdkCall
 import com.magiclane.sdk.util.Util
-import com.google.android.material.bottomsheet.BottomSheetDialog
 import kotlin.system.exitProcess
 
-// -------------------------------------------------------------------------------------------------
+class MainActivity : AppCompatActivity() {
 
-class MainActivity : AppCompatActivity()
-{
-    // ---------------------------------------------------------------------------------------------
-    
-    private lateinit var progressBar: ProgressBar
-    private lateinit var gemSurfaceView: GemSurfaceView
+    private lateinit var binding: ActivityMainBinding
 
     private val routingService = RoutingService(
         onStarted = {
-            progressBar.visibility = View.VISIBLE
+            binding.progressBar.visibility = View.VISIBLE
         },
 
         onCompleted = { routes, errorCode, _ ->
-            progressBar.visibility = View.GONE
+            binding.progressBar.visibility = View.GONE
 
-            when (errorCode)
-            {
+            when (errorCode) {
                 GemError.NoError ->
-                {
-                    displayRoutesOnMap(routes)
-                }
+                    {
+                        displayRoutesOnMap(routes)
+                    }
 
                 GemError.Cancel ->
-                {
-                    // The routing action was cancelled.
-                    showDialog("The routing action was cancelled.")
-                }
+                    {
+                        // The routing action was cancelled.
+                        showDialog("The routing action was cancelled.")
+                    }
 
                 else ->
-                {
-                    // There was a problem at computing the routing operation.
-                    showDialog("Routing service error: ${GemError.getMessage(errorCode)}")
-                }
+                    {
+                        // There was a problem at computing the routing operation.
+                        showDialog("Routing service error: ${GemError.getMessage(errorCode)}")
+                    }
             }
-        }
+        },
     )
 
-    // ---------------------------------------------------------------------------------------------
-
-    override fun onCreate(savedInstanceState: Bundle?)
-    {
+    override fun onCreate(savedInstanceState: Bundle?) {
+        enableEdgeToEdge()
         super.onCreate(savedInstanceState)
-        setContentView(R.layout.activity_main)
-
-        progressBar = findViewById(R.id.progress_bar)
-        gemSurfaceView = findViewById(R.id.gem_surface)
+        binding = ActivityMainBinding.inflate(layoutInflater)
+        setContentView(binding.root)
 
         SdkSettings.onMapDataReady = onMapDataReady@{ isReady ->
             if (!isReady) return@onMapDataReady
@@ -91,16 +75,15 @@ class MainActivity : AppCompatActivity()
         }
 
         SdkSettings.onApiTokenRejected = {
-            /* 
-            The TOKEN you provided in the AndroidManifest.xml file was rejected.
-            Make sure you provide the correct value, or if you don't have a TOKEN,
-            check the magiclane.com website, sign up/sign in and generate one. 
+            /**
+             * The TOKEN you provided in the AndroidManifest.xml file was rejected.
+             * Make sure you provide the correct value, or if you don't have a TOKEN,
+             * check the magiclane.com website, sign up/sign in and generate one.
              */
             showDialog("TOKEN REJECTED")
         }
 
-        if (!Util.isInternetConnected(this))
-        {
+        if (!Util.isInternetConnected(this)) {
             showDialog("You must be connected to the internet!")
         }
 
@@ -110,39 +93,29 @@ class MainActivity : AppCompatActivity()
         }
     }
 
-    // ---------------------------------------------------------------------------------------------
-
-    override fun onDestroy()
-    {
+    override fun onDestroy() {
         super.onDestroy()
 
         // Deinitialize the SDK.
         GemSdk.release()
     }
 
-    // ---------------------------------------------------------------------------------------------
-
     private fun calculateRoute() = SdkCall.execute {
         val waypoints = arrayListOf(
             Landmark("San Francisco", 37.77903, -122.41991),
-            Landmark("San Jose", 37.33619, -121.89058)
+            Landmark("San Jose", 37.33619, -121.89058),
         )
 
         routingService.preferences.transportMode = ERouteTransportMode.Public
         routingService.calculateRoute(waypoints)
     }
 
-    // ---------------------------------------------------------------------------------------------
-
     private fun displayRoutesOnMap(routes: ArrayList<Route>) = SdkCall.execute {
-        gemSurfaceView.mapView?.presentRoutes(routes)
+        binding.gemSurfaceView.mapView?.presentRoutes(routes)
     }
 
-    // ---------------------------------------------------------------------------------------------
-
     @SuppressLint("InflateParams")
-    private fun showDialog(text: String)
-    {
+    private fun showDialog(text: String) {
         val dialog = BottomSheetDialog(this)
         val view = layoutInflater.inflate(R.layout.dialog_layout, null).apply {
             findViewById<TextView>(R.id.title).text = getString(R.string.error)
@@ -157,8 +130,4 @@ class MainActivity : AppCompatActivity()
             show()
         }
     }
-    
-    // ---------------------------------------------------------------------------------------------
 }
-
-// -------------------------------------------------------------------------------------------------

@@ -1,17 +1,11 @@
-// -------------------------------------------------------------------------------------------------
-
 /*
- * SPDX-FileCopyrightText: 1995-2025 Magic Lane International B.V. <info@magiclane.com>
+ * SPDX-FileCopyrightText: 2021-2026 Magic Lane International B.V. <info@magiclane.com>
  * SPDX-License-Identifier: Apache-2.0
  *
  * Contact Magic Lane at <info@magiclane.com> for SDK licensing options.
  */
 
-// -------------------------------------------------------------------------------------------------
-
 package com.magiclane.sdk.examples.projection
-
-// -------------------------------------------------------------------------------------------------
 
 import android.annotation.SuppressLint
 import android.content.res.Configuration
@@ -23,7 +17,7 @@ import android.widget.Button
 import android.widget.ImageButton
 import android.widget.TextView
 import androidx.activity.addCallback
-import androidx.annotation.VisibleForTesting
+import androidx.activity.enableEdgeToEdge
 import androidx.appcompat.app.AppCompatActivity
 import androidx.constraintlayout.widget.ConstraintLayout
 import androidx.constraintlayout.widget.ConstraintSet
@@ -34,11 +28,11 @@ import androidx.test.espresso.idling.CountingIdlingResource
 import com.google.android.material.bottomsheet.BottomSheetDialog
 import com.magiclane.sdk.core.GemError
 import com.magiclane.sdk.core.GemSdk
-import com.magiclane.sdk.core.GemSurfaceView
 import com.magiclane.sdk.core.ProgressListener
 import com.magiclane.sdk.core.SdkSettings
 import com.magiclane.sdk.d3scene.Animation
 import com.magiclane.sdk.d3scene.EAnimation
+import com.magiclane.sdk.examples.projection.databinding.ActivityMainBinding
 import com.magiclane.sdk.places.Landmark
 import com.magiclane.sdk.projection.EHemisphere
 import com.magiclane.sdk.projection.EProjectionType
@@ -56,40 +50,25 @@ import com.magiclane.sdk.util.Util
 import java.util.Locale
 import kotlin.system.exitProcess
 
-// -------------------------------------------------------------------------------------------------
-
-class MainActivity : AppCompatActivity()
-{
-    // ---------------------------------------------------------------------------------------------
-
-    @VisibleForTesting(otherwise = VisibleForTesting.PRIVATE)
-    private lateinit var gemSurfaceView: GemSurfaceView
-    private lateinit var projectionContainer: ConstraintLayout
-    private lateinit var landmarkName: TextView
-    private lateinit var projectionsList: RecyclerView
-    private lateinit var hint: TextView
+class MainActivity : AppCompatActivity() {
+    private lateinit var binding: ActivityMainBinding
 
     private lateinit var projectionAdapter: ProjectionAdapter
 
-    // ---------------------------------------------------------------------------------------------
-
-    override fun onCreate(savedInstanceState: Bundle?)
-    {
+    override fun onCreate(savedInstanceState: Bundle?) {
+        enableEdgeToEdge()
         super.onCreate(savedInstanceState)
-        setContentView(R.layout.activity_main)
+        binding = ActivityMainBinding.inflate(layoutInflater)
+        setContentView(binding.root)
         EspressoIdlingResource.increment()
         projectionAdapter = ProjectionAdapter(mutableListOf())
-        gemSurfaceView = findViewById(R.id.gem_surface_view)
-        projectionContainer = findViewById(R.id.projection_container)
-        landmarkName = findViewById(R.id.landmark_name)
-        hint = findViewById(R.id.hint)
-        projectionsList = findViewById<RecyclerView?>(R.id.projections_list).also {
+        binding.projectionsList.also {
             it.layoutManager = LinearLayoutManager(this)
             it.addItemDecoration(
                 DividerItemDecoration(
                     this,
-                    (it.layoutManager as LinearLayoutManager).orientation
-                )
+                    (it.layoutManager as LinearLayoutManager).orientation,
+                ),
             )
             it.adapter = projectionAdapter
             it.itemAnimator = null
@@ -97,57 +76,62 @@ class MainActivity : AppCompatActivity()
 
         findViewById<ImageButton>(R.id.close_button).apply {
             setOnClickListener {
-                projectionContainer.visibility = View.GONE
+                binding.projectionContainer.visibility = View.GONE
             }
         }
 
         setConstraints(resources.configuration.orientation)
-        
-        SdkSettings.onMapDataReady = onMapDataReady@{ isReady ->
-            if (!isReady) return@onMapDataReady
+
+        val onReady = {
             EspressoIdlingResource.decrement()
-            hint.visibility = View.VISIBLE
-            gemSurfaceView.mapView?.onTouch = { xy ->
+            binding.hint.visibility = View.VISIBLE
+            binding.gemSurfaceView.mapView?.onTouch = { xy ->
                 // xy are the coordinates of the touch event
                 EspressoIdlingResource.increment()
                 SdkCall.execute {
                     // tell the map view where the touch event happened
-                    gemSurfaceView.mapView?.cursorScreenPosition = xy
+                    binding.gemSurfaceView.mapView?.cursorScreenPosition = xy
 
-                    val centerXy = gemSurfaceView.mapView?.viewport?.center
+                    val centerXy = binding.gemSurfaceView.mapView?.viewport?.center
 
-                    val landmarks = gemSurfaceView.mapView?.cursorSelectionLandmarks
-                    if (!landmarks.isNullOrEmpty())
-                    {
+                    val landmarks = binding.gemSurfaceView.mapView?.cursorSelectionLandmarks
+                    if (!landmarks.isNullOrEmpty()) {
                         val landmark = landmarks[0]
                         landmark.coordinates?.let {
-                            gemSurfaceView.mapView?.centerOnCoordinates(
+                            binding.gemSurfaceView.mapView?.centerOnCoordinates(
                                 coords = it,
                                 zoomLevel = -1,
                                 xy = centerXy,
                                 animation = Animation(EAnimation.Linear),
                                 mapAngle = Double.MAX_VALUE,
-                                viewAngle = Double.MAX_VALUE
+                                viewAngle = Double.MAX_VALUE,
                             )
                         }
-                        Util.postOnMain { hint.visibility = View.GONE }
+                        Util.postOnMain { binding.hint.visibility = View.GONE }
                         showProjectionsForLandmark(landmark)
                     }
                 }
             }
         }
+        if (SdkSettings.isMapDataReady) {
+            onReady()
+        } else {
+            SdkSettings.onMapDataReady = onMapDataReady@{ isReady ->
+                if (!isReady) return@onMapDataReady
+                onReady()
+            }
+        }
 
         SdkSettings.onApiTokenRejected = {
-            /*
-            The TOKEN you provided in the AndroidManifest.xml file was rejected.
-            Make sure you provide the correct value, or if you don't have a TOKEN,
-            check the magiclane.com website, sign up/sign in and generate one.
+            /**
+             * The TOKEN you provided in the AndroidManifest.xml file was rejected.
+             * Make sure you provide the correct value, or if you don't have a TOKEN,
+             * check the magiclane.com website, sign up/sign in and generate one.
              */
             showDialog("TOKEN REJECTED")
         }
 
-        if (!Util.isInternetConnected(this))
-        {
+        if (!Util.isInternetConnected(this)) {
             showDialog("You must be connected to the internet!")
         }
 
@@ -157,31 +141,21 @@ class MainActivity : AppCompatActivity()
         }
     }
 
-    // ---------------------------------------------------------------------------------------------
-
-    override fun onDestroy()
-    {
+    override fun onDestroy() {
         super.onDestroy()
 
         // Deinitialize the SDK.
         GemSdk.release()
     }
 
-    // ---------------------------------------------------------------------------------------------
-
-    override fun onConfigurationChanged(newConfig: Configuration)
-    {
+    override fun onConfigurationChanged(newConfig: Configuration) {
         super.onConfigurationChanged(newConfig)
 
         setConstraints(newConfig.orientation)
     }
 
-    // ---------------------------------------------------------------------------------------------
-
-    private fun showProjectionsForLandmark(landmark: Landmark)
-    {
-        if (landmark.coordinates == null)
-        {
+    private fun showProjectionsForLandmark(landmark: Landmark) {
+        if (landmark.coordinates == null) {
             return
         }
 
@@ -191,17 +165,16 @@ class MainActivity : AppCompatActivity()
             add(wgs84Projection)
         }
 
-        for (i in EProjectionType.entries)
-        {
-            if (i == EProjectionType.EPR_Wgs84 || i == EProjectionType.EPR_Undefined)
+        for (i in EProjectionType.entries) {
+            if (i == EProjectionType.EPR_Wgs84 || i == EProjectionType.EPR_Undefined) {
                 continue
+            }
 
-            val projection: Projection = when (i)
-            {
+            val projection: Projection = when (i) {
                 EProjectionType.EPR_WhatThreeWords -> ProjectionW3W().also {
-                    //please replace this string resource with a valid What 3 Words token
+                    // please replace this string resource with a valid What 3 Words token
                     val token = getString(R.string.what_3_words_token)
-                    if(token.isNotEmpty()) it.setToken(token)
+                    if (token.isNotEmpty()) it.setToken(token)
                 }
                 EProjectionType.EPR_Bng -> ProjectionBNG()
                 EProjectionType.EPR_Lam -> ProjectionLAM()
@@ -213,8 +186,7 @@ class MainActivity : AppCompatActivity()
 
             val progressListener = ProgressListener.create(
                 onCompleted = onCompleted@{ errorCode, _ ->
-                    if (GemError.isError(errorCode))
-                    {
+                    if (GemError.isError(errorCode)) {
                         return@onCompleted
                     }
 
@@ -222,172 +194,165 @@ class MainActivity : AppCompatActivity()
                         dataSet.add(projection)
                         notifyItemInserted(dataSet.size - 1)
                     }
-                }
+                },
             )
 
             ProjectionService.convert(wgs84Projection, projection, progressListener)
         }
 
         Util.postOnMain {
-            landmarkName.text = SdkCall.execute { landmark.name }
-            projectionContainer.visibility = View.VISIBLE
+            binding.landmarkName.text = SdkCall.execute { landmark.name }
+            binding.projectionContainer.visibility = View.VISIBLE
         }
-        
+
         EspressoIdlingResource.decrement()
     }
 
-    // ---------------------------------------------------------------------------------------------
-
-    private fun setConstraints(orientation: Int)
-    {
-        val rootView = findViewById<ConstraintLayout>(R.id.root_view)
-        when (orientation)
-        {
+    private fun setConstraints(orientation: Int) {
+        val rootView = binding.rootView
+        when (orientation) {
             Configuration.ORIENTATION_LANDSCAPE ->
-            {
-                ConstraintSet().apply {
-                    clone(rootView)
+                {
+                    ConstraintSet().apply {
+                        clone(rootView)
 
-                    connect(
-                        R.id.projection_container,
-                        ConstraintSet.START,
-                        ConstraintSet.PARENT_ID,
-                        ConstraintSet.START
-                    )
-                    connect(
-                        R.id.projection_container,
-                        ConstraintSet.END,
-                        R.id.gem_surface_view,
-                        ConstraintSet.START
-                    )
-                    connect(
-                        R.id.projection_container,
-                        ConstraintSet.TOP,
-                        ConstraintSet.PARENT_ID,
-                        ConstraintSet.TOP
-                    )
-                    connect(
-                        R.id.projection_container,
-                        ConstraintSet.BOTTOM,
-                        ConstraintSet.PARENT_ID,
-                        ConstraintSet.BOTTOM
-                    )
+                        connect(
+                            R.id.projection_container,
+                            ConstraintSet.START,
+                            ConstraintSet.PARENT_ID,
+                            ConstraintSet.START,
+                        )
+                        connect(
+                            R.id.projection_container,
+                            ConstraintSet.END,
+                            R.id.gem_surface_view,
+                            ConstraintSet.START,
+                        )
+                        connect(
+                            R.id.projection_container,
+                            ConstraintSet.TOP,
+                            R.id.toolbar,
+                            ConstraintSet.BOTTOM,
+                        )
+                        connect(
+                            R.id.projection_container,
+                            ConstraintSet.BOTTOM,
+                            ConstraintSet.PARENT_ID,
+                            ConstraintSet.BOTTOM,
+                        )
 
-                    connect(
-                        R.id.gem_surface_view,
-                        ConstraintSet.START,
-                        R.id.projection_container,
-                        ConstraintSet.END
-                    )
-                    connect(
-                        R.id.gem_surface_view,
-                        ConstraintSet.END,
-                        ConstraintSet.PARENT_ID,
-                        ConstraintSet.END
-                    )
-                    connect(
-                        R.id.gem_surface_view,
-                        ConstraintSet.TOP,
-                        ConstraintSet.PARENT_ID,
-                        ConstraintSet.TOP
-                    )
-                    connect(
-                        R.id.gem_surface_view,
-                        ConstraintSet.BOTTOM,
-                        ConstraintSet.PARENT_ID,
-                        ConstraintSet.BOTTOM
-                    )
+                        connect(
+                            R.id.gem_surface_view,
+                            ConstraintSet.START,
+                            R.id.projection_container,
+                            ConstraintSet.END,
+                        )
+                        connect(
+                            R.id.gem_surface_view,
+                            ConstraintSet.END,
+                            ConstraintSet.PARENT_ID,
+                            ConstraintSet.END,
+                        )
+                        connect(
+                            R.id.gem_surface_view,
+                            ConstraintSet.TOP,
+                            ConstraintSet.PARENT_ID,
+                            ConstraintSet.TOP,
+                        )
+                        connect(
+                            R.id.gem_surface_view,
+                            ConstraintSet.BOTTOM,
+                            ConstraintSet.PARENT_ID,
+                            ConstraintSet.BOTTOM,
+                        )
 
-                    applyTo(rootView)
+                        applyTo(rootView)
+                    }
+
+                    binding.projectionContainer.layoutParams.apply {
+                        width = ConstraintLayout.LayoutParams.MATCH_CONSTRAINT
+                        height = 0
+                    }
+
+                    binding.gemSurfaceView.layoutParams.apply {
+                        width = ConstraintLayout.LayoutParams.MATCH_CONSTRAINT
+                        height = ConstraintLayout.LayoutParams.MATCH_PARENT
+                    }
                 }
-
-                projectionContainer.layoutParams.apply {
-                    width = ConstraintLayout.LayoutParams.MATCH_CONSTRAINT
-                    height = ConstraintLayout.LayoutParams.MATCH_PARENT
-                }
-
-                gemSurfaceView.layoutParams.apply {
-                    width = ConstraintLayout.LayoutParams.MATCH_CONSTRAINT
-                    height = ConstraintLayout.LayoutParams.MATCH_PARENT
-                }
-            }
 
             Configuration.ORIENTATION_PORTRAIT ->
-            {
-                ConstraintSet().apply {
-                    clone(rootView)
+                {
+                    ConstraintSet().apply {
+                        clone(rootView)
 
-                    connect(
-                        R.id.projection_container,
-                        ConstraintSet.START,
-                        ConstraintSet.PARENT_ID,
-                        ConstraintSet.START
-                    )
-                    connect(
-                        R.id.projection_container,
-                        ConstraintSet.END,
-                        ConstraintSet.PARENT_ID,
-                        ConstraintSet.END
-                    )
-                    connect(
-                        R.id.projection_container,
-                        ConstraintSet.TOP,
-                        R.id.guideline,
-                        ConstraintSet.BOTTOM
-                    )
-                    connect(
-                        R.id.projection_container,
-                        ConstraintSet.BOTTOM,
-                        ConstraintSet.PARENT_ID,
-                        ConstraintSet.BOTTOM
-                    )
+                        connect(
+                            R.id.projection_container,
+                            ConstraintSet.START,
+                            ConstraintSet.PARENT_ID,
+                            ConstraintSet.START,
+                        )
+                        connect(
+                            R.id.projection_container,
+                            ConstraintSet.END,
+                            ConstraintSet.PARENT_ID,
+                            ConstraintSet.END,
+                        )
+                        connect(
+                            R.id.projection_container,
+                            ConstraintSet.TOP,
+                            R.id.guideline,
+                            ConstraintSet.BOTTOM,
+                        )
+                        connect(
+                            R.id.projection_container,
+                            ConstraintSet.BOTTOM,
+                            ConstraintSet.PARENT_ID,
+                            ConstraintSet.BOTTOM,
+                        )
 
-                    connect(
-                        R.id.gem_surface_view,
-                        ConstraintSet.START,
-                        ConstraintSet.PARENT_ID,
-                        ConstraintSet.START
-                    )
-                    connect(
-                        R.id.gem_surface_view,
-                        ConstraintSet.END,
-                        ConstraintSet.PARENT_ID,
-                        ConstraintSet.END
-                    )
-                    connect(
-                        R.id.gem_surface_view,
-                        ConstraintSet.TOP,
-                        ConstraintSet.PARENT_ID,
-                        ConstraintSet.TOP
-                    )
-                    connect(
-                        R.id.gem_surface_view,
-                        ConstraintSet.BOTTOM,
-                        ConstraintSet.PARENT_ID,
-                        ConstraintSet.BOTTOM
-                    )
+                        connect(
+                            R.id.gem_surface_view,
+                            ConstraintSet.START,
+                            ConstraintSet.PARENT_ID,
+                            ConstraintSet.START,
+                        )
+                        connect(
+                            R.id.gem_surface_view,
+                            ConstraintSet.END,
+                            ConstraintSet.PARENT_ID,
+                            ConstraintSet.END,
+                        )
+                        connect(
+                            R.id.gem_surface_view,
+                            ConstraintSet.TOP,
+                            ConstraintSet.PARENT_ID,
+                            ConstraintSet.TOP,
+                        )
+                        connect(
+                            R.id.gem_surface_view,
+                            ConstraintSet.BOTTOM,
+                            ConstraintSet.PARENT_ID,
+                            ConstraintSet.BOTTOM,
+                        )
 
-                    applyTo(rootView)
+                        applyTo(rootView)
+                    }
+
+                    binding.projectionContainer.layoutParams.apply {
+                        width = ConstraintLayout.LayoutParams.MATCH_PARENT
+                        height = ConstraintLayout.LayoutParams.MATCH_CONSTRAINT
+                    }
+
+                    binding.gemSurfaceView.layoutParams.apply {
+                        width = ConstraintLayout.LayoutParams.MATCH_PARENT
+                        height = ConstraintLayout.LayoutParams.MATCH_PARENT
+                    }
                 }
-
-                projectionContainer.layoutParams.apply {
-                    width = ConstraintLayout.LayoutParams.MATCH_PARENT
-                    height = ConstraintLayout.LayoutParams.MATCH_CONSTRAINT
-                }
-
-                gemSurfaceView.layoutParams.apply {
-                    width = ConstraintLayout.LayoutParams.MATCH_PARENT
-                    height = ConstraintLayout.LayoutParams.MATCH_PARENT
-                }
-            }
         }
     }
 
-    // ---------------------------------------------------------------------------------------------
-
     @SuppressLint("InflateParams")
-    private fun showDialog(text: String)
-    {
+    private fun showDialog(text: String) {
         val dialog = BottomSheetDialog(this)
         val view = layoutInflater.inflate(R.layout.dialog_layout, null).apply {
             findViewById<TextView>(R.id.title).text = getString(R.string.error)
@@ -403,32 +368,29 @@ class MainActivity : AppCompatActivity()
         }
     }
 
-    // ---------------------------------------------------------------------------------------------
-
     inner class ProjectionAdapter(val dataSet: MutableList<Projection>) :
-        RecyclerView.Adapter<RecyclerView.ViewHolder>()
-    {
-        override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): RecyclerView.ViewHolder
-        {
-            val layout = when (viewType)
-            {
+        RecyclerView.Adapter<RecyclerView.ViewHolder>() {
+        override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): RecyclerView.ViewHolder {
+            val layout = when (viewType) {
                 EProjectionType.EPR_WhatThreeWords.ordinal -> R.layout.one_param_list_item
                 EProjectionType.EPR_Lam.ordinal,
-                EProjectionType.EPR_Wgs84.ordinal -> R.layout.two_params_list_item
+                EProjectionType.EPR_Wgs84.ordinal,
+                -> R.layout.two_params_list_item
 
                 EProjectionType.EPR_Mgrs.ordinal,
-                EProjectionType.EPR_Utm.ordinal -> R.layout.four_params_list_item
+                EProjectionType.EPR_Utm.ordinal,
+                -> R.layout.four_params_list_item
 
                 EProjectionType.EPR_Bng.ordinal,
-                EProjectionType.EPR_Gk.ordinal -> R.layout.three_params_list_item
+                EProjectionType.EPR_Gk.ordinal,
+                -> R.layout.three_params_list_item
 
                 else -> R.layout.two_params_list_item
             }
 
             val view = LayoutInflater.from(parent.context).inflate(layout, parent, false)
 
-            return when (viewType)
-            {
+            return when (viewType) {
                 EProjectionType.EPR_WhatThreeWords.ordinal -> WhatThreeWordsViewHolder(view)
                 EProjectionType.EPR_Bng.ordinal -> BngViewHolder(view)
                 EProjectionType.EPR_Lam.ordinal -> LamViewHolder(view)
@@ -440,13 +402,9 @@ class MainActivity : AppCompatActivity()
             }
         }
 
-        override fun onBindViewHolder(holder: RecyclerView.ViewHolder, position: Int)
-        {
-            when (holder.itemViewType)
-            {
-                EProjectionType.EPR_WhatThreeWords.ordinal -> (holder as WhatThreeWordsViewHolder).bind(
-                    position
-                )
+        override fun onBindViewHolder(holder: RecyclerView.ViewHolder, position: Int) {
+            when (holder.itemViewType) {
+                EProjectionType.EPR_WhatThreeWords.ordinal -> (holder as WhatThreeWordsViewHolder).bind(position)
 
                 EProjectionType.EPR_Bng.ordinal -> (holder as BngViewHolder).bind(position)
                 EProjectionType.EPR_Lam.ordinal -> (holder as LamViewHolder).bind(position)
@@ -461,13 +419,11 @@ class MainActivity : AppCompatActivity()
 
         override fun getItemCount(): Int = dataSet.size
 
-        inner class WhatThreeWordsViewHolder(view: View) : RecyclerView.ViewHolder(view)
-        {
+        inner class WhatThreeWordsViewHolder(view: View) : RecyclerView.ViewHolder(view) {
             private val projectionName: TextView = view.findViewById(R.id.projection_name)
             private val words: TextView = view.findViewById(R.id.words)
 
-            fun bind(position: Int)
-            {
+            fun bind(position: Int) {
                 val item = dataSet[position] as ProjectionW3W
 
                 var name = ""
@@ -483,15 +439,13 @@ class MainActivity : AppCompatActivity()
             }
         }
 
-        inner class BngViewHolder(view: View) : RecyclerView.ViewHolder(view)
-        {
+        inner class BngViewHolder(view: View) : RecyclerView.ViewHolder(view) {
             private val projectionName: TextView = view.findViewById(R.id.projection_name)
             private val easting: TextView = view.findViewById(R.id.x)
             private val northing: TextView = view.findViewById(R.id.y)
             private val gridReference: TextView = view.findViewById(R.id.zone)
 
-            fun bind(position: Int)
-            {
+            fun bind(position: Int) {
                 val item = dataSet[position] as ProjectionBNG
 
                 var name = ""
@@ -502,13 +456,23 @@ class MainActivity : AppCompatActivity()
                 SdkCall.execute {
                     name = item.type.toString().split("_")[1]
                     eastingStr =
-                        String.format(Locale.getDefault(),"%s %f", getString(R.string.easting), item.getEasting())
+                        String.format(
+                            Locale.getDefault(),
+                            "%s %f",
+                            getString(R.string.easting),
+                            item.getEasting(),
+                        )
                     northingStr =
-                        String.format(Locale.getDefault(),"%s %f", getString(R.string.northing), item.getNorthing())
+                        String.format(
+                            Locale.getDefault(),
+                            "%s %f",
+                            getString(R.string.northing),
+                            item.getNorthing(),
+                        )
                     gridReferenceStr = String.format(
                         "%s %s",
                         getString(R.string.grid_reference),
-                        item.gridReference
+                        item.gridReference,
                     )
                 }
 
@@ -519,14 +483,12 @@ class MainActivity : AppCompatActivity()
             }
         }
 
-        inner class LamViewHolder(view: View) : RecyclerView.ViewHolder(view)
-        {
+        inner class LamViewHolder(view: View) : RecyclerView.ViewHolder(view) {
             private val projectionName: TextView = view.findViewById(R.id.projection_name)
             private val x: TextView = view.findViewById(R.id.x)
             private val y: TextView = view.findViewById(R.id.y)
 
-            fun bind(position: Int)
-            {
+            fun bind(position: Int) {
                 val item = dataSet[position] as ProjectionLAM
 
                 var name = ""
@@ -535,8 +497,18 @@ class MainActivity : AppCompatActivity()
 
                 SdkCall.execute {
                     name = item.type.toString().split("_")[1]
-                    xStr = String.format(Locale.getDefault(),"%s %f", getString(R.string.x), item.getX())
-                    yStr = String.format(Locale.getDefault(),"%s %f", getString(R.string.y), item.getY())
+                    xStr = String.format(
+                        Locale.getDefault(),
+                        "%s %f",
+                        getString(R.string.x),
+                        item.getX(),
+                    )
+                    yStr = String.format(
+                        Locale.getDefault(),
+                        "%s %f",
+                        getString(R.string.y),
+                        item.getY(),
+                    )
                 }
 
                 projectionName.text = name.uppercase()
@@ -545,16 +517,14 @@ class MainActivity : AppCompatActivity()
             }
         }
 
-        inner class UtmViewHolder(view: View) : RecyclerView.ViewHolder(view)
-        {
+        inner class UtmViewHolder(view: View) : RecyclerView.ViewHolder(view) {
             private val projectionName: TextView = view.findViewById(R.id.projection_name)
             private val x: TextView = view.findViewById(R.id.x)
             private val y: TextView = view.findViewById(R.id.y)
             private val zone: TextView = view.findViewById(R.id.zone)
             private val hemisphere: TextView = view.findViewById(R.id.hemisphere)
 
-            fun bind(position: Int)
-            {
+            fun bind(position: Int) {
                 val item = dataSet[position] as ProjectionUTM
 
                 var name = ""
@@ -565,13 +535,28 @@ class MainActivity : AppCompatActivity()
 
                 SdkCall.execute {
                     name = item.type.toString().split("_")[1]
-                    xStr = String.format(Locale.getDefault(),"%s %f", getString(R.string.x), item.getX())
-                    yStr = String.format(Locale.getDefault(),"%s %f", getString(R.string.y), item.getY())
-                    zoneStr = String.format(Locale.getDefault(),"%s %d", getString(R.string.zone), item.getZone())
+                    xStr = String.format(
+                        Locale.getDefault(),
+                        "%s %f",
+                        getString(R.string.x),
+                        item.getX(),
+                    )
+                    yStr = String.format(
+                        Locale.getDefault(),
+                        "%s %f",
+                        getString(R.string.y),
+                        item.getY(),
+                    )
+                    zoneStr = String.format(
+                        Locale.getDefault(),
+                        "%s %d",
+                        getString(R.string.zone),
+                        item.getZone(),
+                    )
                     hemisphereStr = String.format(
                         "%s %s",
                         getString(R.string.hemisphere),
-                        EHemisphere.entries[item.getHemisphere()].toString()
+                        EHemisphere.entries[item.getHemisphere()].toString(),
                     )
                 }
 
@@ -583,16 +568,14 @@ class MainActivity : AppCompatActivity()
             }
         }
 
-        inner class MgrsViewHolder(view: View) : RecyclerView.ViewHolder(view)
-        {
+        inner class MgrsViewHolder(view: View) : RecyclerView.ViewHolder(view) {
             private val projectionName: TextView = view.findViewById(R.id.projection_name)
             private val easting: TextView = view.findViewById(R.id.x)
             private val northing: TextView = view.findViewById(R.id.y)
             private val zone: TextView = view.findViewById(R.id.zone)
             private val letters: TextView = view.findViewById(R.id.hemisphere)
 
-            fun bind(position: Int)
-            {
+            fun bind(position: Int) {
                 val item = dataSet[position] as ProjectionMGRS
 
                 var name = ""
@@ -604,14 +587,24 @@ class MainActivity : AppCompatActivity()
                 SdkCall.execute {
                     name = item.type.toString().split("_")[1]
                     eastingStr =
-                        String.format(Locale.getDefault(),"%s %06d", getString(R.string.easting), item.getEasting())
+                        String.format(
+                            Locale.getDefault(),
+                            "%s %06d",
+                            getString(R.string.easting),
+                            item.getEasting(),
+                        )
                     northingStr =
-                        String.format(Locale.getDefault(),"%s %06d", getString(R.string.northing), item.getNorthing())
+                        String.format(
+                            Locale.getDefault(),
+                            "%s %06d",
+                            getString(R.string.northing),
+                            item.getNorthing(),
+                        )
                     zoneStr = String.format("%s %s", getString(R.string.zone), item.getZone())
                     lettersStr = String.format(
                         "%s %s",
                         getString(R.string.letters),
-                        item.getSq100kIdentifier()
+                        item.getSq100kIdentifier(),
                     )
                 }
 
@@ -623,15 +616,13 @@ class MainActivity : AppCompatActivity()
             }
         }
 
-        inner class GkViewHolder(view: View) : RecyclerView.ViewHolder(view)
-        {
+        inner class GkViewHolder(view: View) : RecyclerView.ViewHolder(view) {
             private val projectionName: TextView = view.findViewById(R.id.projection_name)
             private val easting: TextView = view.findViewById(R.id.x)
             private val northing: TextView = view.findViewById(R.id.y)
             private val zone: TextView = view.findViewById(R.id.zone)
 
-            fun bind(position: Int)
-            {
+            fun bind(position: Int) {
                 val item = dataSet[position] as ProjectionGK
 
                 var name = ""
@@ -642,9 +633,19 @@ class MainActivity : AppCompatActivity()
                 SdkCall.execute {
                     name = item.type.toString().split("_")[1]
                     eastingStr =
-                        String.format(Locale.getDefault(),"%s %f", getString(R.string.easting), item.getEasting())
+                        String.format(
+                            Locale.getDefault(),
+                            "%s %f",
+                            getString(R.string.easting),
+                            item.getEasting(),
+                        )
                     northingStr =
-                        String.format(Locale.getDefault(),"%s %f", getString(R.string.northing), item.getNorthing())
+                        String.format(
+                            Locale.getDefault(),
+                            "%s %f",
+                            getString(R.string.northing),
+                            item.getNorthing(),
+                        )
                     zoneStr = String.format("%s %s", getString(R.string.zone), item.getZone())
                 }
 
@@ -655,14 +656,12 @@ class MainActivity : AppCompatActivity()
             }
         }
 
-        inner class Wgs84ViewHolder(view: View) : RecyclerView.ViewHolder(view)
-        {
+        inner class Wgs84ViewHolder(view: View) : RecyclerView.ViewHolder(view) {
             private val projectionName: TextView = view.findViewById(R.id.projection_name)
             private val latitude: TextView = view.findViewById(R.id.x)
             private val longitude: TextView = view.findViewById(R.id.y)
 
-            fun bind(position: Int)
-            {
+            fun bind(position: Int) {
                 val item = dataSet[position] as ProjectionWGS84
 
                 var name = ""
@@ -672,9 +671,19 @@ class MainActivity : AppCompatActivity()
                 SdkCall.execute {
                     name = item.type.toString().split("_")[1]
                     latitudeStr =
-                        String.format( Locale.getDefault(),"%s %f", getString(R.string.lat), item.coordinates.latitude)
+                        String.format(
+                            Locale.getDefault(),
+                            "%s %f",
+                            getString(R.string.lat),
+                            item.coordinates.latitude,
+                        )
                     longitudeStr =
-                        String.format(Locale.getDefault(),"%s %f", getString(R.string.lon), item.coordinates.longitude)
+                        String.format(
+                            Locale.getDefault(),
+                            "%s %f",
+                            getString(R.string.lon),
+                            item.coordinates.longitude,
+                        )
                 }
 
                 projectionName.text = name.uppercase()
@@ -683,12 +692,9 @@ class MainActivity : AppCompatActivity()
             }
         }
     }
-    // ---------------------------------------------------------------------------------------------
 }
-// ---------------------------------------------------------------------------------------------------------------------------
 object EspressoIdlingResource {
     val espressoIdlingResource = CountingIdlingResource("ProjectionInstrumentedTestsIdlingResource")
     fun increment() = espressoIdlingResource.increment()
-    fun decrement() = if(!espressoIdlingResource.isIdleNow) espressoIdlingResource.decrement() else Unit
+    fun decrement() = if (!espressoIdlingResource.isIdleNow) espressoIdlingResource.decrement() else Unit
 }
-// -------------------------------------------------------------------------------------------------------------------------------

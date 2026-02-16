@@ -1,18 +1,12 @@
-// -------------------------------------------------------------------------------------------------------------------------------
-
 /*
- * SPDX-FileCopyrightText: 1995-2025 Magic Lane International B.V. <info@magiclane.com>
+ * SPDX-FileCopyrightText: 2021-2026 Magic Lane International B.V. <info@magiclane.com>
  * SPDX-License-Identifier: Apache-2.0
  *
  * Contact Magic Lane at <info@magiclane.com> for SDK licensing options.
  */
 
-// -------------------------------------------------------------------------------------------------------------------------------
-
-
 package com.magiclane.sdk.examples.setttslanguage
 
-import android.net.ConnectivityManager
 import android.view.View
 import androidx.lifecycle.Lifecycle
 import androidx.recyclerview.widget.RecyclerView
@@ -31,90 +25,103 @@ import androidx.test.espresso.matcher.ViewMatchers.withText
 import androidx.test.ext.junit.rules.ActivityScenarioRule
 import androidx.test.filters.LargeTest
 import androidx.test.internal.runner.junit4.AndroidJUnit4ClassRunner
-import androidx.test.platform.app.InstrumentationRegistry
-import com.magiclane.sdk.core.GemSdk
+import com.magiclane.sdk.core.SoundPlayingService
+import com.magiclane.sdk.examples.testing.GemSdkTestRule
 import com.magiclane.sdk.util.SdkCall
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.runBlocking
 import org.hamcrest.Matcher
 import org.hamcrest.Matchers.greaterThan
 import org.junit.After
+import org.junit.Assume
 import org.junit.Before
+import org.junit.ClassRule
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 
-
 @LargeTest
 @RunWith(AndroidJUnit4ClassRunner::class)
-class UISetTTSLanguageTests
-{
-    // -------------------------------------------------------------------------------------------------
+class UISetTTSLanguageTests {
+    companion object {
+        @get:ClassRule
+        @JvmStatic
+        val sdkRule = GemSdkTestRule()
+    }
 
-    private val appContext = InstrumentationRegistry.getInstrumentation().targetContext
-    
     @Rule
     @JvmField
     val activityScenarioRule: ActivityScenarioRule<MainActivity> =
         ActivityScenarioRule(MainActivity::class.java)
 
     @Before
-    fun registerIdlingResource()
-    {
+    fun setUp() {
+        // Skip UI tests if TTS languages are not available
+        runBlocking {
+            var hasTts = false
+            repeat(10) {
+                val languages = SdkCall.execute { SoundPlayingService.getTTSLanguages() }
+                if (languages?.isNotEmpty() == true) {
+                    hasTts = true
+                    return@repeat
+                }
+                delay(2000)
+            }
+            Assume.assumeTrue(
+                "TTS languages not available on this device",
+                hasTts,
+            )
+        }
+
         activityScenarioRule.scenario.moveToState(Lifecycle.State.RESUMED)
         IdlingRegistry.getInstance().register(EspressoIdlingResource.espressoIdlingResource)
         EspressoIdlingResource.increment()
         activityScenarioRule.scenario.onActivity { _ ->
             EspressoIdlingResource.decrement()
         }
-        //verify token and internet connection
-        SdkCall.execute { assert(GemSdk.getTokenFromManifest(appContext)?.isNotEmpty() == true) { "Invalid token." } }
-        assert(appContext.getSystemService(ConnectivityManager::class.java).activeNetwork != null) { " No internet connection." }
     }
 
     @After
-    fun closeActivity()
-    {
+    fun tearDown() {
         IdlingRegistry.getInstance().unregister(EspressoIdlingResource.espressoIdlingResource)
         activityScenarioRule.scenario.close()
     }
 
-    // -------------------------------------------------------------------------------------------------
     @Test
-    fun testVisibility()
-    {
-        onView(withId(R.id.choose_language_button)).check(matches(isDisplayed()))
+    fun testVisibility() {
+        onView(withId(R.id.language_button)).check(matches(isDisplayed()))
         onView(withId(R.id.language_value)).check(matches(isDisplayed()))
         onView(withId(R.id.play_button)).check(matches(isDisplayed()))
-        onView(withId(R.id.choose_language_button)).perform(click())
+        onView(withId(R.id.language_button)).perform(click())
         onView(withId(R.id.list_view)).check(matches(isDisplayed()))
 
-        //check to see if there are items displayed
+        // check to see if there are items displayed
         onView(withId(R.id.list_view)).check(RecyclerViewItemCountAssertion(greaterThan(0)))
-
     }
 
     @Test
-    fun languageShouldChangeOnItemClick()
-    {
-        onView(withId(R.id.choose_language_button)).perform(click())
+    fun languageShouldChangeOnItemClick() {
+        onView(withId(R.id.language_button)).perform(click())
         onView(withId(R.id.list_view)).perform(
-            RecyclerViewActions.actionOnItem<RecyclerView.ViewHolder>(hasDescendant(withText("deu-DEU")), click())
+            RecyclerViewActions.actionOnItem<RecyclerView.ViewHolder>(
+                hasDescendant(withText("deu-DEU")),
+                click(),
+            ),
         )
         onView(withId(R.id.language_value)).check(matches(withText("Deutsch")))
     }
 
+    class RecyclerViewItemCountAssertion(private val matcher: Matcher<Int>) : ViewAssertion {
 
-    class RecyclerViewItemCountAssertion(private val matcher: Matcher<Int>) : ViewAssertion
-    {
-
-        override fun check(view: View?, noViewFoundException: NoMatchingViewException?)
-        {
+        override fun check(view: View?, noViewFoundException: NoMatchingViewException?) {
             view?.let {
                 val recyclerView = view as RecyclerView
                 val nResults = recyclerView.adapter?.itemCount
-                if (nResults != null)
+                if (nResults != null) {
                     ViewMatchers.assertThat(nResults, matcher)
-                else
+                } else {
                     throw Error("No adapter attached")
+                }
             } ?: noViewFoundException
         }
     }

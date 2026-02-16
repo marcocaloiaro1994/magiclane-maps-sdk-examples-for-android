@@ -5,6 +5,10 @@ val gemSdkLocalMavenPath: String? by settings
 
 includeBuild("../build-support")
 
+include(":build-testing")
+project(":build-testing").projectDir = file("../build-testing")
+includeBuild("../third-party")
+
 pluginManagement {
     repositories {
         google {
@@ -42,6 +46,4 @@ dependencyResolutionManagement {
 }
 
 rootProject.name = "DriverBehavior"
-include(":app", ":UILibCharts")
-
-project(":UILibCharts").projectDir = file("${rootDir}/app/src/thirdParty/MPChartLib")
+include(":app")

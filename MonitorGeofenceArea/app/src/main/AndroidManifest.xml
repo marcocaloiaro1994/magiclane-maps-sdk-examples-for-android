@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
-  SPDX-FileCopyrightText: 1995-2025 Magic Lane International B.V. <info@magiclane.com>
+  SPDX-FileCopyrightText: 2021-2026 Magic Lane International B.V. <info@magiclane.com>
   SPDX-License-Identifier: Apache-2.0
 
   Contact Magic Lane at <info@magiclane.com> for SDK licensing options.
@@ -22,7 +22,7 @@
 
         <meta-data
             android:name="com.magiclane.sdk.token"
-            android:value="eyJhbGciOiJFUzI1NiIsInR5cCI6IkpXVCJ9.eyJhdWQiOiI0ZTZjNmQxMy0yMTFiLTRhOWQtOGViYS1hMDkxNzg5ZWE2NWEiLCJleHAiOjE4ODE1MjIwMDAsImlzcyI6IkdlbmVyYWwgTWFnaWMiLCJqdGkiOiJmZTExMTY3MC1hNDNlLTRjODItYWRlZi01YTlmZTcxYThmNjAiLCJuYmYiOjE2NjU1NzUyOTd9.eyhzCNf_3rb6pDJUOLiDwBQO1w6EW5kD77gsSL9AYF7RAuH0kJabGZ_8VqwHocq-f8TI88SrKbxl2sE-qMaBWg" />
+            android:value="${GEM_TOKEN}" />
 
         <activity
             android:name=".MainActivity"

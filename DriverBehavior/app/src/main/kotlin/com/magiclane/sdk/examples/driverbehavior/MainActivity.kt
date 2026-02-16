@@ -1,17 +1,11 @@
-// -------------------------------------------------------------------------------------------------------------------------------
-
 /*
- * SPDX-FileCopyrightText: 1995-2025 Magic Lane International B.V. <info@magiclane.com>
+ * SPDX-FileCopyrightText: 2021-2026 Magic Lane International B.V. <info@magiclane.com>
  * SPDX-License-Identifier: Apache-2.0
  *
  * Contact Magic Lane at <info@magiclane.com> for SDK licensing options.
  */
 
-// -------------------------------------------------------------------------------------------------------------------------------
-
 package com.magiclane.sdk.examples.driverbehavior
-
-// -------------------------------------------------------------------------------------------------------------------------------
 
 import android.Manifest
 import android.animation.ArgbEvaluator
@@ -26,18 +20,9 @@ import android.graphics.Color
 import android.os.Bundle
 import android.view.View
 import android.widget.Button
-import android.widget.ProgressBar
-import android.widget.ScrollView
 import android.widget.TextView
+import androidx.activity.enableEdgeToEdge
 import androidx.appcompat.app.AppCompatActivity
-import com.magiclane.sdk.core.*
-import com.magiclane.sdk.driverbehaviour.DriverBehaviour
-import com.magiclane.sdk.driverbehaviour.DrivingScores
-import com.magiclane.sdk.sensordatasource.DataSource
-import com.magiclane.sdk.sensordatasource.DataSourceFactory
-import com.magiclane.sdk.util.PermissionsHelper
-import com.magiclane.sdk.util.SdkCall
-import com.magiclane.sdk.util.Util
 import com.github.mikephil.charting.charts.BarChart
 import com.github.mikephil.charting.components.AxisBase
 import com.github.mikephil.charting.components.XAxis
@@ -54,54 +39,47 @@ import com.github.mikephil.charting.utils.Transformer
 import com.github.mikephil.charting.utils.Utils
 import com.github.mikephil.charting.utils.ViewPortHandler
 import com.google.android.material.bottomsheet.BottomSheetDialog
-import java.util.*
+import com.magiclane.sdk.core.GemError
+import com.magiclane.sdk.core.GemSdk
+import com.magiclane.sdk.core.SdkSettings
+import com.magiclane.sdk.core.Time
+import com.magiclane.sdk.driverbehaviour.DriverBehaviour
+import com.magiclane.sdk.driverbehaviour.DrivingScores
+import com.magiclane.sdk.examples.driverbehavior.databinding.ActivityMainBinding
+import com.magiclane.sdk.sensordatasource.DataSource
+import com.magiclane.sdk.sensordatasource.DataSourceFactory
+import com.magiclane.sdk.util.PermissionsHelper
+import com.magiclane.sdk.util.SdkCall
+import com.magiclane.sdk.util.Util
+import java.util.Timer
 import kotlin.concurrent.fixedRateTimer
 import kotlin.system.exitProcess
 
-// -------------------------------------------------------------------------------------------------------------------------------
-
-class MainActivity : AppCompatActivity()
-{
-
-    // ---------------------------------------------------------------------------------------------------------------------------
+class MainActivity : AppCompatActivity() {
 
     private var dataSource: DataSource? = null
     private var driverBehaviour: DriverBehaviour? = null
-    private lateinit var progressBar: ProgressBar
-    private lateinit var chartScrollView: ScrollView
-    private lateinit var instantChart: BarChart
-    private lateinit var ongoingChart: BarChart
-    private lateinit var lastChart: BarChart
-    private lateinit var combinedChart: BarChart
     private lateinit var chartLabels: List<String>
     private var timer: Timer? = null
 
-    // ---------------------------------------------------------------------------------------------------------------------------
+    private lateinit var binding: ActivityMainBinding
 
-    override fun onCreate(savedInstanceState: Bundle?)
-    {
+    override fun onCreate(savedInstanceState: Bundle?) {
+        enableEdgeToEdge()
         super.onCreate(savedInstanceState)
-        setContentView(R.layout.activity_main)
-
-        progressBar = findViewById(R.id.progressBar)
-
-        chartScrollView = findViewById(R.id.chart_scroll_view)
-
-        instantChart = findViewById(R.id.instant_chart)
-        ongoingChart = findViewById(R.id.ongoing_chart)
-        lastChart = findViewById(R.id.last_chart)
-        combinedChart = findViewById(R.id.combined_chart)
-
-        setChartCustomization(instantChart)
-        setChartCustomization(ongoingChart)
-        setChartCustomization(lastChart)
-        setChartCustomization(combinedChart)
+        binding = ActivityMainBinding.inflate(layoutInflater)
+        setContentView(binding.root)
+        binding.apply {
+            setChartCustomization(instantChart)
+            setChartCustomization(ongoingChart)
+            setChartCustomization(lastChart)
+            setChartCustomization(combinedChart)
+        }
 
         chartLabels = resources.getStringArray(R.array.chart_labels).toList()
 
         SdkSettings.onMapDataReady = { isReady ->
-            if (isReady)
-            {
+            if (isReady) {
                 SdkCall.execute {
                     dataSource = DataSourceFactory.produceLive()
                     dataSource?.let { driverBehaviour = DriverBehaviour.produce(it, false) }
@@ -112,37 +90,33 @@ class MainActivity : AppCompatActivity()
                     displayDriverBehaviorInfo()
                 }
 
-                progressBar.visibility = View.GONE
-                chartScrollView.visibility = View.VISIBLE
+                binding.progressBar.visibility = View.GONE
+                binding.chartScrollView.visibility = View.VISIBLE
             }
         }
 
-        SdkSettings.onApiTokenRejected = {/*
-            The TOKEN you provided in the AndroidManifest.xml file was rejected.
-            Make sure you provide the correct value, or if you don't have a TOKEN,
-            check the magiclane.com website, sign up/sign in and generate one. 
+        SdkSettings.onApiTokenRejected = {
+            /**
+             * The TOKEN you provided in the AndroidManifest.xml file was rejected.
+             * Make sure you provide the correct value, or if you don't have a TOKEN,
+             * check the magiclane.com website, sign up/sign in and generate one.
              */
             showDialog("TOKEN REJECTED")
         }
 
         requestPermissions(this)
 
-        if (!GemSdk.initSdkWithDefaults(this))
-        {
+        if (GemSdk.initSdkWithDefaults(this) != GemError.NoError) {
             // The SDK initialization was not completed.
             finish()
         }
 
-        if (!Util.isInternetConnected(this))
-        {
+        if (!Util.isInternetConnected(this)) {
             showDialog("You must be connected to the internet!")
         }
     }
 
-    // ---------------------------------------------------------------------------------------------------------------------------
-
-    override fun onDestroy()
-    {
+    override fun onDestroy() {
         super.onDestroy()
 
         timer?.cancel()
@@ -156,18 +130,13 @@ class MainActivity : AppCompatActivity()
         // Deinitialize the SDK.
         GemSdk.release()
     }
-    
-    // ---------------------------------------------------------------------------------------------------------------------------
 
-    override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<String>, grantResults: IntArray)
-    {
+    override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<String>, grantResults: IntArray) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults)
         if (requestCode != REQUEST_PERMISSIONS) return
 
-        for (item in grantResults)
-        {
-            if (item != PackageManager.PERMISSION_GRANTED)
-            {
+        for (item in grantResults) {
+            if (item != PackageManager.PERMISSION_GRANTED) {
                 finish()
                 exitProcess(0)
             }
@@ -178,22 +147,23 @@ class MainActivity : AppCompatActivity()
         }
     }
 
-    // ---------------------------------------------------------------------------------------------------------------------------
-
-    private fun requestPermissions(activity: Activity): Boolean
-    {
+    private fun requestPermissions(activity: Activity): Boolean {
         val permissions = arrayListOf(
-            Manifest.permission.INTERNET, Manifest.permission.ACCESS_NETWORK_STATE, Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION
+            Manifest.permission.INTERNET,
+            Manifest.permission.ACCESS_NETWORK_STATE,
+            Manifest.permission.ACCESS_FINE_LOCATION,
+            Manifest.permission.ACCESS_COARSE_LOCATION,
         )
 
-        return PermissionsHelper.requestPermissions(REQUEST_PERMISSIONS, activity, permissions.toTypedArray())
+        return PermissionsHelper.requestPermissions(
+            REQUEST_PERMISSIONS,
+            activity,
+            permissions.toTypedArray(),
+        )
     }
 
-    // ---------------------------------------------------------------------------------------------------------------------------
-
     @SuppressLint("InflateParams")
-    private fun showDialog(text: String)
-    {
+    private fun showDialog(text: String) {
         val dialog = BottomSheetDialog(this)
         val view = layoutInflater.inflate(R.layout.dialog_layout, null).apply {
             findViewById<TextView>(R.id.title).text = getString(R.string.error)
@@ -209,10 +179,7 @@ class MainActivity : AppCompatActivity()
         }
     }
 
-    // ---------------------------------------------------------------------------------------------------------------------------
-
-    private fun displayDriverBehaviorInfo()
-    {
+    private fun displayDriverBehaviorInfo() {
         var instantDrivingScores: DrivingScores? = null
         var ongoingDrivingScores: DrivingScores? = null
         var lastDrivingScores: DrivingScores? = null
@@ -222,41 +189,49 @@ class MainActivity : AppCompatActivity()
             instantDrivingScores = driverBehaviour?.instantaneousScores
             ongoingDrivingScores = driverBehaviour?.ongoingAnalysis?.drivingScores
             lastDrivingScores = driverBehaviour?.lastAnalysis?.drivingScores
-            combinedDrivingScore = driverBehaviour?.getCombinedAnalysis(Time().apply { longValue = 1640988000000 }, Time().apply {
-                longValue = System.currentTimeMillis()
-            })?.drivingScores
+            combinedDrivingScore = driverBehaviour?.getCombinedAnalysis(
+                Time().apply { longValue = 1640988000000 },
+                Time().apply {
+                    longValue = System.currentTimeMillis()
+                },
+            )?.drivingScores
         }
 
-        val instantBarDataSet = instantDrivingScores?.let { DriverBehaviorBarDataSet(createBarEntriesList(it), "") }
-        val ongoingBarDataSet = ongoingDrivingScores?.let { DriverBehaviorBarDataSet(createBarEntriesList(it), "") }
-        val lastBarDataSet = lastDrivingScores?.let { DriverBehaviorBarDataSet(createBarEntriesList(it), "") }
-        val combinedBarDataSet = combinedDrivingScore?.let { DriverBehaviorBarDataSet(createBarEntriesList(it), "") }
+        val instantBarDataSet = instantDrivingScores?.let {
+            DriverBehaviorBarDataSet(createBarEntriesList(it), "")
+        }
+        val ongoingBarDataSet = ongoingDrivingScores?.let {
+            DriverBehaviorBarDataSet(createBarEntriesList(it), "")
+        }
+        val lastBarDataSet = lastDrivingScores?.let {
+            DriverBehaviorBarDataSet(createBarEntriesList(it), "")
+        }
+        val combinedBarDataSet = combinedDrivingScore?.let {
+            DriverBehaviorBarDataSet(createBarEntriesList(it), "")
+        }
 
         instantBarDataSet?.let {
             setBarDataSetCustomization(it)
-            setDataToChart(instantChart, getBarData(it))
+            setDataToChart(binding.instantChart, getBarData(it))
         }
 
         ongoingBarDataSet?.let {
             setBarDataSetCustomization(it)
-            setDataToChart(ongoingChart, getBarData(it))
+            setDataToChart(binding.ongoingChart, getBarData(it))
         }
 
         lastBarDataSet?.let {
             setBarDataSetCustomization(it)
-            setDataToChart(lastChart, getBarData(it))
+            setDataToChart(binding.lastChart, getBarData(it))
         }
 
         combinedBarDataSet?.let {
             setBarDataSetCustomization(it)
-            setDataToChart(combinedChart, getBarData(it))
+            setDataToChart(binding.combinedChart, getBarData(it))
         }
     }
 
-    // ---------------------------------------------------------------------------------------------------------------------------
-
-    private fun createBarEntriesList(drivingScores: DrivingScores): MutableList<BarEntry>
-    {
+    private fun createBarEntriesList(drivingScores: DrivingScores): MutableList<BarEntry> {
         val barEntries = mutableListOf<BarEntry>()
 
         SdkCall.execute {
@@ -277,17 +252,12 @@ class MainActivity : AppCompatActivity()
         return barEntries
     }
 
-    // ---------------------------------------------------------------------------------------------------------------------------
-
     private fun getBarData(barDataSet: BarDataSet?): BarData = BarData(barDataSet).apply {
         isHighlightEnabled = false
         barWidth = 0.7f
     }
 
-    // ---------------------------------------------------------------------------------------------------------------------------
-
-    private fun setDataToChart(chart: BarChart, barData: BarData)
-    {
+    private fun setDataToChart(chart: BarChart, barData: BarData) {
         chart.apply {
             data = barData
 
@@ -303,10 +273,7 @@ class MainActivity : AppCompatActivity()
         }
     }
 
-    // ---------------------------------------------------------------------------------------------------------------------------
-
-    private fun setBarDataSetCustomization(barDataSet: BarDataSet?)
-    {
+    private fun setBarDataSetCustomization(barDataSet: BarDataSet?) {
         barDataSet?.apply {
             colors = mutableListOf()
             valueFormatter = ValuesFormatter()
@@ -315,17 +282,20 @@ class MainActivity : AppCompatActivity()
         }
     }
 
-    // ---------------------------------------------------------------------------------------------------------------------------
-
-    private fun setChartCustomization(chart: BarChart)
-    {
+    private fun setChartCustomization(chart: BarChart) {
         chart.apply {
             isDragEnabled = true
             description = null
             setTouchEnabled(true)
             isDoubleTapToZoomEnabled = false
             extraBottomOffset = 4f
-            setXAxisRenderer(CustomXAxisRenderer(viewPortHandler, xAxis, getTransformer(YAxis.AxisDependency.LEFT)))
+            setXAxisRenderer(
+                CustomXAxisRenderer(
+                    viewPortHandler,
+                    xAxis,
+                    getTransformer(YAxis.AxisDependency.LEFT),
+                ),
+            )
 
             xAxis.apply {
                 labelRotationAngle = -45f
@@ -348,97 +318,79 @@ class MainActivity : AppCompatActivity()
         }
     }
 
-    // ---------------------------------------------------------------------------------------------------------------------------
-
-    private fun Context.isDarkThemeOn(): Boolean
-    {
+    private fun Context.isDarkThemeOn(): Boolean {
         return resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK == UI_MODE_NIGHT_YES
     }
 
-    // ---------------------------------------------------------------------------------------------------------------------------
+    private class DriverBehaviorBarDataSet(val barEntries: List<BarEntry>, label: String) : BarDataSet(
+        barEntries,
+        label,
+    ) {
 
-    private inner class DriverBehaviorBarDataSet(val barEntries: List<BarEntry>, label: String) : BarDataSet(barEntries, label)
-    {
-
-        // -----------------------------------------------------------------------------------------------------------------------
-
-        override fun getColor(index: Int): Int
-        {
+        override fun getColor(index: Int): Int {
             val percent = entries[index].y * 0.01f
             return ArgbEvaluator().evaluate(percent, Color.RED, Color.GREEN) as Int
         }
 
-        // -----------------------------------------------------------------------------------------------------------------------
-
-        override fun getEntryIndex(e: BarEntry?): Int
-        {
+        override fun getEntryIndex(e: BarEntry?): Int {
             return super.getEntryIndex(e)
         }
-
-        // -----------------------------------------------------------------------------------------------------------------------
     }
 
-    // ---------------------------------------------------------------------------------------------------------------------------
-
-    private inner class ValuesFormatter : IValueFormatter
-    {
+    private class ValuesFormatter : IValueFormatter {
         override fun getFormattedValue(
             value: Float,
             entry: Entry?,
             dataSetIndex: Int,
-            viewPortHandler: ViewPortHandler?
-        ): String
-        {
+            viewPortHandler: ViewPortHandler?,
+        ): String {
             return value.toInt().toString()
         }
     }
 
-    // ---------------------------------------------------------------------------------------------------------------------------
-
-    private inner class XAxisFormatter : IndexAxisValueFormatter()
-    {
-        override fun getFormattedValue(value: Float, axis: AxisBase?): String
-        {
+    private inner class XAxisFormatter : IndexAxisValueFormatter() {
+        override fun getFormattedValue(value: Float, axis: AxisBase?): String {
             val index = value.toInt()
-            return if (index >= 0 && index < chartLabels.size)
-            {
+            return if (index >= 0 && index < chartLabels.size) {
                 axis?.textColor = if (isDarkThemeOn()) Color.WHITE else Color.BLACK
                 axis?.textSize = 10.5f
                 chartLabels[index]
-            }
-            else
-            {
+            } else {
                 ""
             }
         }
     }
 
-    // ---------------------------------------------------------------------------------------------------------------------------
-
-    private inner class CustomXAxisRenderer(viewPortHandler: ViewPortHandler,
-                                            xAxis: XAxis,
-                                            transformer: Transformer): XAxisRenderer(viewPortHandler, xAxis, transformer)
-    {
-        override fun drawLabel(c: Canvas?, formattedLabel: String, x: Float, y: Float, anchor: MPPointF?, angleDegrees: Float)
-        {
+    private class CustomXAxisRenderer(
+        viewPortHandler: ViewPortHandler,
+        xAxis: XAxis,
+        transformer: Transformer,
+    ) : XAxisRenderer(viewPortHandler, xAxis, transformer) {
+        override fun drawLabel(
+            c: Canvas?,
+            formattedLabel: String,
+            x: Float,
+            y: Float,
+            anchor: MPPointF?,
+            angleDegrees: Float,
+        ) {
             val line = formattedLabel.split("\n")
             Utils.drawXAxisValue(c, line[0], x, y, mAxisLabelPaint, anchor, angleDegrees)
-            for (i in 1 until line.size)
-            {
-                Utils.drawXAxisValue(c, line[i], x, y + mAxisLabelPaint.textSize * i, mAxisLabelPaint, anchor, angleDegrees)
+            for (i in 1 until line.size) {
+                Utils.drawXAxisValue(
+                    c,
+                    line[i],
+                    x,
+                    y + mAxisLabelPaint.textSize * i,
+                    mAxisLabelPaint,
+                    anchor,
+                    angleDegrees,
+                )
             }
         }
     }
 
-    // ---------------------------------------------------------------------------------------------------------------------------
-
-    companion object
-    {
+    companion object {
         private const val REQUEST_PERMISSIONS = 110
     }
-
-    // ---------------------------------------------------------------------------------------------------------------------------
-
 }
-
-// -------------------------------------------------------------------------------------------------------------------------------

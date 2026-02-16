@@ -1,5 +1,5 @@
 plugins {
-    id("com.magiclane.examples.sdk.gradle.application")
+    id("com.magiclane.sdk.examples.gradle.application")
 }
 
 android {
@@ -28,9 +28,10 @@ dependencies {
     implementation(shared.androidx.espresso.idlingresource)
     implementation(shared.material)
 
-    implementation(project(":UILibCharts"))
-    
+    implementation("third-party:MPChartLib")
+
     testImplementation(shared.junit)
+    androidTestImplementation(project(":build-testing"))
     androidTestImplementation(shared.androidx.junit)
     androidTestImplementation(shared.androidx.espresso.core)
 }

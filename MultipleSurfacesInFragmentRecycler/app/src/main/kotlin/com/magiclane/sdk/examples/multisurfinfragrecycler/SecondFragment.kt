@@ -1,71 +1,51 @@
-// -------------------------------------------------------------------------------------------------------------------------------
-
 /*
- * SPDX-FileCopyrightText: 1995-2025 Magic Lane International B.V. <info@magiclane.com>
+ * SPDX-FileCopyrightText: 2021-2026 Magic Lane International B.V. <info@magiclane.com>
  * SPDX-License-Identifier: Apache-2.0
  *
  * Contact Magic Lane at <info@magiclane.com> for SDK licensing options.
  */
 
-// -------------------------------------------------------------------------------------------------------------------------------
-
 package com.magiclane.sdk.examples.multisurfinfragrecycler
-
-// -------------------------------------------------------------------------------------------------------------------------------
 
 import android.content.Context
 import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
-import android.widget.Button
 import androidx.appcompat.content.res.AppCompatResources
 import androidx.core.content.ContextCompat
+import androidx.databinding.DataBindingUtil
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.activityViewModels
 import androidx.navigation.fragment.findNavController
 import androidx.recyclerview.widget.LinearLayoutManager
-import androidx.recyclerview.widget.RecyclerView
 import com.google.android.material.floatingactionbutton.FloatingActionButton
 import com.magiclane.sdk.examples.multisurfinfragrecycler.data.MapItem
+import com.magiclane.sdk.examples.multisurfinfragrecycler.databinding.FragmentSecondBinding
 import java.util.Date
 
-// -------------------------------------------------------------------------------------------------------------------------------
-
-class SecondFragment : Fragment()
-{
-    // ---------------------------------------------------------------------------------------------------------------------------
+class SecondFragment : Fragment() {
 
     private val maxSurfacesCount = 20
-
-    private lateinit var recycler: RecyclerView
     private lateinit var mapAdapter: CustomAdapter
 
     val viewModel by activityViewModels<MainActivityViewModel>()
 
+    private var binding: FragmentSecondBinding? = null
 
-    // ---------------------------------------------------------------------------------------------------------------------------
-
-    override fun onCreateView(
-        inflater: LayoutInflater,
-        container: ViewGroup?,
-        savedInstanceState: Bundle?
-    ): View?
-    {
-        return inflater.inflate(R.layout.fragment_second, container, false)
+    override fun onCreateView(inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?): View? {
+        binding = DataBindingUtil.inflate(inflater, R.layout.fragment_second, container, false)
+        return binding?.root
     }
 
-    // ---------------------------------------------------------------------------------------------------------------------------
-
-    override fun onViewCreated(view: View, savedInstanceState: Bundle?)
-    {
+    override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
 
-        view.findViewById<Button>(R.id.button_second).setOnClickListener {
+        binding?.buttonSecond?.setOnClickListener {
             findNavController().navigate(R.id.action_SecondFragment_to_FirstFragment)
         }
 
-        recycler = view.findViewById<RecyclerView>(R.id.list).apply {
+        binding?.mapList?.apply {
             itemAnimator = null
             layoutManager = LinearLayoutManager(requireContext())
             mapAdapter = CustomAdapter().also { it.submitList(viewModel.list) }
@@ -74,25 +54,22 @@ class SecondFragment : Fragment()
             setItemViewCacheSize(5)
         }
 
-        val leftBtn = view.findViewById<FloatingActionButton>(R.id.bottom_left_button)
-        leftBtn.visibility = View.VISIBLE
-        buttonAsDelete(requireContext(), leftBtn)
-        {
-            deleteLastSurface()
+        binding?.bottomLeftButton?.let {
+            it.visibility = View.VISIBLE
+            buttonAsDelete(requireContext(), it) {
+                deleteLastSurface()
+            }
         }
 
-        val rightBtn = view.findViewById<FloatingActionButton>(R.id.bottom_right_button)
-        rightBtn.visibility = View.VISIBLE
-        buttonAsAdd(requireContext(), rightBtn)
-        {
-            addSurface()
+        binding?.bottomRightButton?.let {
+            it.visibility = View.VISIBLE
+            buttonAsAdd(requireContext(), it) {
+                addSurface()
+            }
         }
     }
 
-    // ---------------------------------------------------------------------------------------------------------------------------
-
-    private fun addSurface()
-    {
+    private fun addSurface() {
         viewModel.list.apply {
             if (viewModel.list.size >= maxSurfacesCount) return
             add(MapItem(lastIndex + 1, Date()))
@@ -100,28 +77,18 @@ class SecondFragment : Fragment()
         }
     }
 
-    // ---------------------------------------------------------------------------------------------------------------------------
-
-    private fun deleteLastSurface()
-    {
+    private fun deleteLastSurface() {
         viewModel.list.apply {
             if (size == 0) return
-            removeLast()
+            removeAt(lastIndex)
             mapAdapter.submitList(this.toMutableList())
         }
     }
 
-    // ---------------------------------------------------------------------------------------------------------------------------
-
-    // ---------------------------------------------------------------------------------------------------------------------------
-
-    private fun buttonAsAdd(context: Context, button: FloatingActionButton?, action: () -> Unit)
-    {
-        button ?: return
-
+    private fun buttonAsAdd(context: Context, button: FloatingActionButton, action: () -> Unit) {
         val tag = "add"
         val backgroundTintList =
-            AppCompatResources.getColorStateList(context, R.color.green)
+            AppCompatResources.getColorStateList(context, R.color.primary)
         val drawable = ContextCompat.getDrawable(context, android.R.drawable.ic_input_add)
 
         button.tag = tag
@@ -130,15 +97,10 @@ class SecondFragment : Fragment()
         button.backgroundTintList = backgroundTintList
     }
 
-    // ---------------------------------------------------------------------------------------------------------------------------
-
-    private fun buttonAsDelete(context: Context, button: FloatingActionButton?, action: () -> Unit)
-    {
-        button ?: return
-
+    private fun buttonAsDelete(context: Context, button: FloatingActionButton, action: () -> Unit) {
         val tag = "delete"
         val backgroundTintList =
-            AppCompatResources.getColorStateList(context, R.color.red)
+            AppCompatResources.getColorStateList(context, R.color.surface)
         val drawable = ContextCompat.getDrawable(context, android.R.drawable.ic_delete)
 
         button.tag = tag
@@ -146,8 +108,4 @@ class SecondFragment : Fragment()
         button.setImageDrawable(drawable)
         button.backgroundTintList = backgroundTintList
     }
-
-    // ---------------------------------------------------------------------------------------------------------------------------
 }
-
-// -------------------------------------------------------------------------------------------------------------------------------

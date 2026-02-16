@@ -1,17 +1,11 @@
-// -------------------------------------------------------------------------------------------------------------------------------
-
 /*
- * SPDX-FileCopyrightText: 1995-2025 Magic Lane International B.V. <info@magiclane.com>
+ * SPDX-FileCopyrightText: 2021-2026 Magic Lane International B.V. <info@magiclane.com>
  * SPDX-License-Identifier: Apache-2.0
  *
  * Contact Magic Lane at <info@magiclane.com> for SDK licensing options.
  */
 
-// -------------------------------------------------------------------------------------------------------------------------------
-
 package com.magiclane.sdk.examples.socialreport
-
-// -------------------------------------------------------------------------------------------------------------------------------
 
 import android.Manifest
 import android.annotation.SuppressLint
@@ -20,9 +14,9 @@ import android.content.pm.PackageManager
 import android.os.Bundle
 import android.view.View
 import android.widget.Button
-import android.widget.ProgressBar
 import android.widget.TextView
 import androidx.activity.addCallback
+import androidx.activity.enableEdgeToEdge
 import androidx.annotation.VisibleForTesting
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.view.isVisible
@@ -31,11 +25,11 @@ import androidx.test.espresso.idling.CountingIdlingResource
 import com.google.android.material.bottomsheet.BottomSheetDialog
 import com.magiclane.sdk.core.GemError
 import com.magiclane.sdk.core.GemSdk
-import com.magiclane.sdk.core.GemSurfaceView
 import com.magiclane.sdk.core.MapDetails
 import com.magiclane.sdk.core.ProgressListener
 import com.magiclane.sdk.core.SdkSettings
 import com.magiclane.sdk.core.SocialOverlay
+import com.magiclane.sdk.examples.socialreport.databinding.ActivityMainBinding
 import com.magiclane.sdk.sensordatasource.PositionListener
 import com.magiclane.sdk.sensordatasource.PositionService
 import com.magiclane.sdk.sensordatasource.enums.EDataType
@@ -44,43 +38,28 @@ import com.magiclane.sdk.util.SdkCall
 import com.magiclane.sdk.util.Util
 import kotlin.system.exitProcess
 
-// -------------------------------------------------------------------------------------------------------------------------------
-
-class MainActivity : AppCompatActivity()
-{
-    // ---------------------------------------------------------------------------------------------------------------------------
-    companion object
-    {
+class MainActivity : AppCompatActivity() {
+    private lateinit var binding: ActivityMainBinding
+    companion object {
         const val RESOURCE = "GLOBAL"
     }
     private var mainActivityIdlingResource = CountingIdlingResource(RESOURCE, true)
-
-    private lateinit var gemSurfaceView: GemSurfaceView
-    private lateinit var statusText: TextView
-    private lateinit var statusProgressBar: ProgressBar
 
     private val socialReportListener = ProgressListener.create()
     private lateinit var positionListener: PositionListener
 
     private val kRequestLocationPermissionCode = 110
 
-    // ---------------------------------------------------------------------------------------------------------------------------
-
-    override fun onCreate(savedInstanceState: Bundle?)
-    {
+    override fun onCreate(savedInstanceState: Bundle?) {
+        enableEdgeToEdge()
         super.onCreate(savedInstanceState)
-        setContentView(R.layout.activity_main)
-
-        gemSurfaceView = findViewById(R.id.gem_surface)
-        statusText = findViewById(R.id.status_text)
-        statusProgressBar = findViewById(R.id.status_progress_bar)
-
+        binding = ActivityMainBinding.inflate(layoutInflater)
+        setContentView(binding.root)
         SdkSettings.onMapDataReady = { isReady ->
-            if (isReady)
-            {
+            if (isReady) {
                 // Defines an action that should be done when the world map is ready (Updated/ loaded).
                 SdkCall.execute {
-                    gemSurfaceView.mapView?.followPosition()
+                    binding.gemSurfaceView.mapView?.followPosition()
 
                     waitForNextImprovedPosition {
                         submitReport()
@@ -90,18 +69,17 @@ class MainActivity : AppCompatActivity()
         }
 
         SdkSettings.onApiTokenRejected = {
-            /* 
-            The TOKEN you provided in the AndroidManifest.xml file was rejected.
-            Make sure you provide the correct value, or if you don't have a TOKEN,
-            check the magiclane.com website, sign up/sign in and generate one. 
+            /**
+             * The TOKEN you provided in the AndroidManifest.xml file was rejected.
+             * Make sure you provide the correct value, or if you don't have a TOKEN,
+             * check the magiclane.com website, sign up/sign in and generate one.
              */
             showDialog("TOKEN REJECTED")
         }
 
         requestPermissions(this)
 
-        if (!Util.isInternetConnected(this))
-        {
+        if (!Util.isInternetConnected(this)) {
             showDialog("You must be connected to the internet!")
         }
 
@@ -111,41 +89,30 @@ class MainActivity : AppCompatActivity()
         }
     }
 
-    // ---------------------------------------------------------------------------------------------------------------------------
-
-    override fun onDestroy()
-    {
+    override fun onDestroy() {
         super.onDestroy()
 
         // Release the SDK.
         GemSdk.release()
     }
 
-    // ---------------------------------------------------------------------------------------------------------------------------
+    private fun showStatusMessage(text: String, withProgress: Boolean = false) {
+        binding.apply {
+            if (!statusText.isVisible) {
+                statusText.visibility = View.VISIBLE
+            }
+            statusText.text = text
 
-    private fun showStatusMessage(text: String, withProgress: Boolean = false)
-    {
-        if (!statusText.isVisible)
-        {
-            statusText.visibility = View.VISIBLE
-        }
-        statusText.text = text
-
-        if (withProgress)
-        {
-            statusProgressBar.visibility = View.VISIBLE
-        }
-        else
-        {
-            statusProgressBar.visibility = View.GONE
+            if (withProgress) {
+                statusProgressBar.visibility = View.VISIBLE
+            } else {
+                statusProgressBar.visibility = View.GONE
+            }
         }
     }
-    
-    // ---------------------------------------------------------------------------------------------------------------------------
 
     @SuppressLint("InflateParams")
-    private fun showDialog(text: String)
-    {
+    private fun showDialog(text: String) {
         val dialog = BottomSheetDialog(this)
         val view = layoutInflater.inflate(R.layout.dialog_layout, null).apply {
             findViewById<TextView>(R.id.title).text = getString(R.string.error)
@@ -160,8 +127,6 @@ class MainActivity : AppCompatActivity()
             show()
         }
     }
-    
-    // ---------------------------------------------------------------------------------------------------------------------------
 
     private fun submitReport() = SdkCall.execute {
         val overlayInfo = SocialOverlay.reportsOverlayInfo ?: return@execute
@@ -175,17 +140,13 @@ class MainActivity : AppCompatActivity()
         val subCategory = subcategories[0] // My side
 
         val prepareIdOrError = SocialOverlay.prepareReporting()
-        if (prepareIdOrError <= 0)
-        {
-            val errorMsg = if (prepareIdOrError == GemError.NotFound || prepareIdOrError == GemError.Required)
-            {
-                "Prepare error: ${getString(R.string.gps_accuracy_not_good)}"   
-            }
-            else
-            {
+        if (prepareIdOrError <= 0) {
+            val errorMsg = if (prepareIdOrError == GemError.NotFound || prepareIdOrError == GemError.Required) {
+                "Prepare error: ${getString(R.string.gps_accuracy_not_good)}"
+            } else {
                 "Prepare error: ${GemError.getMessage(prepareIdOrError)}"
             }
-            
+
             Util.postOnMain { showDialog(errorMsg) }
 
             return@execute
@@ -193,23 +154,16 @@ class MainActivity : AppCompatActivity()
 
         val error = SocialOverlay.report(prepareIdOrError, subCategory.uid, socialReportListener)
 
-        if (GemError.isError(error))
-        {
+        if (GemError.isError(error)) {
             Util.postOnMain { showDialog("Report Error: ${GemError.getMessage(error)}") }
-        }
-        else
-        {
+        } else {
             Util.postOnMain { showStatusMessage("Report Sent!") }
         }
     }
 
-    // ---------------------------------------------------------------------------------------------------------------------------
-
-    private fun waitForNextImprovedPosition(onEvent: (() -> Unit))
-    {
+    private fun waitForNextImprovedPosition(onEvent: (() -> Unit)) {
         positionListener = PositionListener {
-            if (it.isValid())
-            {
+            if (it.isValid()) {
                 Util.postOnMain { showStatusMessage("On valid position") }
                 onEvent()
 
@@ -223,27 +177,26 @@ class MainActivity : AppCompatActivity()
         Util.postOnMain { showStatusMessage("Waiting for valid position", true) }
     }
 
-    // ---------------------------------------------------------------------------------------------------------------------------
+    private fun requestPermissions(activity: Activity): Boolean {
+        val permissions =
+            arrayOf(
+                Manifest.permission.ACCESS_FINE_LOCATION,
+                Manifest.permission.ACCESS_COARSE_LOCATION,
+            )
 
-    private fun requestPermissions(activity: Activity): Boolean
-    {
-        val permissions = arrayOf(Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION)
-
-        return PermissionsHelper.requestPermissions(kRequestLocationPermissionCode, activity, permissions)
+        return PermissionsHelper.requestPermissions(
+            kRequestLocationPermissionCode,
+            activity,
+            permissions,
+        )
     }
 
-    // ---------------------------------------------------------------------------------------------------------------------------
-
-    override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<String>, grantResults: IntArray)
-    {
+    override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<String>, grantResults: IntArray) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults)
 
-        if (requestCode == kRequestLocationPermissionCode)
-        {
-            for (item in grantResults)
-            {
-                if (item != PackageManager.PERMISSION_GRANTED)
-                {
+        if (requestCode == kRequestLocationPermissionCode) {
+            for (item in grantResults) {
+                if (item != PackageManager.PERMISSION_GRANTED) {
                     finish()
                     exitProcess(0)
                 }
@@ -256,19 +209,11 @@ class MainActivity : AppCompatActivity()
         }
     }
 
-    // ---------------------------------------------------------------------------------------------------------------------------
     @VisibleForTesting
-    fun getActivityIdlingResource(): IdlingResource
-    {
+    fun getActivityIdlingResource(): IdlingResource {
         return mainActivityIdlingResource
     }
 
-    // ---------------------------------------------------------------------------------------------
     private fun increment() = mainActivityIdlingResource.increment()
-    // ---------------------------------------------------------------------------------------------
     private fun decrement() = mainActivityIdlingResource.decrement()
-    // ---------------------------------------------------------------------------------------------
-    // ---------------------------------------------------------------------------------------------
 }
-
-// -------------------------------------------------------------------------------------------------------------------------------

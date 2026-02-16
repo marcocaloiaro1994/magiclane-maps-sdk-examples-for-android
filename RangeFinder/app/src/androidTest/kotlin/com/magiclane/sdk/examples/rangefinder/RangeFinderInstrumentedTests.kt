@@ -1,19 +1,13 @@
-// -------------------------------------------------------------------------------------------------
-
 /*
- * SPDX-FileCopyrightText: 1995-2025 Magic Lane International B.V. <info@magiclane.com>
+ * SPDX-FileCopyrightText: 2021-2026 Magic Lane International B.V. <info@magiclane.com>
  * SPDX-License-Identifier: Apache-2.0
  *
  * Contact Magic Lane at <info@magiclane.com> for SDK licensing options.
  */
 
-// -------------------------------------------------------------------------------------------------
-
-
 package com.magiclane.sdk.examples.rangefinder
 
 import android.content.pm.ActivityInfo
-import android.net.ConnectivityManager
 import androidx.lifecycle.Lifecycle
 import androidx.test.espresso.Espresso.onView
 import androidx.test.espresso.IdlingRegistry
@@ -26,9 +20,8 @@ import androidx.test.espresso.matcher.ViewMatchers.withSubstring
 import androidx.test.ext.junit.rules.ActivityScenarioRule
 import androidx.test.filters.LargeTest
 import androidx.test.internal.runner.junit4.AndroidJUnit4ClassRunner
-import androidx.test.platform.app.InstrumentationRegistry
-import com.magiclane.sdk.core.GemSdk
 import com.magiclane.sdk.core.GemSurfaceView
+import com.magiclane.sdk.examples.testing.GemSdkTestRule
 import com.magiclane.sdk.routesandnavigation.EBikeProfile
 import com.magiclane.sdk.util.SdkCall
 import kotlinx.coroutines.async
@@ -36,6 +29,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.runBlocking
 import org.junit.After
 import org.junit.Before
+import org.junit.ClassRule
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -46,46 +40,53 @@ import org.junit.runner.RunWith
  */
 @LargeTest
 @RunWith(AndroidJUnit4ClassRunner::class)
-class RangeFinderInstrumentedTests
-{
+class RangeFinderInstrumentedTests {
+
+    companion object {
+        @get:ClassRule
+        @JvmStatic
+        val sdkRule = GemSdkTestRule()
+    }
+
     @Rule
     @JvmField
     val activityScenarioRule: ActivityScenarioRule<MainActivity> =
         ActivityScenarioRule(MainActivity::class.java)
 
     private lateinit var activityRes: MainActivity
-    private val appContext = InstrumentationRegistry.getInstrumentation().targetContext
 
     @Before
-    fun registerIdlingResource(): Unit = runBlocking {
+    fun setUp() {
         activityScenarioRule.scenario.moveToState(Lifecycle.State.RESUMED)
-        delay(2000)
         activityScenarioRule.scenario.onActivity { activity ->
-            IdlingRegistry.getInstance().register(MainActivity.EspressoIdlingResource.espressoIdlingResource)
+            IdlingRegistry.getInstance().register(
+                MainActivity.EspressoIdlingResource.espressoIdlingResource,
+            )
             activityRes = activity
         }
-        //verify token and internet connection
-        SdkCall.execute { assert(GemSdk.getTokenFromManifest(appContext)?.isNotEmpty() == true) { "Invalid token." } }
-        assert(appContext.getSystemService(ConnectivityManager::class.java).activeNetwork != null) { " No internet connection." }
     }
 
     @After
-    fun closeActivity()
-    {
+    fun tearDown() {
         activityScenarioRule.scenario.close()
-        IdlingRegistry.getInstance().unregister(MainActivity.EspressoIdlingResource.espressoIdlingResource)
+        IdlingRegistry.getInstance().unregister(
+            MainActivity.EspressoIdlingResource.espressoIdlingResource,
+        )
     }
 
     @Test
     fun createRange(): Unit = runBlocking {
-
         onView(withId(R.id.range_value_edit_text)).perform(typeText("300"))
         onView(withId(R.id.add_button)).perform(click())
         delay(2000)
         val res = async {
             SdkCall.execute {
-                (activityRes.findViewById<GemSurfaceView>(R.id.gem_surface_view).mapView?.preferences?.routes?.size
-                    ?: 0) > 0
+                (
+                    activityRes.findViewById<GemSurfaceView>(
+                        R.id.gem_surface_view,
+                    ).mapView?.preferences?.routes?.size
+                        ?: 0
+                    ) > 0
             } ?: false
         }.await()
         assert(res)
@@ -97,24 +98,33 @@ class RangeFinderInstrumentedTests
         onView(withId(R.id.add_button)).perform(click())
         runBlocking { delay(2000) }
         onView(withSubstring("300")).perform(click())
-        val res = async {
-            SdkCall.execute {
-                (activityRes.findViewById<GemSurfaceView>(R.id.gem_surface_view).mapView?.preferences?.routes?.size
-                    ?: 0) <= 0
-            } ?: false
-        }.await()
-
+        // Wait for SdkCall.execute to complete the route removal on the SDK thread
+        var res = false
+        repeat(10) {
+            delay(2000)
+            res = async {
+                SdkCall.execute {
+                    (
+                        activityRes.findViewById<GemSurfaceView>(
+                            R.id.gem_surface_view,
+                        ).mapView?.preferences?.routes?.size
+                            ?: 0
+                        ) <= 0
+                } ?: false
+            }.await()
+            if (res) return@repeat
+        }
         assert(res)
     }
 
     @Test
     fun createMaximumAmountOfRangesAndCheckWarningDialogShows(): Unit = runBlocking {
-        for (index in 0..MAX_ITEMS)
-        {
-            onView(withId(R.id.range_value_edit_text)).perform(typeText((300 + index * 10).toString()))
+        for (index in 0..MAX_ITEMS) {
+            onView(
+                withId(R.id.range_value_edit_text),
+            ).perform(typeText((300 + index * 10).toString()))
             onView(withId(R.id.add_button)).perform(click())
-            if (index == MAX_ITEMS)
-            {
+            if (index == MAX_ITEMS) {
                 val txt = activityRes.resources.getString(R.string.maximum_items_warning, MAX_ITEMS)
                 onView(withSubstring(txt)).check(matches(isDisplayed()))
                 continue
@@ -124,8 +134,12 @@ class RangeFinderInstrumentedTests
 
         val res = async {
             SdkCall.execute {
-                (activityRes.findViewById<GemSurfaceView>(R.id.gem_surface_view).mapView?.preferences?.routes?.size
-                    ?: 0) == MAX_ITEMS
+                (
+                    activityRes.findViewById<GemSurfaceView>(
+                        R.id.gem_surface_view,
+                    ).mapView?.preferences?.routes?.size
+                        ?: 0
+                    ) == MAX_ITEMS
             } ?: false
         }.await()
 
@@ -134,7 +148,6 @@ class RangeFinderInstrumentedTests
 
     @Test
     fun createRangesOfDifferentTransportTypesForFastestRangeType(): Unit = runBlocking {
-
         onView(withId(R.id.range_value_edit_text)).perform(typeText("300"))
         onView(withId(R.id.add_button)).perform(click())
         runBlocking { delay(6000) }
@@ -159,8 +172,12 @@ class RangeFinderInstrumentedTests
 
         val res = async {
             SdkCall.execute {
-                (activityRes.findViewById<GemSurfaceView>(R.id.gem_surface_view).mapView?.preferences?.routes?.size
-                    ?: 0) == 4
+                (
+                    activityRes.findViewById<GemSurfaceView>(
+                        R.id.gem_surface_view,
+                    ).mapView?.preferences?.routes?.size
+                        ?: 0
+                    ) == 4
             } ?: false
         }.await()
 
@@ -169,7 +186,6 @@ class RangeFinderInstrumentedTests
 
     @Test
     fun createRangesOfDifferentTransportTypesForShortestRangeType(): Unit = runBlocking {
-
         onView(withId(R.id.options_button)).perform(click())
         onView(withId(R.id.range_type_selector)).perform(click())
         onView(withSubstring(activityRes.resources.getString(R.string.shortest))).perform(click())
@@ -193,11 +209,14 @@ class RangeFinderInstrumentedTests
         onView(withId(R.id.range_value_edit_text)).perform(typeText("302"))
         onView(withId(R.id.add_button)).perform(click())
 
-
         val res = async {
             SdkCall.execute {
-                (activityRes.findViewById<GemSurfaceView>(R.id.gem_surface_view).mapView?.preferences?.routes?.size
-                    ?: 0) == 3
+                (
+                    activityRes.findViewById<GemSurfaceView>(
+                        R.id.gem_surface_view,
+                    ).mapView?.preferences?.routes?.size
+                        ?: 0
+                    ) == 3
             } ?: false
         }.await()
 
@@ -206,7 +225,6 @@ class RangeFinderInstrumentedTests
 
     @Test
     fun createBicycleRangesForFastestType(): Unit = runBlocking {
-
         onView(withId(R.id.options_button)).perform(click())
         onView(withId(R.id.transport_mode_selector)).perform(click())
         onView(withSubstring(activityRes.resources.getString(R.string.bicycle))).perform(click())
@@ -238,8 +256,12 @@ class RangeFinderInstrumentedTests
 
         val res = async {
             SdkCall.execute {
-                (activityRes.findViewById<GemSurfaceView>(R.id.gem_surface_view).mapView?.preferences?.routes?.size
-                    ?: 0) == 4
+                (
+                    activityRes.findViewById<GemSurfaceView>(
+                        R.id.gem_surface_view,
+                    ).mapView?.preferences?.routes?.size
+                        ?: 0
+                    ) == 4
             } ?: false
         }.await()
 
@@ -248,7 +270,6 @@ class RangeFinderInstrumentedTests
 
     @Test
     fun createBicycleRangesForEconomicType(): Unit = runBlocking {
-
         onView(withId(R.id.options_button)).perform(click())
         onView(withId(R.id.transport_mode_selector)).perform(click())
         onView(withSubstring(activityRes.resources.getString(R.string.bicycle))).perform(click())
@@ -282,17 +303,20 @@ class RangeFinderInstrumentedTests
 
         val res = async {
             SdkCall.execute {
-                (activityRes.findViewById<GemSurfaceView>(R.id.gem_surface_view).mapView?.preferences?.routes?.size
-                    ?: 0) == 4
+                (
+                    activityRes.findViewById<GemSurfaceView>(
+                        R.id.gem_surface_view,
+                    ).mapView?.preferences?.routes?.size
+                        ?: 0
+                    ) == 4
             } ?: false
         }.await()
 
         assert(res)
     }
 
-
     @Test
-    fun checkRotation():Unit = runBlocking {
+    fun checkRotation(): Unit = runBlocking {
         activityRes.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_USER_LANDSCAPE
         delay(5000)
         onView(withId(R.id.gem_surface_view)).check(matches(isDisplayed()))

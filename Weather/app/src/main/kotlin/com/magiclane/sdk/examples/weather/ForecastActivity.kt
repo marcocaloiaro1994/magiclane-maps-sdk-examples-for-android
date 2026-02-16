@@ -1,17 +1,11 @@
-// -------------------------------------------------------------------------------------------------
-
 /*
- * SPDX-FileCopyrightText: 1995-2025 Magic Lane International B.V. <info@magiclane.com>
+ * SPDX-FileCopyrightText: 2021-2026 Magic Lane International B.V. <info@magiclane.com>
  * SPDX-License-Identifier: Apache-2.0
  *
  * Contact Magic Lane at <info@magiclane.com> for SDK licensing options.
  */
 
-// -------------------------------------------------------------------------------------------------
-
 package com.magiclane.sdk.examples.weather
-
-// -------------------------------------------------------------------------------------------------
 
 import android.graphics.Color
 import android.os.Build
@@ -26,12 +20,8 @@ import com.magiclane.sdk.examples.weather.databinding.ActivityForecastBinding
 import com.magiclane.sdk.places.Coordinates
 import com.magiclane.sdk.util.SdkCall
 
-// -------------------------------------------------------------------------------------------------
-class ForecastActivity : AppCompatActivity()
-{
-    // ---------------------------------------------------------------------------------------------
-    companion object
-    {
+class ForecastActivity : AppCompatActivity() {
+    companion object {
         private var forecastAdapter: ForecastListAdapter? = null
         const val LATITUDE_ARG_ID = "LATITUDE"
         const val LONGITUDE_ARG_ID = "LONGITUDE"
@@ -44,15 +34,12 @@ class ForecastActivity : AppCompatActivity()
     private lateinit var binding: ActivityForecastBinding
     private val viewModel: ForecastActivityViewModel by viewModels()
 
-    // ---------------------------------------------------------------------------------------------
-    // ---------------------------------------------------------------------------------------------
-    override fun onCreate(savedInstanceState: Bundle?)
-    {
+    override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        //setup binding's layout as the content of th screen
+        // setup binding's layout as the content of th screen
         binding = ActivityForecastBinding.inflate(layoutInflater)
         setContentView(binding.root)
-        //set window insets
+        // set window insets
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
             binding.forecastBackground.setOnApplyWindowInsetsListener { view, insets ->
                 val systemBarsInsets = insets.getInsets(WindowInsets.Type.systemBars())
@@ -60,33 +47,33 @@ class ForecastActivity : AppCompatActivity()
                     systemBarsInsets.left,
                     systemBarsInsets.top,
                     systemBarsInsets.right,
-                    systemBarsInsets.bottom
+                    systemBarsInsets.bottom,
                 )
                 insets
             }
         }
-        //get arguments
+        // get arguments
         val latitude = intent.getDoubleExtra(LATITUDE_ARG_ID, 0.0)
         val longitude = intent.getDoubleExtra(LONGITUDE_ARG_ID, 0.0)
         val location = intent.getStringExtra(LOCATION_NAME)
         forecastType = EForecastType.entries[intent.getIntExtra(FORECAST_TYPE_ID, 0)]
-        //initialise adapter
-        if (forecastAdapter == null)
+        // initialise adapter
+        if (forecastAdapter == null) {
             forecastAdapter = ForecastListAdapter(forecastType)
+        }
         forecastAdapter!!.type = forecastType
         binding.forecastList.adapter = forecastAdapter
         binding.forecastList.layoutManager = LinearLayoutManager(this)
-        //request list of forecast items on sdk thread
+        // request list of forecast items on sdk thread
         SdkCall.execute {
             coordinatesReference = Coordinates(latitude, longitude)
-            //when another sdk call is done on the sdk thread the process will be run synchronously  
+            // when another sdk call is done on the sdk thread the process will be run synchronously
             viewModel.getForecastList(forecastType, coordinatesReference)
         }
         // use mutable data to observe the list when it is updated
         viewModel.forecastItemsList.observe(this) { newList ->
 
-            if (forecastType == EForecastType.CURRENT)
-            {
+            if (forecastType == EForecastType.CURRENT) {
                 binding.apply {
                     val textColor = if (viewModel.isDay) Color.DKGRAY else Color.WHITE
                     viewModel.currentBMP?.let { currentForecastImage.setImageBitmap(it) }
@@ -100,7 +87,10 @@ class ForecastActivity : AppCompatActivity()
                     feelsLike.text = viewModel.feelsLike
                     updatedAt.text = viewModel.updatedAt
                     localTime.text = viewModel.currentTime
-                    currentForecastContainer.background = ContextCompat.getDrawable(this@ForecastActivity, if (viewModel.isDay) R.drawable.sky_day else R.drawable.sky_night)
+                    currentForecastContainer.background = ContextCompat.getDrawable(
+                        this@ForecastActivity,
+                        if (viewModel.isDay) R.drawable.sky_day else R.drawable.sky_night,
+                    )
                     currentTemperature.setTextColor(textColor)
                     description.setTextColor(textColor)
                     currentTemperature.setTextColor(textColor)
@@ -110,21 +100,22 @@ class ForecastActivity : AppCompatActivity()
                     forecastBackground.setBackgroundColor(
                         ContextCompat.getColor(
                             this@ForecastActivity,
-                            if (viewModel.isDay) R.color.activity_background_color
-                            else R.color.activity_background_color_dark
-                        )
+                            if (viewModel.isDay) {
+                                R.color.activity_background_color
+                            } else {
+                                R.color.activity_background_color_dark
+                            },
+                        ),
                     )
                     currentForecastCard.isVisible = true
                 }
             }
-            //send the new list to pe processed and displayed by the adapter
+            // send the new list to pe processed and displayed by the adapter
             forecastAdapter?.submitList(newList)
         }
 
         viewModel.errorMessage.observe(this) {
-            Utils.showDialog(it,this)
+            Utils.showDialog(it, this)
         }
     }
-    // ---------------------------------------------------------------------------------------------
 }
-// -------------------------------------------------------------------------------------------------

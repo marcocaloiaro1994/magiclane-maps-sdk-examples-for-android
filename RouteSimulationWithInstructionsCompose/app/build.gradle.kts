@@ -1,15 +1,15 @@
 plugins {
-    id("com.magiclane.examples.sdk.gradle.application")
+    id("com.magiclane.sdk.examples.gradle.application")
     alias(shared.plugins.compose)
 }
 
 android {
-    namespace = "com.magiclane.sdk.examples.routesimulationwithinstructions_compose"
+    namespace = "com.magiclane.sdk.examples.routesimwithinstrcompose"
 
     compileSdk = shared.versions.compileSdkVersion.get().toInt()
 
     defaultConfig {
-        applicationId = "com.magiclane.sdk.examples.routesimulationwithinstructions_compose"
+        applicationId = "com.magiclane.sdk.examples.routesimwithinstrcompose"
 
         minSdk = shared.versions.minSdkVersion.get().toInt()
         targetSdk = shared.versions.targetSdkVersion.get().toInt()
@@ -39,6 +39,7 @@ dependencies {
     implementation(shared.androidx.lifecycle.viewmodel.compose)
 
     testImplementation(shared.junit)
+    androidTestImplementation(project(":build-testing"))
     androidTestImplementation(shared.androidx.junit)
     androidTestImplementation(shared.androidx.espresso.core)
     androidTestImplementation(platform(shared.androidx.compose.bom))

@@ -18,4 +18,7 @@
     <dimen name="medium_text_size">18sp</dimen>
     <dimen name="instruction_text_size">22sp</dimen>
     <dimen name="elevation_height">5dp</dimen>
+    <dimen name="no_extra_inset">0dp</dimen>
+    <dimen name="list_item_text_size">24dp</dimen>
+    <dimen name="list_item_description_size">12dp</dimen>
 </resources>

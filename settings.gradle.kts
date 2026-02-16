@@ -1,5 +1,3 @@
-includeBuild("build-support")
-
 pluginManagement {
     repositories {
         google()
@@ -19,7 +17,7 @@ dependencyResolutionManagement {
 rootProject.name = "magiclane-maps-sdk-examples-for-android"
 
 rootDir.listFiles()?.filter { it.isDirectory }?.forEach { dir ->
-    if (File(dir, "build.gradle.kts").exists()) {
+    if (File(dir, "build.gradle.kts").exists() && dir.name != "build-support" && dir.name != "build-testing") {
         includeBuild(dir.name)
     }
 }

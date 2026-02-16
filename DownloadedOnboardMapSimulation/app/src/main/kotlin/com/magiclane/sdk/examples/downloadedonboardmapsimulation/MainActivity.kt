@@ -1,21 +1,13 @@
-// -------------------------------------------------------------------------------------------------------------------------------
-
 /*
- * SPDX-FileCopyrightText: 1995-2025 Magic Lane International B.V. <info@magiclane.com>
+ * SPDX-FileCopyrightText: 2021-2026 Magic Lane International B.V. <info@magiclane.com>
  * SPDX-License-Identifier: Apache-2.0
  *
  * Contact Magic Lane at <info@magiclane.com> for SDK licensing options.
  */
 
-// -------------------------------------------------------------------------------------------------------------------------------
-
 @file:Suppress("SameParameterValue")
 
-// -------------------------------------------------------------------------------------------------------------------------------
-
 package com.magiclane.sdk.examples.downloadedonboardmapsimulation
-
-// -------------------------------------------------------------------------------------------------------------------------------
 
 import android.annotation.SuppressLint
 import android.graphics.Bitmap
@@ -24,9 +16,10 @@ import android.util.Log
 import android.widget.Button
 import android.widget.TextView
 import androidx.activity.addCallback
-import androidx.annotation.VisibleForTesting
+import androidx.activity.enableEdgeToEdge
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.view.isVisible
+import androidx.databinding.DataBindingUtil
 import androidx.test.espresso.idling.CountingIdlingResource
 import com.google.android.material.bottomsheet.BottomSheetDialog
 import com.magiclane.sdk.core.EUnitSystem
@@ -45,10 +38,8 @@ import com.magiclane.sdk.util.SdkCall
 import java.util.Locale
 import kotlin.system.exitProcess
 
-// -------------------------------------------------------------------------------------------------------------------------------
+class MainActivity : AppCompatActivity() {
 
-class MainActivity : AppCompatActivity()
-{
     private lateinit var binding: ActivityMainBinding
 
     // Define a navigation service from which we will start the simulation.
@@ -57,9 +48,9 @@ class MainActivity : AppCompatActivity()
     private val navRoute: Route?
         get() = navigationService.getNavigationRoute(navigationListener)
 
-    /*
-    Define a navigation listener that will receive notifications from the
-    navigation service.
+    /**
+     * Define a navigation listener that will receive notifications from the
+     * navigation service.
      */
     private val navigationListener: NavigationListener = NavigationListener.create(
         onNavigationStarted = {
@@ -116,7 +107,7 @@ class MainActivity : AppCompatActivity()
                 statusText.isVisible = false
             }
             EspressoIdlingResource.decrement()
-        }
+        },
     )
 
     // Define a listener that will let us know the progress of the routing process.
@@ -129,28 +120,23 @@ class MainActivity : AppCompatActivity()
             binding.progressBar.isVisible = false
             showStatusMessage("Routing process completed.")
         },
-        postOnMain = true
+        postOnMain = true,
     )
 
-    // ---------------------------------------------------------------------------------------------------------------------------
-
-    override fun onCreate(savedInstanceState: Bundle?)
-    {
+    override fun onCreate(savedInstanceState: Bundle?) {
+        enableEdgeToEdge()
         super.onCreate(savedInstanceState)
-        binding = ActivityMainBinding.inflate(layoutInflater)
-        setContentView(binding.root)
-        /// MAGIC LANE
+        binding = DataBindingUtil.setContentView(this, R.layout.activity_main)
         SdkSettings.onApiTokenRejected = {
-            /*
-            The TOKEN you provided in the AndroidManifest.xml file was rejected.
-            Make sure you provide the correct value, or if you don't have a TOKEN,
-            check the magiclane.com website, sign up/sign in and generate one.
+            /**
+             * The TOKEN you provided in the AndroidManifest.xml file was rejected.
+             * Make sure you provide the correct value, or if you don't have a TOKEN,
+             * check the magiclane.com website, sign up/sign in and generate one.
              */
             showDialog("TOKEN REJECTED")
         }
 
         binding.gemSurfaceView.onDefaultMapViewCreated = {
-
             // Defines an action that should be done when the the sdk had been loaded.
             startSimulation()
         }
@@ -162,22 +148,17 @@ class MainActivity : AppCompatActivity()
         EspressoIdlingResource.increment()
     }
 
-    // ---------------------------------------------------------------------------------------------------------------------------
-
-    override fun onStop()
-    {
+    override fun onStop() {
         super.onStop()
         // Release the SDK.
         Log.e("GEMSDK", "isFinishing = $isFinishing ")
-        if (isFinishing)
+        if (isFinishing) {
             GemSdk.release()
+        }
     }
 
-    // ---------------------------------------------------------------------------------------------------------------------------
-
     @SuppressLint("InflateParams")
-    private fun showDialog(text: String)
-    {
+    private fun showDialog(text: String) {
         val dialog = BottomSheetDialog(this)
         val view = layoutInflater.inflate(R.layout.dialog_layout, null).apply {
             findViewById<TextView>(R.id.title).text = getString(R.string.error)
@@ -193,18 +174,12 @@ class MainActivity : AppCompatActivity()
         }
     }
 
-    // ---------------------------------------------------------------------------------------------------------------------------
-
-    private fun showStatusMessage(text: String)
-    {
+    private fun showStatusMessage(text: String) {
         binding.statusText.isVisible = true
         binding.statusText.text = text
     }
 
-    // ---------------------------------------------------------------------------------------------------------------------------
-
-    private fun enableGPSButton()
-    {
+    private fun enableGPSButton() {
         // Set actions for entering/ exiting following position mode.
         binding.apply {
             gemSurfaceView.mapView?.apply {
@@ -224,21 +199,16 @@ class MainActivity : AppCompatActivity()
         }
     }
 
-    // ---------------------------------------------------------------------------------------------------------------------------
-
-    private fun NavigationInstruction.getDistanceInMeters(): String
-    {
+    private fun NavigationInstruction.getDistanceInMeters(): String {
         return GemUtil.getDistText(
-            this.timeDistanceToNextTurn?.totalDistance ?: 0, EUnitSystem.Metric
+            this.timeDistanceToNextTurn?.totalDistance ?: 0,
+            EUnitSystem.Metric,
         ).let { pair ->
             pair.first + " " + pair.second
         }
     }
 
-    // ---------------------------------------------------------------------------------------------------------------------------
-
-    private fun Route.getEta(): String
-    {
+    private fun Route.getEta(): String {
         val etaNumber = this.getTimeDistance(true)?.totalTime ?: 0
 
         val time = Time()
@@ -247,52 +217,41 @@ class MainActivity : AppCompatActivity()
         return String.format(Locale.getDefault(), "%d:%02d", time.hour, time.minute)
     }
 
-    // ---------------------------------------------------------------------------------------------------------------------------
-
-    private fun Route.getRtt(): String
-    {
+    private fun Route.getRtt(): String {
         return GemUtil.getTimeText(
-            this.getTimeDistance(true)?.totalTime ?: 0
+            this.getTimeDistance(true)?.totalTime ?: 0,
         ).let { pair ->
             pair.first + " " + pair.second
         }
     }
 
-    // ---------------------------------------------------------------------------------------------------------------------------
-
-    private fun Route.getRtd(): String
-    {
+    private fun Route.getRtd(): String {
         return GemUtil.getDistText(
-            this.getTimeDistance(true)?.totalDistance ?: 0, EUnitSystem.Metric
+            this.getTimeDistance(true)?.totalDistance ?: 0,
+            EUnitSystem.Metric,
         ).let { pair ->
             pair.first + " " + pair.second
         }
     }
-
-    // ---------------------------------------------------------------------------------------------------------------------------
 
     private fun startSimulation() = SdkCall.execute {
         val waypoints = arrayListOf(
             Landmark("Luxembourg", 49.61588784436375, 6.135843869736401),
-            Landmark("Mersch", 49.74785494642988, 6.103323786692679)
+            Landmark("Mersch", 49.74785494642988, 6.103323786692679),
         )
         navigationService.startSimulation(
             waypoints,
             navigationListener,
-            routingProgressListener
+            routingProgressListener,
         )
     }
 }
 
-// -------------------------------------------------------------------------------------------------------------------------------
-//region --------------------------------------------------FOR TESTING--------------------------------------------------------------
-// ---------------------------------------------------------------------------------------------------------------------------
-@VisibleForTesting
-object EspressoIdlingResource
-{
-    val espressoIdlingResource = CountingIdlingResource("DownloadedOnboardMapSimulationIdlingResource")
+//region TESTING
+object EspressoIdlingResource {
+    val espressoIdlingResource =
+        CountingIdlingResource("DownloadedOnboardMapSimulationIdlingResource")
     fun increment() = espressoIdlingResource.increment()
     fun decrement() = if (!espressoIdlingResource.isIdleNow) espressoIdlingResource.decrement() else Unit
 }
-//endregion  -------------------------------------------------------------------------------------------------------------------------------
-// -------------------------------------------------------------------------------------------------------------------------------
+//endregion

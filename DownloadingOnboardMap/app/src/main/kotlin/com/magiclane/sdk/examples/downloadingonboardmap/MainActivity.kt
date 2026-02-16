@@ -1,17 +1,11 @@
-// -------------------------------------------------------------------------------------------------------------------------------
-
 /*
- * SPDX-FileCopyrightText: 1995-2025 Magic Lane International B.V. <info@magiclane.com>
+ * SPDX-FileCopyrightText: 2021-2026 Magic Lane International B.V. <info@magiclane.com>
  * SPDX-License-Identifier: Apache-2.0
  *
  * Contact Magic Lane at <info@magiclane.com> for SDK licensing options.
  */
 
-// -------------------------------------------------------------------------------------------------------------------------------
-
 package com.magiclane.sdk.examples.downloadingonboardmap
-
-// -------------------------------------------------------------------------------------------------------------------------------
 
 import android.annotation.SuppressLint
 import android.graphics.Bitmap
@@ -26,9 +20,11 @@ import android.widget.ImageView
 import android.widget.ProgressBar
 import android.widget.TextView
 import androidx.activity.addCallback
+import androidx.activity.enableEdgeToEdge
 import androidx.annotation.VisibleForTesting
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.view.isVisible
+import androidx.databinding.DataBindingUtil
 import androidx.recyclerview.widget.DividerItemDecoration
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
@@ -43,16 +39,14 @@ import com.magiclane.sdk.core.GemSdk
 import com.magiclane.sdk.core.MapDetails
 import com.magiclane.sdk.core.ProgressListener
 import com.magiclane.sdk.core.SdkSettings
+import com.magiclane.sdk.examples.downloadingonboardmap.databinding.ActivityMainBinding
 import com.magiclane.sdk.util.GemUtil
 import com.magiclane.sdk.util.SdkCall
 import com.magiclane.sdk.util.Util
 import kotlin.system.exitProcess
 
-// -------------------------------------------------------------------------------------------------------------------------------
-
-class MainActivity : AppCompatActivity()
-{
-    // ---------------------------------------------------------------------------------------------------------------------------
+class MainActivity : AppCompatActivity() {
+    private lateinit var binding: ActivityMainBinding
 
     private lateinit var listView: RecyclerView
 
@@ -75,78 +69,79 @@ class MainActivity : AppCompatActivity()
             progressBar.visibility = View.GONE
             showStatusMessage("Content store service completed with error code: $errorCode")
 
-            when (errorCode)
-            {
+            when (errorCode) {
                 GemError.NoError ->
-                {
-                    SdkCall.execute {
-                        // No error encountered, we can handle the results.
-                        val models = contentStore.getStoreContentList(EContentType.RoadMap)?.first
+                    {
+                        SdkCall.execute {
+                            // No error encountered, we can handle the results.
+                            val models = contentStore.getStoreContentList(
+                                EContentType.RoadMap,
+                            )?.first
 
-                        if (!models.isNullOrEmpty())
-                        {
-                            // The map items list is not empty or null.
-                            val mapItem = models[0]
-                            val itemName = mapItem.name
+                            if (!models.isNullOrEmpty()) {
+                                // The map items list is not empty or null.
+                                val mapItem = models[0]
+                                val itemName = mapItem.name
 
-                            // Define a listener to the progress of the map download action.
-                            val downloadProgressListener = ProgressListener.create(onStarted = {
-                                showStatusMessage("Started downloading $itemName.")
-                            },
-                                onProgress = {
-                                    listView.adapter?.notifyItemChanged(0)
-                                },
-                                onCompleted = { errorCode, _ ->
-                                    listView.adapter?.notifyItemChanged(0)
-                                    if (errorCode == GemError.NoError)
-                                        showStatusMessage("$itemName was downloaded.")
-                                    else
-                                        showDialog(
-                                            "Download item error: ${
-                                                GemError.getMessage(
-                                                    errorCode
-                                                )
-                                            }"
-                                        )
-                                    EspressoIdlingResource.decrement()
-                                })
-
-                            // Start downloading the first map item.
-                            SdkCall.execute {
-                                mapItem.asyncDownload(
-                                    downloadProgressListener,
-                                    GemSdk.EDataSavePolicy.UseDefault,
-                                    true
+                                // Define a listener to the progress of the map download action.
+                                val downloadProgressListener = ProgressListener.create(
+                                    onStarted = {
+                                        showStatusMessage("Started downloading $itemName.")
+                                    },
+                                    onProgress = {
+                                        listView.adapter?.notifyItemChanged(0)
+                                    },
+                                    onCompleted = { errorCode, _ ->
+                                        listView.adapter?.notifyItemChanged(0)
+                                        if (errorCode == GemError.NoError) {
+                                            showStatusMessage("$itemName was downloaded.")
+                                        } else {
+                                            showDialog(
+                                                "Download item error: ${
+                                                    GemError.getMessage(
+                                                        errorCode,
+                                                    )
+                                                }",
+                                            )
+                                        }
+                                        EspressoIdlingResource.decrement()
+                                    },
                                 )
-                            }
-                        }
 
-                        displayList(models)
+                                // Start downloading the first map item.
+                                SdkCall.execute {
+                                    mapItem.asyncDownload(
+                                        downloadProgressListener,
+                                        GemSdk.EDataSavePolicy.UseDefault,
+                                        true,
+                                    )
+                                }
+                            }
+
+                            displayList(models)
+                        }
                     }
-                }
 
                 GemError.Cancel ->
-                {
-                    // The action was cancelled.
-                    EspressoIdlingResource.decrement()
-                }
+                    {
+                        // The action was cancelled.
+                        EspressoIdlingResource.decrement()
+                    }
 
                 else ->
-                {
-                    // There was a problem at retrieving the content store items.
-                    showDialog("Content store service error: ${GemError.getMessage(errorCode)}")
-                    EspressoIdlingResource.decrement()
-                }
+                    {
+                        // There was a problem at retrieving the content store items.
+                        showDialog("Content store service error: ${GemError.getMessage(errorCode)}")
+                        EspressoIdlingResource.decrement()
+                    }
             }
-        }
+        },
     )
 
-    // ---------------------------------------------------------------------------------------------------------------------------
-
-    override fun onCreate(savedInstanceState: Bundle?)
-    {
+    override fun onCreate(savedInstanceState: Bundle?) {
+        enableEdgeToEdge()
         super.onCreate(savedInstanceState)
-        setContentView(R.layout.activity_main)
+        binding = DataBindingUtil.setContentView(this, R.layout.activity_main)
         EspressoIdlingResource.increment()
         progressBar = findViewById(R.id.progress_bar)
         statusText = findViewById(R.id.status_text)
@@ -155,7 +150,7 @@ class MainActivity : AppCompatActivity()
 
             val separator = DividerItemDecoration(
                 applicationContext,
-                (layoutManager as LinearLayoutManager).orientation
+                (layoutManager as LinearLayoutManager).orientation,
             )
             addItemDecoration(separator)
 
@@ -175,42 +170,38 @@ class MainActivity : AppCompatActivity()
 
             val token = GemSdk.getTokenFromManifest(this)
 
-            if (!token.isNullOrEmpty() && (token != kDefaultToken))
-            {
+            if (!token.isNullOrEmpty() && (token != kDefaultToken)) {
                 loadMapsCatalog()
             } else // if token is not present try to avoid content server requests limitation by delaying the maps catalog request
-            {
-                Handler(Looper.getMainLooper()).postDelayed({
-                    loadMapsCatalog()
-                }, 3000)
-            }
+                {
+                    Handler(Looper.getMainLooper()).postDelayed({
+                        loadMapsCatalog()
+                    }, 3000)
+                }
         }
 
         SdkSettings.onMapDataReady = { mapReady ->
-            if (mapReady)
-            {
+            if (mapReady) {
                 loadMaps()
             }
         }
 
         SdkSettings.onApiTokenRejected = {
-            /*
-            The TOKEN you provided in the AndroidManifest.xml file was rejected.
-            Make sure you provide the correct value, or if you don't have a TOKEN,
-            check the magiclane.com website, sign up/sign in and generate one. 
+            /**
+             * The TOKEN you provided in the AndroidManifest.xml file was rejected.
+             * Make sure you provide the correct value, or if you don't have a TOKEN,
+             * check the magiclane.com website, sign up/sign in and generate one.
              */
             showDialog("TOKEN REJECTED")
         }
 
         // This step of initialization is mandatory if you want to use the SDK without a map.
-        if (!GemSdk.initSdkWithDefaults(this))
-        {
+        if (GemSdk.initSdkWithDefaults(this) != GemError.NoError) {
             // The SDK initialization was not completed.
             finish()
         }
 
-        if (!Util.isInternetConnected(this))
-        {
+        if (!Util.isInternetConnected(this)) {
             progressBar.visibility = View.GONE
             showDialog("You must be connected to the internet!")
         }
@@ -221,32 +212,22 @@ class MainActivity : AppCompatActivity()
         }
     }
 
-    // ---------------------------------------------------------------------------------------------------------------------------
-
-    override fun onDestroy()
-    {
+    override fun onDestroy() {
         super.onDestroy()
 
         // Release the SDK.
         GemSdk.release()
     }
 
-    // ---------------------------------------------------------------------------------------------------------------------------
-
-    private fun displayList(models: ArrayList<ContentStoreItem>?)
-    {
-        if (models != null)
-        {
+    private fun displayList(models: ArrayList<ContentStoreItem>?) {
+        if (models != null) {
             val adapter = CustomAdapter(models)
             listView.adapter = adapter
         }
     }
 
-    // ---------------------------------------------------------------------------------------------------------------------------
-
     @SuppressLint("InflateParams")
-    private fun showDialog(text: String)
-    {
+    private fun showDialog(text: String) {
         val dialog = BottomSheetDialog(this)
         val view = layoutInflater.inflate(R.layout.dialog_layout, null).apply {
             findViewById<TextView>(R.id.title).text = getString(R.string.error)
@@ -262,26 +243,17 @@ class MainActivity : AppCompatActivity()
         }
     }
 
-    // ---------------------------------------------------------------------------------------------------------------------------
-
-    private fun showStatusMessage(text: String)
-    {
-        if (!statusText.isVisible)
-        {
+    private fun showStatusMessage(text: String) {
+        if (!statusText.isVisible) {
             statusText.visibility = View.VISIBLE
         }
         statusText.text = text
     }
 
-    // ---------------------------------------------------------------------------------------------------------------------------
-
     inner class CustomAdapter(private val dataSet: ArrayList<ContentStoreItem>) :
-        RecyclerView.Adapter<CustomAdapter.ViewHolder>()
-    {
-        // -----------------------------------------------------------------------------------------------------------------------
+        RecyclerView.Adapter<CustomAdapter.ViewHolder>() {
 
-        inner class ViewHolder(view: View) : RecyclerView.ViewHolder(view)
-        {
+        inner class ViewHolder(view: View) : RecyclerView.ViewHolder(view) {
             val text: TextView = view.findViewById(R.id.text)
             val description: TextView = view.findViewById(R.id.description)
             val imageView: ImageView = view.findViewById(R.id.icon)
@@ -289,19 +261,13 @@ class MainActivity : AppCompatActivity()
             val statusImageView: ImageView = view.findViewById(R.id.status_icon)
         }
 
-        // -----------------------------------------------------------------------------------------------------------------------
-
-        override fun onCreateViewHolder(viewGroup: ViewGroup, viewType: Int): ViewHolder
-        {
+        override fun onCreateViewHolder(viewGroup: ViewGroup, viewType: Int): ViewHolder {
             val view =
                 LayoutInflater.from(viewGroup.context).inflate(R.layout.list_item, viewGroup, false)
             return ViewHolder(view)
         }
 
-        // -----------------------------------------------------------------------------------------------------------------------
-
-        override fun onBindViewHolder(viewHolder: ViewHolder, position: Int)
-        {
+        override fun onBindViewHolder(viewHolder: ViewHolder, position: Int) {
             viewHolder.apply {
                 text.text = SdkCall.execute { dataSet[position].name }
                 description.text =
@@ -310,40 +276,32 @@ class MainActivity : AppCompatActivity()
 
                 statusImageView.visibility = View.GONE
                 progressBar.visibility = View.INVISIBLE
-                when (SdkCall.execute { dataSet[position].status })
-                {
+                when (SdkCall.execute { dataSet[position].status }) {
                     EContentStoreItemStatus.Completed ->
-                    {
-                        statusImageView.visibility = View.VISIBLE
-                        progressBar.visibility = View.INVISIBLE
-                    }
+                        {
+                            statusImageView.visibility = View.VISIBLE
+                            progressBar.visibility = View.INVISIBLE
+                        }
 
                     EContentStoreItemStatus.DownloadRunning ->
-                    {
-                        progressBar.visibility = View.VISIBLE
-                        progressBar.progress =
-                            SdkCall.execute { dataSet[position].downloadProgress } ?: 0
-                    }
+                        {
+                            progressBar.visibility = View.VISIBLE
+                            progressBar.progress =
+                                SdkCall.execute { dataSet[position].downloadProgress } ?: 0
+                        }
 
                     else -> return
                 }
             }
         }
 
-        // -----------------------------------------------------------------------------------------------------------------------
-
         override fun getItemCount() = dataSet.size
 
-        // -----------------------------------------------------------------------------------------------------------------------
-
-        private fun getFlagBitmap(item: ContentStoreItem): Bitmap?
-        {
+        private fun getFlagBitmap(item: ContentStoreItem): Bitmap? {
             item.countryCodes?.let { codes ->
-                if (codes.isNotEmpty())
-                {
+                if (codes.isNotEmpty()) {
                     val isoCode = codes[0]
-                    if (!flagBitmapsMap.containsKey(isoCode))
-                    {
+                    if (!flagBitmapsMap.containsKey(isoCode)) {
                         val size = resources.getDimension(R.dimen.icon_size).toInt()
                         flagBitmapsMap[isoCode] =
                             MapDetails().getCountryFlag(isoCode)?.asBitmap(size, size)
@@ -355,26 +313,19 @@ class MainActivity : AppCompatActivity()
             }
             return null
         }
-
-        // -----------------------------------------------------------------------------------------------------------------------
     }
-
-    // ---------------------------------------------------------------------------------------------------------------------------
 }
 
-// ---------------------------------------------------------------------------------------------------------------------------
-//region --------------------------------------------------FOR TESTING--------------------------------------------------------------
-// ---------------------------------------------------------------------------------------------------------------------------
+//region TESTING
 @VisibleForTesting
-object EspressoIdlingResource
-{
+object EspressoIdlingResource {
     private const val IDLING_RESOURCE_NAME = "DownloadingOnboardMapIdleRes"
     val espressoIdlingResource = CountingIdlingResource(IDLING_RESOURCE_NAME)
 
     fun increment() = espressoIdlingResource.increment()
-    fun decrement() = if (!espressoIdlingResource.isIdleNow) espressoIdlingResource.decrement() else
-    {
+    fun decrement() = if (!espressoIdlingResource.isIdleNow) {
+        espressoIdlingResource.decrement()
+    } else {
     }
 }
-//endregion  -------------------------------------------------------------------------------------------------------------------------------
-// -------------------------------------------------------------------------------------------------------------------------------
+//endregion

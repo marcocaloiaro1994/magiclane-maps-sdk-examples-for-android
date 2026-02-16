@@ -1,23 +1,15 @@
-// -------------------------------------------------------------------------------------------------
-
 /*
- * SPDX-FileCopyrightText: 1995-2025 Magic Lane International B.V. <info@magiclane.com>
+ * SPDX-FileCopyrightText: 2021-2026 Magic Lane International B.V. <info@magiclane.com>
  * SPDX-License-Identifier: Apache-2.0
  *
  * Contact Magic Lane at <info@magiclane.com> for SDK licensing options.
  */
 
-// -------------------------------------------------------------------------------------------------
-
-
 package com.magiclane.sdk.examples.bikesimulation
 
 import android.Manifest
-import android.content.Context
-import android.net.ConnectivityManager
 import android.view.View
 import androidx.lifecycle.Lifecycle
-import androidx.test.core.app.ApplicationProvider
 import androidx.test.espresso.Espresso.onView
 import androidx.test.espresso.IdlingRegistry
 import androidx.test.espresso.UiController
@@ -39,10 +31,10 @@ import androidx.test.internal.runner.junit4.AndroidJUnit4ClassRunner
 import androidx.test.rule.GrantPermissionRule
 import com.google.android.material.materialswitch.MaterialSwitch
 import com.google.android.material.slider.Slider
-import com.magiclane.sdk.core.GemSdk
 import com.magiclane.sdk.core.GemSurfaceView
 import com.magiclane.sdk.d3scene.Animation
 import com.magiclane.sdk.d3scene.EAnimation
+import com.magiclane.sdk.examples.testing.TestPrerequisites
 import com.magiclane.sdk.places.Coordinates
 import com.magiclane.sdk.util.SdkCall
 import com.magiclane.sdk.util.Util
@@ -61,12 +53,9 @@ import org.junit.Test
 import org.junit.rules.RuleChain
 import org.junit.runner.RunWith
 
-
 @LargeTest
 @RunWith(AndroidJUnit4ClassRunner::class)
 class BikeSimulationInstrumentedTests {
-
-    private val appContext: Context = ApplicationProvider.getApplicationContext()
 
     private val activityScenarioRule: ActivityScenarioRule<MainActivity> =
         ActivityScenarioRule(MainActivity::class.java)
@@ -75,7 +64,7 @@ class BikeSimulationInstrumentedTests {
         Manifest.permission.INTERNET,
         Manifest.permission.ACCESS_NETWORK_STATE,
         Manifest.permission.ACCESS_FINE_LOCATION,
-        Manifest.permission.ACCESS_COARSE_LOCATION
+        Manifest.permission.ACCESS_COARSE_LOCATION,
     )
 
     private fun Int.sToMills() = this * 1000L
@@ -87,16 +76,14 @@ class BikeSimulationInstrumentedTests {
     val chainRule: RuleChain = RuleChain.outerRule(permissionRule).around(activityScenarioRule)
 
     @Before
-    fun checkTokenAndNetwork() {
-        //verify token and internet connection
+    fun setUp() {
+        TestPrerequisites.assertTokenAndNetwork()
         IdlingRegistry.getInstance().register(EspressoIdlingResource.espressoIdlingResource)
         activityScenarioRule.scenario.moveToState(Lifecycle.State.RESUMED)
-        SdkCall.execute { assert(GemSdk.getTokenFromManifest(appContext)?.isNotEmpty() == true) { "Invalid token." } }
-        assert(appContext.getSystemService(ConnectivityManager::class.java).activeNetwork != null) { " No internet connection." }
     }
 
     @After
-    fun releaseScenario() {
+    fun tearDown() {
         IdlingRegistry.getInstance().unregister(EspressoIdlingResource.espressoIdlingResource)
         activityScenarioRule.scenario.moveToState(Lifecycle.State.DESTROYED)
     }
@@ -114,8 +101,10 @@ class BikeSimulationInstrumentedTests {
         delay(10.sToMills())
         onView(withHint(R.string.search_for_destination)).perform(click())
         onView(withHint(R.string.search)).perform(typeText("Buckingham"))
-        delay(12.sToMills())
-        onView(allOf(withChild(withSubstring("Buckingham Palace")), withParentIndex(0))).perform(click())
+        delay(60.sToMills())
+        onView(
+            allOf(withChild(withSubstring("Buckingham Palace")), withParentIndex(0)),
+        ).perform(click())
         delay(2.sToMills())
         onView(withId(R.id.start_simulation)).perform(click())
         delay(10.sToMills())
@@ -124,7 +113,7 @@ class BikeSimulationInstrumentedTests {
     @Test
     fun touchLandmarkAndStartSim(): Unit = runBlocking {
         delay(10.sToMills())
-        onView(withId(R.id.gem_surface)).perform(CenterAndTouch(GM_LAT, GM_LON))
+        onView(withId(R.id.gem_surface_view)).perform(CenterAndTouch(GM_LAT, GM_LON))
         delay(2.sToMills())
         onView(withId(R.id.start_simulation)).perform(click())
         delay(10.sToMills())
@@ -135,17 +124,42 @@ class BikeSimulationInstrumentedTests {
         delay(10.sToMills())
         onView(withId(R.id.bike_settings_button)).perform(click())
         delay(5.sToMills())
-        onView(allOf(withClassName(`is`(MaterialSwitch::class.qualifiedName)), withParent(withChild(withSubstring("E-Bike"))))).perform(click())
-        onView(allOf(withClassName(`is`(MaterialSwitch::class.qualifiedName)), withParent(withChild(withSubstring("Avoid Ferries"))))).perform(click())
-        onView(allOf(withClassName(`is`(MaterialSwitch::class.qualifiedName)), withParent(withChild(withSubstring("Avoid Unpaved Roads"))))).perform(click())
-        onView(allOf(withChild(withSubstring("Hills")), isDisplayed())).perform(SetSettingsSlider(10f))
-        onView(allOf(withChild(withSubstring("Bike Weight")), isDisplayed())).perform(SetSettingsSlider(50f))
-        onView(allOf(withChild(withSubstring("Biker Weight")), isDisplayed())).perform(SetSettingsSlider(150f))
-        onView(allOf(withChild(withSubstring("Aux Consumption Day")), isDisplayed())).perform(SetSettingsSlider(100f))
-        onView(allOf(withChild(withSubstring("Aux Consumption Night")), isDisplayed())).perform(SetSettingsSlider(100f))
+        onView(
+            allOf(
+                withClassName(`is`(MaterialSwitch::class.qualifiedName)),
+                withParent(withChild(withSubstring("E-Bike"))),
+            ),
+        ).perform(click())
+        onView(
+            allOf(
+                withClassName(`is`(MaterialSwitch::class.qualifiedName)),
+                withParent(withChild(withSubstring("Avoid Ferries"))),
+            ),
+        ).perform(click())
+        onView(
+            allOf(
+                withClassName(`is`(MaterialSwitch::class.qualifiedName)),
+                withParent(withChild(withSubstring("Avoid Unpaved Roads"))),
+            ),
+        ).perform(click())
+        onView(
+            allOf(withChild(withSubstring("Hills")), isDisplayed()),
+        ).perform(SetSettingsSlider(10f))
+        onView(
+            allOf(withChild(withSubstring("Bike Weight")), isDisplayed()),
+        ).perform(SetSettingsSlider(50f))
+        onView(
+            allOf(withChild(withSubstring("Biker Weight")), isDisplayed()),
+        ).perform(SetSettingsSlider(150f))
+        onView(
+            allOf(withChild(withSubstring("Aux Consumption Day")), isDisplayed()),
+        ).perform(SetSettingsSlider(100f))
+        onView(
+            allOf(withChild(withSubstring("Aux Consumption Night")), isDisplayed()),
+        ).perform(SetSettingsSlider(100f))
         onView(withId(R.id.bike_settings_toolbar)).perform(ViewActions.pressBack())
         delay(2.sToMills())
-        onView(withId(R.id.gem_surface)).perform(CenterAndTouch(GM_LAT, GM_LON))
+        onView(withId(R.id.gem_surface_view)).perform(CenterAndTouch(GM_LAT, GM_LON))
         delay(2.sToMills())
         onView(withId(R.id.start_simulation)).perform(click())
         delay(10.sToMills())
@@ -156,22 +170,47 @@ class BikeSimulationInstrumentedTests {
         delay(10.sToMills())
         onView(withId(R.id.bike_settings_button)).perform(click())
         delay(2.sToMills())
-        onView(allOf(withClassName(`is`(MaterialSwitch::class.qualifiedName)), withParent(withChild(withSubstring("E-Bike"))))).perform(click())
-        onView(allOf(withClassName(`is`(MaterialSwitch::class.qualifiedName)), withParent(withChild(withSubstring("Avoid Ferries"))))).perform(click())
-        onView(allOf(withClassName(`is`(MaterialSwitch::class.qualifiedName)), withParent(withChild(withSubstring("Avoid Unpaved Roads"))))).perform(click())
-        onView(allOf(withChild(withSubstring("Hills")), isDisplayed())).perform(SetSettingsSlider(0f))
-        onView(allOf(withChild(withSubstring("Bike Weight")), isDisplayed())).perform(SetSettingsSlider(9f))
-        onView(allOf(withChild(withSubstring("Biker Weight")), isDisplayed())).perform(SetSettingsSlider(10f))
-        onView(allOf(withChild(withSubstring("Aux Consumption Day")), isDisplayed())).perform(SetSettingsSlider(0f))
-        onView(allOf(withChild(withSubstring("Aux Consumption Night")), isDisplayed())).perform(SetSettingsSlider(0f))
+        onView(
+            allOf(
+                withClassName(`is`(MaterialSwitch::class.qualifiedName)),
+                withParent(withChild(withSubstring("E-Bike"))),
+            ),
+        ).perform(click())
+        onView(
+            allOf(
+                withClassName(`is`(MaterialSwitch::class.qualifiedName)),
+                withParent(withChild(withSubstring("Avoid Ferries"))),
+            ),
+        ).perform(click())
+        onView(
+            allOf(
+                withClassName(`is`(MaterialSwitch::class.qualifiedName)),
+                withParent(withChild(withSubstring("Avoid Unpaved Roads"))),
+            ),
+        ).perform(click())
+        onView(
+            allOf(withChild(withSubstring("Hills")), isDisplayed()),
+        ).perform(SetSettingsSlider(0f))
+        onView(
+            allOf(withChild(withSubstring("Bike Weight")), isDisplayed()),
+        ).perform(SetSettingsSlider(9f))
+        onView(
+            allOf(withChild(withSubstring("Biker Weight")), isDisplayed()),
+        ).perform(SetSettingsSlider(10f))
+        onView(
+            allOf(withChild(withSubstring("Aux Consumption Day")), isDisplayed()),
+        ).perform(SetSettingsSlider(0f))
+        onView(
+            allOf(withChild(withSubstring("Aux Consumption Night")), isDisplayed()),
+        ).perform(SetSettingsSlider(0f))
         onView(withId(R.id.bike_settings_toolbar)).perform(ViewActions.pressBack())
         delay(2.sToMills())
-        onView(withId(R.id.gem_surface)).perform(CenterAndTouch(GM_LAT, GM_LON))
+        onView(withId(R.id.gem_surface_view)).perform(CenterAndTouch(GM_LAT, GM_LON))
         delay(2.sToMills())
         onView(withId(R.id.start_simulation)).perform(click())
         delay(10.sToMills())
     }
-    
+
     class SetSettingsSlider(private val value: Float) : ViewAction {
         override fun getConstraints(): Matcher<View> {
             return isDisplayed()
@@ -187,7 +226,6 @@ class BikeSimulationInstrumentedTests {
                 slider.value = value
             } ?: throw IllegalArgumentException()
         }
-
     }
 
     class CenterAndTouch(private val lat: Double, private val lon: Double) : ViewAction {
@@ -205,19 +243,21 @@ class BikeSimulationInstrumentedTests {
                     CoroutineScope(Dispatchers.Main).launch {
                         SdkCall.execute {
                             val coordinates = Coordinates(lat, lon)
-                            mapView?.centerOnCoordinates(coordinates, animation = Animation(EAnimation.None, duration = 0))
+                            mapView?.centerOnCoordinates(
+                                coordinates,
+                                animation = Animation(EAnimation.None, duration = 0),
+                            )
                         }
                         delay(2000)
                         SdkCall.execute {
                             val center = mapView?.viewport?.center
-                            if (center != null)
+                            if (center != null) {
                                 Util.postOnMain { mapView?.onTouch?.invoke(center) }
+                            }
                         }
                     }
                 }
             } ?: throw IllegalArgumentException()
         }
-
     }
 }
-

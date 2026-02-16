@@ -1,27 +1,46 @@
 <?xml version="1.0" encoding="utf-8"?>
-<androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<layout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
-    xmlns:tools="http://schemas.android.com/tools"
-    android:layout_width="match_parent"
-    android:layout_height="match_parent"
-    tools:context="com.magiclane.sdk.examples.perspectivechange.MainActivity">
+    xmlns:tools="http://schemas.android.com/tools">
 
-    <com.magiclane.sdk.core.GemSurfaceView
-        android:id="@+id/gem_surface"
+    <androidx.constraintlayout.widget.ConstraintLayout
         android:layout_width="match_parent"
-        android:layout_height="match_parent" />
+        android:layout_height="match_parent"
+        tools:context="com.magiclane.sdk.examples.perspectivechange.MainActivity">
 
-    <com.google.android.material.button.MaterialButton
-        android:id="@+id/button"
-        android:layout_width="70dp"
-        android:layout_height="70dp"
-        android:layout_margin="10dp"
-        android:backgroundTint="@color/purple_500"
-        android:text="@string/three_dimensional"
-        android:textColor="@color/white"
-        app:cornerRadius="30dp"
-        app:layout_constraintBottom_toBottomOf="@id/gem_surface"
-        app:layout_constraintStart_toStartOf="@id/gem_surface"
-        tools:ignore="ContentDescription,UnusedAttribute" />
-    
-</androidx.constraintlayout.widget.ConstraintLayout>
+        <com.magiclane.sdk.core.GemSurfaceView
+            android:id="@+id/surface_view"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent" />
+
+        <com.google.android.material.appbar.MaterialToolbar
+            android:id="@+id/toolbar"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:background="@color/primary"
+            app:layout_constraintTop_toTopOf="parent"
+            app:title="@string/app_name"
+            app:titleTextColor="@color/on_primary"
+            app:paddingTopWithSystemWindowInsets='@{"8dp"}'
+            app:paddingLeftWithSystemWindowInsets='@{@dimen/small_padding}'
+            app:paddingRightWithSystemWindowInsets='@{@dimen/small_padding}'
+            android:paddingBottom="12dp"
+            />
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/button"
+            android:layout_width="70dp"
+            android:layout_height="70dp"
+            android:layout_margin="10dp"
+            android:backgroundTint="@color/primary"
+            android:text="@string/three_dimensional"
+            android:textColor="@color/on_primary"
+            app:cornerRadius="30dp"
+            app:layout_constraintBottom_toBottomOf="@id/surface_view"
+            app:layout_constraintStart_toStartOf="@id/surface_view"
+            app:marginBottomWithSystemWindowInsets="@{@dimen/no_extra_inset}"
+            app:marginLeftWithSystemWindowInsets="@{@dimen/no_extra_inset}"
+            tools:ignore="ContentDescription,UnusedAttribute" />
+
+    </androidx.constraintlayout.widget.ConstraintLayout>
+</layout>

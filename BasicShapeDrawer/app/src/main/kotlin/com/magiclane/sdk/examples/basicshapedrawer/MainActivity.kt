@@ -1,115 +1,136 @@
-// -------------------------------------------------------------------------------------------------------------------------------
-
 /*
- * SPDX-FileCopyrightText: 1995-2025 Magic Lane International B.V. <info@magiclane.com>
+ * SPDX-FileCopyrightText: 2021-2026 Magic Lane International B.V. <info@magiclane.com>
  * SPDX-License-Identifier: Apache-2.0
  *
  * Contact Magic Lane at <info@magiclane.com> for SDK licensing options.
  */
 
-// -------------------------------------------------------------------------------------------------------------------------------
-
 package com.magiclane.sdk.examples.basicshapedrawer
-
-// -------------------------------------------------------------------------------------------------------------------------------
 
 import android.os.Bundle
 import android.view.Menu
 import android.view.MenuInflater
 import android.view.MenuItem
 import androidx.activity.OnBackPressedCallback
+import androidx.activity.enableEdgeToEdge
 import androidx.appcompat.app.AppCompatActivity
 import androidx.navigation.findNavController
+import com.magiclane.sdk.core.GemError
 import com.magiclane.sdk.core.GemSdk
 import com.magiclane.sdk.core.SdkSettings
+import com.magiclane.sdk.examples.basicshapedrawer.databinding.ActivityMainBinding
 import com.magiclane.sdk.util.Util
 import kotlin.system.exitProcess
 
-// -------------------------------------------------------------------------------------------------------------------------------
+class MainActivity : AppCompatActivity() {
 
-class MainActivity : AppCompatActivity()
-{
-    // ---------------------------------------------------------------------------------------------------------------------------
+    private lateinit var binding: ActivityMainBinding
 
-    override fun onCreate(savedInstanceState: Bundle?)
-    {
+    override fun onCreate(savedInstanceState: Bundle?) {
+        enableEdgeToEdge()
         super.onCreate(savedInstanceState)
-        setContentView(R.layout.activity_main)
+        binding = ActivityMainBinding.inflate(layoutInflater)
+        setContentView(binding.root)
+
+        if (GemSdk.initSdkWithDefaults(this) != GemError.NoError) {
+            finish()
+            return
+        }
 
         SdkSettings.onApiTokenRejected = {
-            /*
-            The TOKEN you provided in the AndroidManifest.xml file was rejected.
-            Make sure you provide the correct value, or if you don't have a TOKEN,
-            check the magiclane.com website, sign up/sign in and generate one. 
+            /**
+             * The TOKEN you provided in the AndroidManifest.xml file was rejected.
+             * Make sure you provide the correct value, or if you don't have a TOKEN,
+             * check the magiclane.com website, sign up/sign in and generate one.
              */
             Utils.showDialog("TOKEN REJECTED", this)
         }
 
-        if (!Util.isInternetConnected(this))
-        {
+        if (!Util.isInternetConnected(this)) {
             Utils.showDialog("You must be connected to the internet!", this)
         }
 
-        onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true)
-        {
-            override fun handleOnBackPressed()
-            {
-                finish()
-                exitProcess(0)
+        onBackPressedDispatcher.addCallback(
+            this,
+            object : OnBackPressedCallback(true) {
+                override fun handleOnBackPressed() {
+                    finish()
+                    exitProcess(0)
+                }
+            },
+        )
+
+        binding.toolbar.setOnMenuItemClickListener { item ->
+            when (item.itemId) {
+                R.id.go_to_population_fragment ->
+                    {
+                        findNavController(R.id.fr_container).apply {
+                            currentDestination?.let {
+                                if (it.id != R.id.population) {
+                                    navigate(R.id.action_speed_limits_panel_to_population)
+                                }
+                            }
+                        }
+                        true
+                    }
+
+                R.id.go_to_speed_limits ->
+                    {
+                        findNavController(R.id.fr_container).apply {
+                            currentDestination?.let {
+                                if (it.id != R.id.speed_limits_panel) {
+                                    navigate(R.id.action_population_to_dataVisualization)
+                                }
+                            }
+                        }
+                        true
+                    }
+                else -> super.onOptionsItemSelected(item)
             }
-        })
+        }
     }
 
-    // ---------------------------------------------------------------------------------------------------------------------------
-    override fun onCreateOptionsMenu(menu: Menu): Boolean
-    {
+    override fun onCreateOptionsMenu(menu: Menu): Boolean {
         val inflater: MenuInflater = menuInflater
         inflater.inflate(R.menu.navigation_menu, menu)
         return true
     }
 
-    // ---------------------------------------------------------------------------------------------------------------------------
-    override fun onOptionsItemSelected(item: MenuItem): Boolean
-    {
+    override fun onOptionsItemSelected(item: MenuItem): Boolean {
         // Handle item selection.
-        return when (item.itemId)
-        {
+        return when (item.itemId) {
             R.id.go_to_population_fragment ->
-            {
-                findNavController(R.id.fr_container).apply {
-                    currentDestination?.let {
-                        if (it.id != R.id.population)
-                            navigate(R.id.action_speed_limits_panel_to_population)
+                {
+                    findNavController(R.id.fr_container).apply {
+                        currentDestination?.let {
+                            if (it.id != R.id.population) {
+                                navigate(R.id.action_speed_limits_panel_to_population)
+                            }
+                        }
                     }
+                    true
                 }
-                true
-            }
 
             R.id.go_to_speed_limits ->
-            {
-                findNavController(R.id.fr_container).apply {
-                    currentDestination?.let {
-                        if (it.id != R.id.speed_limits_panel)
-                            navigate(R.id.action_population_to_dataVisualization)
+                {
+                    findNavController(R.id.fr_container).apply {
+                        currentDestination?.let {
+                            if (it.id != R.id.speed_limits_panel) {
+                                navigate(R.id.action_population_to_dataVisualization)
+                            }
+                        }
                     }
+                    true
                 }
-                true
-            }
 
             else -> super.onOptionsItemSelected(item)
         }
     }
-    // ---------------------------------------------------------------------------------------------------------------------------
 
-    override fun onDestroy()
-    {
+    override fun onDestroy() {
         super.onDestroy()
 
         // Release the SDK.
         GemSdk.release()
     }
-
-    // ---------------------------------------------------------------------------------------------------------------------------
 }
-
-// -------------------------------------------------------------------------------------------------------------------------------

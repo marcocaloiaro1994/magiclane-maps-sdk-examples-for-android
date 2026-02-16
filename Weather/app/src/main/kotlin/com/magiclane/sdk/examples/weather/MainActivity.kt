@@ -1,32 +1,26 @@
-// -------------------------------------------------------------------------------------------------
-
 /*
- * SPDX-FileCopyrightText: 1995-2025 Magic Lane International B.V. <info@magiclane.com>
+ * SPDX-FileCopyrightText: 2021-2026 Magic Lane International B.V. <info@magiclane.com>
  * SPDX-License-Identifier: Apache-2.0
  *
  * Contact Magic Lane at <info@magiclane.com> for SDK licensing options.
  */
 
-// -------------------------------------------------------------------------------------------------
-
 package com.magiclane.sdk.examples.weather
-
-// -------------------------------------------------------------------------------------------------
 
 import android.Manifest
 import android.app.Activity
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.graphics.Bitmap
-import android.os.Build
 import android.os.Bundle
 import android.view.View
-import android.view.WindowInsets
 import androidx.activity.addCallback
+import androidx.activity.enableEdgeToEdge
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
 import androidx.core.graphics.drawable.toBitmap
 import androidx.core.view.isVisible
+import androidx.databinding.DataBindingUtil
 import androidx.test.espresso.idling.CountingIdlingResource
 import com.magiclane.sdk.core.GemSdk
 import com.magiclane.sdk.core.Rgba
@@ -47,10 +41,8 @@ import com.magiclane.sdk.util.SdkCall
 import com.magiclane.sdk.util.Util
 import kotlin.system.exitProcess
 
-// -------------------------------------------------------------------------------------------------
-
 class MainActivity : AppCompatActivity() {
-    // ---------------------------------------------------------------------------------------------
+
     companion object {
         private const val REQUEST_PERMISSIONS = 110
     }
@@ -58,31 +50,17 @@ class MainActivity : AppCompatActivity() {
     private lateinit var binding: ActivityMainBinding
     private var imageSize = 0
 
-    // ---------------------------------------------------------------------------------------------
-    // region OVERRIDDEN METHODS--------------------------------------------------------------------
-
+    // region OVERRIDDEN METHODS
     override fun onCreate(savedInstanceState: Bundle?) {
+        enableEdgeToEdge()
         super.onCreate(savedInstanceState)
-        binding = ActivityMainBinding.inflate(layoutInflater)
-        setContentView(binding.root)
+        binding = DataBindingUtil.setContentView(this, R.layout.activity_main)
 
         imageSize = resources.getDimension(R.dimen.image_size).toInt()
         binding.buttonsGroup.isVisible = false
-        //set window insets
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-            binding.frame.setOnApplyWindowInsetsListener { view, insets ->
-                val systemBarsInsets = insets.getInsets(WindowInsets.Type.systemBars())
-                view.setPadding(
-                    systemBarsInsets.left,
-                    systemBarsInsets.top,
-                    systemBarsInsets.right,
-                    systemBarsInsets.bottom
-                )
-                insets
-            }
-        }
-        SdkSettings.onMapDataReady = onMapDataReady@{ isReady ->
-            if (!isReady) return@onMapDataReady
+
+        EspressoIdlingResource.increment()
+        val onReady = {
             // Set GPS button if location permission is granted, otherwise request permission
             SdkCall.execute {
                 val hasLocationPermission =
@@ -93,11 +71,12 @@ class MainActivity : AppCompatActivity() {
                     requestPermissions(this)
                 }
             }
+
             // onTouch event callback
             binding.gemSurfaceView.mapView?.onTouch = { xy ->
                 // xy are the coordinates of the touch event
                 SdkCall.execute {
-                    binding.apply {// tell the map view where the touch event happened
+                    binding.apply { // tell the map view where the touch event happened
                         gemSurfaceView.mapView?.cursorScreenPosition = xy
                         gemSurfaceView.mapView?.deactivateAllHighlights()
 
@@ -107,14 +86,17 @@ class MainActivity : AppCompatActivity() {
                         val myPosition = gemSurfaceView.mapView?.cursorSelectionSceneObject
                         if (myPosition != null && isSameMapScene(
                                 myPosition,
-                                MapSceneObject.getDefPositionTracker().first!!
+                                MapSceneObject.getDefPositionTracker().first!!,
                             )
                         ) {
                             showOverlayContainer(
                                 getString(R.string.my_position),
                                 "",
-                                ContextCompat.getDrawable(this@MainActivity, R.drawable.ic_current_location_arrow)
-                                    ?.toBitmap(imageSize, imageSize)
+                                ContextCompat.getDrawable(
+                                    this@MainActivity,
+                                    R.drawable.ic_current_location_arrow,
+                                )
+                                    ?.toBitmap(imageSize, imageSize),
                             )
 
                             myPosition.coordinates?.let {
@@ -124,7 +106,7 @@ class MainActivity : AppCompatActivity() {
                                     centerXy,
                                     Animation(EAnimation.Linear),
                                     Double.MAX_VALUE,
-                                    0.0
+                                    0.0,
                                 )
                             }
 
@@ -138,7 +120,7 @@ class MainActivity : AppCompatActivity() {
                                 showOverlayContainer(
                                     name.toString(),
                                     description.toString(),
-                                    image?.asBitmap(imageSize, imageSize)
+                                    image?.asBitmap(imageSize, imageSize),
                                 )
                             }
 
@@ -156,12 +138,12 @@ class MainActivity : AppCompatActivity() {
                                         EHighlightOptions.ShowContour,
                                         Rgba(255, 98, 0, 255),
                                         Rgba(255, 98, 0, 255),
-                                        0.75
+                                        0.75,
                                     )
 
                                     gemSurfaceView.mapView?.activateHighlightLandmarks(
                                         landmark,
-                                        displaySettings
+                                        displaySettings,
                                     )
                                 }
                             } else {
@@ -172,26 +154,35 @@ class MainActivity : AppCompatActivity() {
                                         centerXy,
                                         Animation(EAnimation.Linear),
                                         Double.MAX_VALUE,
-                                        0.0
+                                        0.0,
                                     )
                                 }
                             }
                             setupForecastButtons(landmark.coordinates, landmark.name ?: "")
 
                             return@execute
-                        } else
+                        } else {
                             hideOverlayContainer()
+                        }
                     }
                 }
             }
             EspressoIdlingResource.decrement()
         }
+        if (SdkSettings.isMapDataReady) {
+            onReady()
+        } else {
+            SdkSettings.onMapDataReady = onMapDataReady@{ isReady ->
+                if (!isReady) return@onMapDataReady
+                onReady()
+            }
+        }
 
         SdkSettings.onApiTokenRejected = {
-            /* 
-            The TOKEN you provided in the AndroidManifest.xml file was rejected.
-            Make sure you provide the correct value, or if you don't have a TOKEN,
-            check the magiclane.com website, sign up/sign in and generate one. 
+            /**
+             * The TOKEN you provided in the AndroidManifest.xml file was rejected.
+             * Make sure you provide the correct value, or if you don't have a TOKEN,
+             * check the magiclane.com website, sign up/sign in and generate one.
              */
             Utils.showDialog("TOKEN REJECTED", this)
         }
@@ -204,10 +195,7 @@ class MainActivity : AppCompatActivity() {
             finish()
             exitProcess(0)
         }
-        EspressoIdlingResource.increment()
     }
-
-    // ---------------------------------------------------------------------------------------------
 
     override fun onDestroy() {
         super.onDestroy()
@@ -215,20 +203,17 @@ class MainActivity : AppCompatActivity() {
         GemSdk.release()
     }
 
-    // ---------------------------------------------------------------------------------------------
-
-    override fun onRequestPermissionsResult(
-        requestCode: Int,
-        permissions: Array<out String>,
-        grantResults: IntArray
-    ) {
+    override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults)
 
         if (requestCode != REQUEST_PERMISSIONS) return
 
         for (item in grantResults) {
             if (item != PackageManager.PERMISSION_GRANTED) {
-                Utils.showDialog("Location permission is required in order to select the current position cursor.", this)
+                Utils.showDialog(
+                    "Location permission is required in order to select the current position cursor.",
+                    this,
+                )
                 return
             }
         }
@@ -251,10 +236,9 @@ class MainActivity : AppCompatActivity() {
             }
         }
     }
+    // endregion
 
-    // endregion -----------------------------------------------------------------------------------
-    // ---------------------------------------------------------------------------------------------
-    // region PRIVATE FUNCTIONS---------------------------------------------------------------------
+    // region PRIVATE FUNCTIONS
     private fun setupForecastButtons(coordinates: Coordinates?, name: String) {
         val intent = Intent(this@MainActivity, ForecastActivity::class.java)
         SdkCall.execute {
@@ -263,23 +247,31 @@ class MainActivity : AppCompatActivity() {
                 intent.putExtra(ForecastActivity.LONGITUDE_ARG_ID, longitude)
                 binding.apply {
                     forecastButton.setOnClickListener {
-                        intent.putExtra(ForecastActivity.FORECAST_TYPE_ID, EForecastType.CURRENT.ordinal)
+                        intent.putExtra(
+                            ForecastActivity.FORECAST_TYPE_ID,
+                            EForecastType.CURRENT.ordinal,
+                        )
                         intent.putExtra(ForecastActivity.LOCATION_NAME, name)
                         startActivity(intent)
                     }
                     hourlyForecastButton.setOnClickListener {
-                        intent.putExtra(ForecastActivity.FORECAST_TYPE_ID, EForecastType.HOURLY.ordinal)
+                        intent.putExtra(
+                            ForecastActivity.FORECAST_TYPE_ID,
+                            EForecastType.HOURLY.ordinal,
+                        )
                         startActivity(intent)
                     }
                     dailyForecastButton.setOnClickListener {
-                        intent.putExtra(ForecastActivity.FORECAST_TYPE_ID, EForecastType.DAILY.ordinal)
+                        intent.putExtra(
+                            ForecastActivity.FORECAST_TYPE_ID,
+                            EForecastType.DAILY.ordinal,
+                        )
                         startActivity(intent)
                     }
                 }
             }
         }
     }
-    // ---------------------------------------------------------------------------------------------
 
     private fun isSameMapScene(first: MapSceneObject, second: MapSceneObject): Boolean =
         first.maxScaleFactor == second.maxScaleFactor &&
@@ -293,35 +285,29 @@ class MainActivity : AppCompatActivity() {
             first.orientation?.z == second.orientation?.z &&
             first.orientation?.w == second.orientation?.w
 
-    // ---------------------------------------------------------------------------------------------
+    private fun showOverlayContainer(nameString: String, descriptionString: String, bmp: Bitmap?) = Util.postOnMain {
+        binding.apply {
+            buttonsGroup.isVisible = true
+            overlayContainer.isVisible = true
 
-    private fun showOverlayContainer(nameString: String, descriptionString: String, bmp: Bitmap?) =
-        Util.postOnMain {
-            binding.apply {
-                buttonsGroup.isVisible = true
-                overlayContainer.isVisible = true
-
-                name.text = nameString
-                if (descriptionString.isNotEmpty())
-                    description.apply {
-                        text = descriptionString
-                        isVisible = true
-                    }
-                else
-                    description.visibility = View.GONE
-
-                image.setImageBitmap(bmp)
+            name.text = nameString
+            if (descriptionString.isNotEmpty()) {
+                description.apply {
+                    text = descriptionString
+                    isVisible = true
+                }
+            } else {
+                description.visibility = View.GONE
             }
-        }
 
-    // ---------------------------------------------------------------------------------------------
+            image.setImageBitmap(bmp)
+        }
+    }
 
     private fun hideOverlayContainer() = Util.postOnMain {
         binding.overlayContainer.isVisible = false
         binding.buttonsGroup.isVisible = false
     }
-
-    // ---------------------------------------------------------------------------------------------
 
     private fun enableGPSButton() {
         // Set actions for entering/ exiting following position mode.
@@ -348,38 +334,27 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    // ---------------------------------------------------------------------------------------------
-
     private fun requestPermissions(activity: Activity): Boolean {
         val permissions = arrayListOf(
             Manifest.permission.INTERNET,
             Manifest.permission.ACCESS_NETWORK_STATE,
             Manifest.permission.ACCESS_FINE_LOCATION,
-            Manifest.permission.ACCESS_COARSE_LOCATION
+            Manifest.permission.ACCESS_COARSE_LOCATION,
         )
 
         return PermissionsHelper.requestPermissions(
-            REQUEST_PERMISSIONS, activity, permissions.toTypedArray()
+            REQUEST_PERMISSIONS,
+            activity,
+            permissions.toTypedArray(),
         )
     }
-
-    // ---------------------------------------------------------------------------------------------
-
-    /*    private fun Context.isDarkThemeOn(): Boolean
-        {
-            return resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK == Configuration.UI_MODE_NIGHT_YES
-        }*/
-
-    // endregion------------------------------------------------------------------------------------
+    // endregion
 }
 
-// -------------------------------------------------------------------------------------------------
-//region --------------------------------------------------FOR TESTING------------------------------
-// -------------------------------------------------------------------------------------------------
+//region TESTING
 object EspressoIdlingResource {
     val espressoIdlingResource = CountingIdlingResource("MapSelectionIdlingResource")
     fun increment() = espressoIdlingResource.increment()
     fun decrement() = if (!espressoIdlingResource.isIdleNow) espressoIdlingResource.decrement() else Unit
 }
-//endregion  ---------------------------------------------------------------------------------------
-// -------------------------------------------------------------------------------------------------
+//endregion

@@ -1,23 +1,13 @@
-// -------------------------------------------------------------------------------------------------
-
 /*
- * SPDX-FileCopyrightText: 1995-2025 Magic Lane International B.V. <info@magiclane.com>
+ * SPDX-FileCopyrightText: 2021-2026 Magic Lane International B.V. <info@magiclane.com>
  * SPDX-License-Identifier: Apache-2.0
  *
  * Contact Magic Lane at <info@magiclane.com> for SDK licensing options.
  */
 
-// -------------------------------------------------------------------------------------------------
-
-
 package com.magiclane.sdk.examples.trackpositions
-// -------------------------------------------------------------------------------------------------
 
-import android.content.Context
-import android.content.Intent
-import android.net.ConnectivityManager
 import androidx.lifecycle.Lifecycle
-import androidx.test.core.app.ApplicationProvider
 import androidx.test.espresso.Espresso.onView
 import androidx.test.espresso.IdlingRegistry
 import androidx.test.espresso.action.ViewActions.click
@@ -28,40 +18,26 @@ import androidx.test.espresso.matcher.ViewMatchers.withText
 import androidx.test.ext.junit.rules.ActivityScenarioRule
 import androidx.test.filters.LargeTest
 import androidx.test.internal.runner.junit4.AndroidJUnit4ClassRunner
-import com.magiclane.sdk.core.GemError
 import com.magiclane.sdk.core.GemSdk
-import com.magiclane.sdk.core.SdkSettings
+import com.magiclane.sdk.examples.testing.GemSdkTestRule
 import com.magiclane.sdk.examples.trackpositions.MainActivity.Companion.paths
-import com.magiclane.sdk.util.SdkCall
-import kotlinx.coroutines.channels.Channel
+import java.io.File
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.runBlocking
-import kotlinx.coroutines.withTimeoutOrNull
 import org.junit.After
 import org.junit.Before
 import org.junit.ClassRule
 import org.junit.Rule
 import org.junit.Test
-import org.junit.rules.TestRule
-import org.junit.runner.Description
 import org.junit.runner.RunWith
-import org.junit.runners.model.Statement
-import java.io.File
-import java.nio.file.Files
 
-// -------------------------------------------------------------------------------------------------
 @LargeTest
 @RunWith(AndroidJUnit4ClassRunner::class)
-class TrackPositionsInstrumentedTests()
-{
-    // -------------------------------------------------------------------------------------------------
-    // -------------------------------------------------------------------------------------------------
-    companion object
-    {
-        // -------------------------------------------------------------------------------------------------
-        private val appContext: Context = ApplicationProvider.getApplicationContext()
-        fun isInternetOn() = appContext.getSystemService(ConnectivityManager::class.java).activeNetwork != null
-        // -------------------------------------------------------------------------------------------------
+class TrackPositionsInstrumentedTests() {
+    companion object {
+        @get:ClassRule
+        @JvmStatic
+        val sdkRule = GemSdkTestRule()
     }
 
     @Rule
@@ -70,28 +46,18 @@ class TrackPositionsInstrumentedTests()
         ActivityScenarioRule(MainActivity::class.java)
 
     @Before
-    fun checkTokenAndNetwork()
-    {
+    fun setUp() {
+        // Reset companion object state that persists across tests.
+        paths.clear()
         activityScenarioRule.scenario.moveToState(Lifecycle.State.RESUMED)
-        //verify token and internet connection
-        SdkCall.execute { assert(GemSdk.getTokenFromManifest(appContext)?.isNotEmpty() == true) { "Invalid token." } }
-        assert(isInternetOn()) { " No internet connection." }
         IdlingRegistry.getInstance().register(EspressoIdlingResource.espressoIdlingResource)
     }
 
-    // -------------------------------------------------------------------------------------------------
-
     @After
-    fun unregisterRes()
-    {
+    fun tearDown() {
         IdlingRegistry.getInstance().unregister(EspressoIdlingResource.espressoIdlingResource)
-        activityScenarioRule.scenario.onActivity { activity ->
-            activity.finish()
-        }
         activityScenarioRule.scenario.close()
     }
-
-    // -------------------------------------------------------------------------------------------------
 
     @Test
     fun trackingPositionForGPXSavesFile(): Unit = runBlocking {
@@ -107,9 +73,10 @@ class TrackPositionsInstrumentedTests()
         deleteFile(name)
         delay(1000)
     }
+
     @Test
     fun trackingPositionForGPXSavesFile2(): Unit = runBlocking {
-        val name = "path" +  (paths.size + 1).toString() + ".gpx"
+        val name = "path" + (paths.size + 1).toString() + ".gpx"
         deleteFile(name)
         delay(2000)
         onView(withText(".gpx")).check(matches(isDisplayed()))
@@ -126,7 +93,7 @@ class TrackPositionsInstrumentedTests()
 
     @Test
     fun trackingPositionForKml(): Unit = runBlocking {
-        val name = "path" +  (paths.size + 1).toString() + ".kml"
+        val name = "path" + (paths.size + 1).toString() + ".kml"
         deleteFile(name)
         delay(2000)
         onView(withText(".kml")).check(matches(isDisplayed()))
@@ -143,7 +110,7 @@ class TrackPositionsInstrumentedTests()
 
     @Test
     fun trackingPositionForJson(): Unit = runBlocking {
-        val name = "path" +  (paths.size + 1).toString() + ".json"
+        val name = "path" + (paths.size + 1).toString() + ".json"
         deleteFile(name)
         delay(2000)
         onView(withText(".json")).check(matches(isDisplayed()))
@@ -157,9 +124,10 @@ class TrackPositionsInstrumentedTests()
         deleteFile(name)
         delay(1000)
     }
+
     @Test
     fun trackingPositionForLatLonTxt(): Unit = runBlocking {
-        val name = "path" +  (paths.size + 1).toString() + ".txt"
+        val name = "path" + (paths.size + 1).toString() + ".txt"
         deleteFile(name)
         delay(2000)
         onView(withText("Lat Lon text")).check(matches(isDisplayed()))
@@ -173,7 +141,12 @@ class TrackPositionsInstrumentedTests()
         deleteFile(name)
         delay(1000)
     }
-    private fun checkFileExists(fileName: String): Boolean = File(GemSdk.internalStoragePath + File.separator + "exported" + File.separator + fileName).exists()
-    private fun deleteFile(fileName: String) =  File(GemSdk.internalStoragePath + File.separator + "exported" + File.separator + fileName).apply { if (exists()) delete() }
-    // -------------------------------------------------------------------------------------------------
+    private fun checkFileExists(fileName: String): Boolean = File(
+        GemSdk.internalStoragePath + File.separator + "exported" + File.separator + fileName,
+    ).exists()
+    private fun deleteFile(fileName: String) = File(
+        GemSdk.internalStoragePath + File.separator + "exported" + File.separator + fileName,
+    ).apply {
+        if (exists()) delete()
+    }
 }

@@ -1,28 +1,19 @@
-// -------------------------------------------------------------------------------------------------
-
 /*
- * SPDX-FileCopyrightText: 1995-2025 Magic Lane International B.V. <info@magiclane.com>
+ * SPDX-FileCopyrightText: 2021-2026 Magic Lane International B.V. <info@magiclane.com>
  * SPDX-License-Identifier: Apache-2.0
  *
  * Contact Magic Lane at <info@magiclane.com> for SDK licensing options.
  */
 
-// -------------------------------------------------------------------------------------------------
-
-
 package com.magiclane.sdk.examples.routesimulation
 
-// -------------------------------------------------------------------------------------------------------------------------------
-
 import android.content.Context
-import android.net.ConnectivityManager
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.filters.LargeTest
 import androidx.test.internal.runner.junit4.AndroidJUnit4ClassRunner
 import com.magiclane.sdk.core.GemError
-import com.magiclane.sdk.core.GemSdk
 import com.magiclane.sdk.core.ProgressListener
-import com.magiclane.sdk.core.SdkSettings
+import com.magiclane.sdk.examples.testing.GemSdkTestRule
 import com.magiclane.sdk.places.Landmark
 import com.magiclane.sdk.routesandnavigation.NavigationListener
 import com.magiclane.sdk.routesandnavigation.NavigationService
@@ -31,108 +22,23 @@ import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeout
-import kotlinx.coroutines.withTimeoutOrNull
-import org.junit.Before
-import org.junit.BeforeClass
 import org.junit.ClassRule
 import org.junit.Test
-import org.junit.rules.TestRule
-import org.junit.runner.Description
 import org.junit.runner.RunWith
-import org.junit.runners.model.Statement
-
-// -------------------------------------------------------------------------------------------------------------------------------
 
 @LargeTest
 @RunWith(AndroidJUnit4ClassRunner::class)
-class RouteSimulationInstrumentedTests
-{
-    // -------------------------------------------------------------------------------------------------
-    companion object
-    {
-        // -------------------------------------------------------------------------------------------------
-        const val TIMEOUT = 600000L
+class RouteSimulationInstrumentedTests {
+    companion object {
         private val appContext: Context = ApplicationProvider.getApplicationContext()
-        private var initResult = false
 
         @get:ClassRule
         @JvmStatic
-        val sdkInitRule = SDKInitRule()
-
-        @BeforeClass
-        @JvmStatic
-        fun checkSdkInitStartActivity()
-        {
-            assert(initResult) { "GEM SDK not initialized" }
-        }
-
-        fun isInternetOn() = appContext.getSystemService(ConnectivityManager::class.java).activeNetwork != null
-        // -------------------------------------------------------------------------------------------------
+        val sdkRule = GemSdkTestRule()
     }
-
-    @Before
-    fun checkTokenAndNetwork()
-    {
-        //verify token and internet connection
-        SdkCall.execute { assert(GemSdk.getTokenFromManifest(appContext)?.isNotEmpty() == true) { "Invalid token." } }
-        assert(isInternetOn()) { " No internet connection." }
-    }
-    
-    // -------------------------------------------------------------------------------------------------
-    // -------------------------------------------------------------------------------------------------
-    class SDKInitRule : TestRule
-    {
-        override fun apply(base: Statement, description: Description) = SDKStatement(base)
-
-        inner class SDKStatement(private val base: Statement) : Statement()
-        {
-            private val channel = Channel<Boolean>()
-
-            init
-            {
-                SdkSettings.onMapDataReady = { isReady ->
-                    if (isReady)
-                        runBlocking {
-                            channel.send(true)
-                        }
-                }
-            }
-
-            @Throws(Throwable::class)
-            override fun evaluate()
-            {
-                //before tests are executed
-                if (!GemSdk.isInitialized())
-                {
-                    runBlocking {
-                        initResult = GemSdk.initSdkWithDefaults(appContext)
-                        // must wait for map data ready
-                        withTimeoutOrNull(TIMEOUT) {
-                            channel.receive()
-                        } ?: if (isInternetOn()) assert(false) { "No internet." }
-                        else assert(false) { "Unexpected error. SDK not initialised." }
-                    }
-                } else return
-
-                if (!SdkSettings.isMapDataReady)
-                    throw Error(GemError.getMessage(GemError.OperationTimeout))
-
-                try
-                {
-                    base.evaluate() // This executes tests
-                } finally
-                {
-                    GemSdk.release()
-                }
-            }
-        }
-    }
-    // -------------------------------------------------------------------------------------------------
-    // -------------------------------------------------------------------------------------------------
 
     @Test
     fun checkRoutingProgressListenerCallbacks() = runBlocking {
-
         var destinationReachedPassed = false
         var onProgressCompletedPassed = false
         var onProgressStartedPassed = false
@@ -144,7 +50,7 @@ class RouteSimulationInstrumentedTests
 
             val waypoints = arrayListOf(
                 Landmark("StartPoint", 45.654789, 25.612160),
-                Landmark("EndPoint", 45.650643, 25.606352)
+                Landmark("EndPoint", 45.650643, 25.606352),
             )
 
             val routingProgressListener = ProgressListener.create(
@@ -155,7 +61,7 @@ class RouteSimulationInstrumentedTests
                     assert(errorCode == GemError.NoError) {
                         "Progress Completed with error: ${
                             GemError.getMessage(
-                                errorCode
+                                errorCode,
                             )
                         }"
                     }
@@ -163,20 +69,20 @@ class RouteSimulationInstrumentedTests
                 },
                 onStatusChanged = { _ ->
                     onProgressStatusChangedPassed = true
-                }
+                },
             )
             val navigationListener = NavigationListener.create(
                 onDestinationReached = { _: Landmark ->
                     destinationReachedPassed = true
                     launch { channel.send(Unit) }
-                }
+                },
             )
 
             navigationService.startSimulation(
                 waypoints,
                 navigationListener,
                 routingProgressListener,
-                speedMultiplier = 10f
+                speedMultiplier = 10f,
             )
         }
         withTimeout(300000) {
@@ -204,7 +110,7 @@ class RouteSimulationInstrumentedTests
             val waypoints = arrayListOf(
                 Landmark("StartPoint", 45.654789, 25.612160),
                 Landmark("StartPoint", 45.653831, 25.609548),
-                Landmark("EndPoint", 45.650643, 25.606352)
+                Landmark("EndPoint", 45.650643, 25.606352),
             )
 
             val routingProgressListener = ProgressListener.create()
@@ -229,18 +135,18 @@ class RouteSimulationInstrumentedTests
                 canPlayNavigationSound = true,
                 onNotifyStatusChange = {
                     onNavStatusChangedPassed = true
-                }
+                },
             )
 
             navigationService.startSimulation(
                 waypoints,
                 navigationListener,
                 routingProgressListener,
-                speedMultiplier = 5f
+                speedMultiplier = 5f,
             )
         }
 
-        withTimeout(TIMEOUT) {
+        withTimeout(600000) {
             channel.receive()
             assert(onNavStartedPassed) { "OnNavigationStarted call back not called" }
             assert(onNavInstrUpdatedPassed) { "OnNavInstrUpdatedPassed call back not called" }
@@ -251,4 +157,3 @@ class RouteSimulationInstrumentedTests
         }
     }
 }
-// -------------------------------------------------------------------------------------------------------------------------------

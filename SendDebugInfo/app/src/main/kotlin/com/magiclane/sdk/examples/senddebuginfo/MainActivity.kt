@@ -1,17 +1,11 @@
-// -------------------------------------------------------------------------------------------------------------------------------
-
 /*
- * SPDX-FileCopyrightText: 1995-2025 Magic Lane International B.V. <info@magiclane.com>
+ * SPDX-FileCopyrightText: 2021-2026 Magic Lane International B.V. <info@magiclane.com>
  * SPDX-License-Identifier: Apache-2.0
  *
  * Contact Magic Lane at <info@magiclane.com> for SDK licensing options.
  */
 
-// -------------------------------------------------------------------------------------------------------------------------------
-
 package com.magiclane.sdk.examples.senddebuginfo
-
-// -------------------------------------------------------------------------------------------------------------------------------
 
 import android.annotation.SuppressLint
 import android.app.Activity
@@ -20,46 +14,46 @@ import android.net.Uri
 import android.os.Bundle
 import android.view.View
 import android.widget.Button
-import android.widget.ProgressBar
 import android.widget.TextView
 import androidx.activity.addCallback
+import androidx.activity.enableEdgeToEdge
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.FileProvider
-import com.magiclane.sdk.core.*
-import com.magiclane.sdk.util.*
 import com.google.android.material.bottomsheet.BottomSheetDialog
+import com.magiclane.sdk.core.GemSdk
+import com.magiclane.sdk.core.SdkSettings
+import com.magiclane.sdk.examples.senddebuginfo.databinding.ActivityMainBinding
+import com.magiclane.sdk.util.GEMLog
+import com.magiclane.sdk.util.GemUtil
+import com.magiclane.sdk.util.SdkCall
+import com.magiclane.sdk.util.Util
 import java.io.File
 import kotlin.system.exitProcess
 
-// -------------------------------------------------------------------------------------------------------------------------------
-
 @Suppress("SameParameterValue")
-class MainActivity : AppCompatActivity()
-{
-    // ---------------------------------------------------------------------------------------------------------------------------
-    
-    private lateinit var gemSurfaceView: GemSurfaceView
-    private lateinit var progressBar: ProgressBar
-    private lateinit var sendDebugInfoButton: Button
+class MainActivity : AppCompatActivity() {
+    private lateinit var binding: ActivityMainBinding
 
-    // ---------------------------------------------------------------------------------------------------------------------------
-
-    override fun onCreate(savedInstanceState: Bundle?)
-    {
+    override fun onCreate(savedInstanceState: Bundle?) {
+        enableEdgeToEdge()
         super.onCreate(savedInstanceState)
-        setContentView(R.layout.activity_main)
+        binding = ActivityMainBinding.inflate(layoutInflater)
+        setContentView(binding.root)
 
-        progressBar = findViewById(R.id.progressBar)
-        gemSurfaceView = findViewById(R.id.gem_surface)
-        sendDebugInfoButton = findViewById(R.id.sendDebugInfo)
+        binding.progressBar.visibility = View.VISIBLE
 
-        progressBar.visibility = View.VISIBLE
-
-        sendDebugInfoButton.setOnClickListener {
+        binding.sendDebugInfoButton.setOnClickListener {
             var subject = ""
             SdkCall.execute {
                 subject = GemSdk.sdkVersion?.let {
-                    String.format("User feedback (SDK example) - %d.%d.%d.%d.%s", it.major, it.minor, it.year, it.week, it.revision)
+                    String.format(
+                        "User feedback (SDK example) - %d.%d.%d.%d.%s",
+                        it.major,
+                        it.minor,
+                        it.year,
+                        it.week,
+                        it.revision,
+                    )
                 } ?: "User feedback"
                 System.gc()
             }
@@ -71,22 +65,21 @@ class MainActivity : AppCompatActivity()
 
         SdkSettings.onMapDataReady = {
             Util.postOnMain {
-                progressBar.visibility = View.GONE
-                sendDebugInfoButton.visibility = View.VISIBLE
+                binding.progressBar.visibility = View.GONE
+                binding.sendDebugInfoButton.visibility = View.VISIBLE
             }
         }
 
         SdkSettings.onApiTokenRejected = {
-            /*
-            The TOKEN you provided in the AndroidManifest.xml file was rejected.
-            Make sure you provide the correct value, or if you don't have a TOKEN,
-            check the magiclane.com website, sign up/sign in and generate one. 
+            /**
+             * The TOKEN you provided in the AndroidManifest.xml file was rejected.
+             * Make sure you provide the correct value, or if you don't have a TOKEN,
+             * check the magiclane.com website, sign up/sign in and generate one.
              */
             showDialog("TOKEN REJECTED")
         }
 
-        if (!Util.isInternetConnected(this))
-        {
+        if (!Util.isInternetConnected(this)) {
             showDialog("You must be connected to the internet!")
         }
 
@@ -96,23 +89,20 @@ class MainActivity : AppCompatActivity()
         }
     }
 
-    // ---------------------------------------------------------------------------------------------------------------------------
-
-    override fun onDestroy()
-    {
+    override fun onDestroy() {
         super.onDestroy()
 
         // Release the SDK.
         GemSdk.release()
     }
 
-    // ---------------------------------------------------------------------------------------------------------------------------
-
     @Suppress("SameParameterValue")
-    private class SendFeedbackTask(val activity: Activity, val email: String, val subject: String) : CoroutinesAsyncTask<Void, Void, Intent>()
-    {
-        override fun doInBackground(vararg params: Void?): Intent
-        {
+    private class SendFeedbackTask(
+        val activity: Activity,
+        val email: String,
+        val subject: String,
+    ) : CoroutinesAsyncTask<Void, Void, Intent>() {
+        override fun doInBackground(vararg params: Void?): Intent {
             val subjectText = subject
             val sendIntent = Intent(Intent.ACTION_SEND_MULTIPLE)
             sendIntent.type = "message/rfc822"
@@ -126,44 +116,50 @@ class MainActivity : AppCompatActivity()
             val privateLogPath = GemSdk.appLogPath
             privateLogPath?.let {
                 val path = GemUtil.getApplicationPublicFilesAbsolutePath(activity, "phoneLog.txt")
-                if (GemUtil.copyFile(it, path))
-                {
+                if (GemUtil.copyFile(it, path)) {
                     publicLogPath = path
                 }
             }
 
             val uris = ArrayList<Uri>()
-            if (publicLogPath.isNotEmpty())
-            {
+            if (publicLogPath.isNotEmpty()) {
                 val file = File(publicLogPath)
                 file.deleteOnExit()
 
-                try
-                {
-                    uris.add(FileProvider.getUriForFile(activity, activity.packageName + ".provider", file))
-                }
-                catch (e: Exception)
-                {
+                try {
+                    uris.add(
+                        FileProvider.getUriForFile(
+                            activity,
+                            activity.packageName + ".provider",
+                            file,
+                        ),
+                    )
+                } catch (e: Exception) {
                     GEMLog.error(this, "SendFeedbackTask.doInBackground(): error =  ${e.message}")
                 }
             }
 
-            if (GemSdk.internalStoragePath.isNotEmpty())
-            {
-                val gmCrashesPath = GemSdk.internalStoragePath + File.separator + "GMcrashlogs" + File.separator + "last"
+            if (GemSdk.internalStoragePath.isNotEmpty()) {
+                val gmCrashesPath =
+                    GemSdk.internalStoragePath + File.separator + "GMcrashlogs" + File.separator + "last"
 
                 val file = File(gmCrashesPath)
-                if (file.exists() && file.isDirectory)
-                {
+                if (file.exists() && file.isDirectory) {
                     val files = file.listFiles()
                     files?.forEach breakLoop@{
-                        try
-                        {
-                            uris.add(FileProvider.getUriForFile(activity, activity.packageName + ".provider", it))
-                        }
-                        catch (e: Exception)
-                        {
-                            GEMLog.error(this, "SendFeedbackTask.doInBackground(): error =  ${e.message}")
+                        try {
+                            uris.add(
+                                FileProvider.getUriForFile(
+                                    activity,
+                                    activity.packageName + ".provider",
+                                    it,
+                                ),
+                            )
+                        } catch (e: Exception) {
+                            GEMLog.error(
+                                this,
+                                "SendFeedbackTask.doInBackground(): error =  ${e.message}",
+                            )
                         }
                         return@breakLoop
                     }
@@ -174,27 +170,20 @@ class MainActivity : AppCompatActivity()
             return sendIntent
         }
 
-        override fun onPostExecute(result: Intent?)
-        {
+        override fun onPostExecute(result: Intent?) {
             if (result == null) return
 
             activity.startActivity(result)
         }
     }
 
-    // ---------------------------------------------------------------------------------------------------------------------------
-
-    private fun sendFeedback(a: Activity, email: String, subject: String)
-    {
+    private fun sendFeedback(a: Activity, email: String, subject: String) {
         val sendFeedbackTask = SendFeedbackTask(a, email, subject)
         sendFeedbackTask.execute(null)
     }
 
-    // ---------------------------------------------------------------------------------------------------------------------------
-
     @SuppressLint("InflateParams")
-    private fun showDialog(text: String)
-    {
+    private fun showDialog(text: String) {
         val dialog = BottomSheetDialog(this)
         val view = layoutInflater.inflate(R.layout.dialog_layout, null).apply {
             findViewById<TextView>(R.id.title).text = getString(R.string.error)
@@ -209,8 +198,4 @@ class MainActivity : AppCompatActivity()
             show()
         }
     }
-    
-    // ---------------------------------------------------------------------------------------------------------------------------
 }
-
-// -------------------------------------------------------------------------------------------------------------------------------

@@ -1,30 +1,20 @@
-// -------------------------------------------------------------------------------------------------
-
 /*
- * SPDX-FileCopyrightText: 1995-2025 Magic Lane International B.V. <info@magiclane.com>
+ * SPDX-FileCopyrightText: 2021-2026 Magic Lane International B.V. <info@magiclane.com>
  * SPDX-License-Identifier: Apache-2.0
  *
  * Contact Magic Lane at <info@magiclane.com> for SDK licensing options.
  */
 
-// -------------------------------------------------------------------------------------------------
-
 package com.magiclane.sdk.examples.whatsnearby
 
-// -------------------------------------------------------------------------------------------------
-
 import android.Manifest
-import android.annotation.SuppressLint
 import android.app.Activity
 import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
-import android.widget.Button
-import android.widget.ImageView
-import android.widget.ProgressBar
-import android.widget.TextView
 import androidx.activity.OnBackPressedCallback
+import androidx.activity.enableEdgeToEdge
 import androidx.appcompat.app.AppCompatActivity
 import androidx.recyclerview.widget.DividerItemDecoration
 import androidx.recyclerview.widget.LinearLayoutManager
@@ -34,90 +24,89 @@ import com.magiclane.sdk.core.EUnitSystem
 import com.magiclane.sdk.core.GemError
 import com.magiclane.sdk.core.GemSdk
 import com.magiclane.sdk.core.SdkSettings
+import com.magiclane.sdk.examples.whatsnearby.databinding.ActivityMainBinding
+import com.magiclane.sdk.examples.whatsnearby.databinding.DialogLayoutBinding
+import com.magiclane.sdk.examples.whatsnearby.databinding.ListItemBinding
 import com.magiclane.sdk.places.Coordinates
 import com.magiclane.sdk.places.Landmark
 import com.magiclane.sdk.places.SearchService
 import com.magiclane.sdk.sensordatasource.PositionService
 import com.magiclane.sdk.util.GemUtil
+import com.magiclane.sdk.util.GemUtil.getDistText
 import com.magiclane.sdk.util.PermissionsHelper
 import com.magiclane.sdk.util.SdkCall
 import com.magiclane.sdk.util.Util
 import com.magiclane.sdk.util.Util.postOnMain
 import kotlin.system.exitProcess
 
-// -------------------------------------------------------------------------------------------------
-
-class MainActivity : AppCompatActivity()
-{
-    // ---------------------------------------------------------------------------------------------
-    
-    private lateinit var listView: RecyclerView
-    private lateinit var progressBar: ProgressBar
-    
+class MainActivity : AppCompatActivity() {
+    private lateinit var binding: ActivityMainBinding
     private var imageSize: Int = 0
-
 
     private var reference: Coordinates? = null
     private val searchService = SearchService(
         onStarted = {
-            progressBar.visibility = View.VISIBLE
+            binding.progressBar.visibility = View.VISIBLE
         },
 
         onCompleted = onCompleted@{ results, errorCode, _ ->
-            progressBar.visibility = View.GONE
+            binding.progressBar.visibility = View.GONE
 
-            when (errorCode)
-            {
+            when (errorCode) {
                 GemError.NoError ->
-                {
-                    // No error encountered, we can handle the results.
-                    if (results.isNotEmpty())
                     {
-                        reference?.let { listView.adapter = CustomAdapter(it, results, imageSize) }
+                        // No error encountered, we can handle the results.
+                        if (results.isNotEmpty()) {
+                            reference?.let {
+                                binding.listView.adapter = CustomAdapter(
+                                    it,
+                                    results,
+                                    imageSize,
+                                )
+                            }
+                        } else {
+                            // The search completed without errors, but there were no results found.
+                            showDialog("No results!")
+                        }
                     }
-                    else
-                    {
-                        // The search completed without errors, but there were no results found.
-                        showDialog("No results!")
-                    }
-                }
 
                 GemError.Cancel ->
-                {
-                    // The search action was cancelled.
-                }
+                    {
+                        // The search action was cancelled.
+                    }
 
                 else ->
-                {
-                    // There was a problem at computing the search operation.
-                    showDialog("Search service error: ${GemError.getMessage(errorCode)}")
-                }
+                    {
+                        // There was a problem at computing the search operation.
+                        showDialog("Search service error: ${GemError.getMessage(errorCode)}")
+                    }
             }
-        }
+        },
     )
 
-    // ---------------------------------------------------------------------------------------------
-
-    override fun onCreate(savedInstanceState: Bundle?)
-    {
+    override fun onCreate(savedInstanceState: Bundle?) {
+        enableEdgeToEdge()
         super.onCreate(savedInstanceState)
-        setContentView(R.layout.activity_main)
+        binding = ActivityMainBinding.inflate(layoutInflater)
+        setContentView(binding.root)
 
         imageSize = resources.getDimension(R.dimen.landmark_image_size).toInt()
-        progressBar = findViewById(R.id.progressBar)
-        listView = findViewById<RecyclerView?>(R.id.list_view).apply {
+        binding.listView.apply {
             layoutManager = LinearLayoutManager(this@MainActivity)
 
-            addItemDecoration(DividerItemDecoration(applicationContext, (layoutManager as LinearLayoutManager).orientation))
+            addItemDecoration(
+                DividerItemDecoration(
+                    applicationContext,
+                    (layoutManager as LinearLayoutManager).orientation,
+                ),
+            )
 
-            setBackgroundResource(R.color.background_color)
-            
+            setBackgroundResource(R.color.background)
+
             val lateralPadding = resources.getDimension(R.dimen.big_padding).toInt()
             setPadding(lateralPadding, 0, lateralPadding, 0)
         }
 
-
-        /// MAGIC LANE
         SdkSettings.onMapDataReady = onMapDataReady@{ isReady ->
             if (!isReady) return@onMapDataReady
 
@@ -126,53 +115,48 @@ class MainActivity : AppCompatActivity()
         }
 
         SdkSettings.onApiTokenRejected = {
-            /* 
-            The TOKEN you provided in the AndroidManifest.xml file was rejected.
-            Make sure you provide the correct value, or if you don't have a TOKEN,
-            check the magiclane.com website, sign up/sign in and generate one. 
+            /**
+             * The TOKEN you provided in the AndroidManifest.xml file was rejected.
+             * Make sure you provide the correct value, or if you don't have a TOKEN,
+             * check the magiclane.com website, sign up/sign in and generate one.
              */
             showDialog("TOKEN REJECTED")
         }
 
         // This step of initialization is mandatory if you want to use the SDK without a map.
-        if (!GemSdk.initSdkWithDefaults(this))
-        {
+        if (GemSdk.initSdkWithDefaults(this) != GemError.NoError) {
             // The SDK initialization was not completed.
             finish()
         }
 
-        /* 
-        The SDK initialization completed with success, but for the search action to be executed
-        properly the app needs permission to get your location.
-        Not requesting this permission or not granting it will make the search fail.
+        /**
+         * The SDK initialization completed with success, but for the search action to be executed
+         * properly the app needs permission to get your location.
+         * Not requesting this permission or not granting it will make the search fail.
          */
         requestPermissions(this)
 
-        if (!Util.isInternetConnected(this))
-        {
+        if (!Util.isInternetConnected(this)) {
             showDialog("You must be connected to the internet!")
         }
 
-        onBackPressedDispatcher.addCallback(this,object : OnBackPressedCallback(true){
-            override fun handleOnBackPressed()
-            {
-                finish()
-                exitProcess(0)
-            }
-        })
+        onBackPressedDispatcher.addCallback(
+            this,
+            object : OnBackPressedCallback(true) {
+                override fun handleOnBackPressed() {
+                    finish()
+                    exitProcess(0)
+                }
+            },
+        )
     }
 
-    // ---------------------------------------------------------------------------------------------
-
-    override fun onDestroy()
-    {
+    override fun onDestroy() {
         super.onDestroy()
 
         // Release the SDK.
         GemSdk.release()
     }
-
-    // ---------------------------------------------------------------------------------------------
 
     private fun search() = SdkCall.execute {
         // If one of the location permissions is granted, we can do the search around action.
@@ -191,121 +175,78 @@ class MainActivity : AppCompatActivity()
         }
     }
 
-    // ---------------------------------------------------------------------------------------------
-
-    override fun onRequestPermissionsResult(
-        requestCode: Int,
-        permissions: Array<String>,
-        grantResults: IntArray
-    )
-    {
+    override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<String>, grantResults: IntArray) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults)
         PermissionsHelper.onRequestPermissionsResult(this, requestCode, grantResults)
 
         postOnMain { search() }
     }
 
-    // ---------------------------------------------------------------------------------------------
-
-    private fun requestPermissions(activity: Activity): Boolean
-    {
+    private fun requestPermissions(activity: Activity): Boolean {
         val permissions = arrayListOf(
             Manifest.permission.INTERNET,
             Manifest.permission.ACCESS_FINE_LOCATION,
             Manifest.permission.ACCESS_COARSE_LOCATION,
-            Manifest.permission.ACCESS_NETWORK_STATE
+            Manifest.permission.ACCESS_NETWORK_STATE,
         )
 
         return PermissionsHelper.requestPermissions(
             REQUEST_PERMISSIONS,
             activity,
-            permissions.toTypedArray()
+            permissions.toTypedArray(),
         )
     }
 
-    // ---------------------------------------------------------------------------------------------
-
-    @SuppressLint("InflateParams")
-    private fun showDialog(text: String)
-    {
+    private fun showDialog(text: String) {
         val dialog = BottomSheetDialog(this)
-        val view = layoutInflater.inflate(R.layout.dialog_layout, null).apply {
-            findViewById<TextView>(R.id.title).text = getString(R.string.error)
-            findViewById<TextView>(R.id.message).text = text
-            findViewById<Button>(R.id.button).setOnClickListener {
+        val dialogBinding = DialogLayoutBinding.inflate(layoutInflater).apply {
+            title.text = getString(R.string.error)
+            message.text = text
+            button.setOnClickListener {
                 dialog.dismiss()
             }
         }
         dialog.apply {
             setCancelable(false)
-            setContentView(view)
+            setContentView(dialogBinding.root)
             show()
         }
     }
 
-    // ---------------------------------------------------------------------------------------------
-
-    companion object
-    {
+    companion object {
         private const val REQUEST_PERMISSIONS = 110
     }
-    
 }
-
-// -------------------------------------------------------------------------------------------------
 
 /**
  * This custom adapter is made to facilitate the displaying of the data from the model
  * and to decide how it is displayed.
  */
 class CustomAdapter(
-    private val reference: Coordinates, 
+    private val reference: Coordinates,
     private val dataSet: ArrayList<Landmark>,
-    private val imageSize: Int
-) : RecyclerView.Adapter<CustomAdapter.ViewHolder>()
-{
+    private val imageSize: Int,
+) : RecyclerView.Adapter<CustomAdapter.ViewHolder>() {
 
-    // ---------------------------------------------------------------------------------------------
+    class ViewHolder(val binding: ListItemBinding) : RecyclerView.ViewHolder(binding.root)
 
-    class ViewHolder(view: View) : RecyclerView.ViewHolder(view)
-    {
-        val image: ImageView = view.findViewById(R.id.image)
-        val text: TextView = view.findViewById(R.id.text)
-        val description: TextView = view.findViewById(R.id.description)
-        val status: TextView = view.findViewById(R.id.status_text)
-        val statusDescription: TextView = view.findViewById(R.id.status_description)
+    override fun onCreateViewHolder(viewGroup: ViewGroup, viewType: Int): ViewHolder {
+        val binding = ListItemBinding.inflate(LayoutInflater.from(viewGroup.context), viewGroup, false)
+        return ViewHolder(binding)
     }
-
-    // ---------------------------------------------------------------------------------------------
-
-    override fun onCreateViewHolder(viewGroup: ViewGroup, viewType: Int): ViewHolder
-    {
-        val view = LayoutInflater.from(viewGroup.context)
-            .inflate(R.layout.list_item, viewGroup, false)
-
-        return ViewHolder(view)
-    }
-
-    // ---------------------------------------------------------------------------------------------
 
     override fun onBindViewHolder(viewHolder: ViewHolder, position: Int) = SdkCall.execute {
         val meters = dataSet[position].coordinates?.getDistance(reference)?.toInt() ?: 0
-        val dist = GemUtil.getDistText(meters, EUnitSystem.Metric, true)
+        val dist = getDistText(meters, EUnitSystem.Metric, true)
 
-        viewHolder.run {
+        viewHolder.binding.run {
             image.setImageBitmap(dataSet[position].imageAsBitmap(imageSize))
-            text.text = dataSet[position].name
-            description.text = GemUtil.getLandmarkDescription(dataSet[position], true)
-            status.text = dist.first
+            listItemText.text = dataSet[position].name
+            listItemDescription.text = GemUtil.getLandmarkDescription(dataSet[position], true)
+            statusText.text = dist.first
             statusDescription.text = dist.second
         }
     } ?: Unit
 
-    // ---------------------------------------------------------------------------------------------
-
     override fun getItemCount() = dataSet.size
-
-    // ---------------------------------------------------------------------------------------------
 }
-
-// -------------------------------------------------------------------------------------------------

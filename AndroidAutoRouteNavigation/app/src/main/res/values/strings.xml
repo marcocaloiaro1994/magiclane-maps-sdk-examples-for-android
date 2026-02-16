@@ -1,6 +1,5 @@
 <resources>
     <string name="app_name">AndroidAutoExample</string>
-    
     <string name="unknown">Unknown</string>
     <string name="unnamed_street">Unnamed street</string>
     <string name="node_nearby">Near %s</string>
@@ -8,4 +7,6 @@
     <string name="from_a_to_b">From %1$s to %2$s</string>
     <string name="to_b_via_c">To %1$s, via %2$s</string>
     <string name="to_b">To %s</string>
+    <string name="error">Error</string>
+    <string name="ok">OK</string>
 </resources>

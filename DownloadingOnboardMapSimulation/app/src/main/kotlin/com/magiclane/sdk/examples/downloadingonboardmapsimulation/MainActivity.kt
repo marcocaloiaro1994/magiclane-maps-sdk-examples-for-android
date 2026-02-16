@@ -1,17 +1,11 @@
-// -------------------------------------------------------------------------------------------------------------------------------
-
 /*
- * SPDX-FileCopyrightText: 1995-2025 Magic Lane International B.V. <info@magiclane.com>
+ * SPDX-FileCopyrightText: 2021-2026 Magic Lane International B.V. <info@magiclane.com>
  * SPDX-License-Identifier: Apache-2.0
  *
  * Contact Magic Lane at <info@magiclane.com> for SDK licensing options.
  */
 
-// -------------------------------------------------------------------------------------------------------------------------------
-
 package com.magiclane.sdk.examples.downloadingonboardmapsimulation
-
-// -------------------------------------------------------------------------------------------------------------------------------
 
 import android.annotation.SuppressLint
 import android.graphics.Bitmap
@@ -21,10 +15,12 @@ import android.os.Looper
 import android.widget.Button
 import android.widget.TextView
 import androidx.activity.addCallback
+import androidx.activity.enableEdgeToEdge
 import androidx.annotation.VisibleForTesting
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.view.isInvisible
 import androidx.core.view.isVisible
+import androidx.databinding.DataBindingUtil
 import androidx.test.espresso.idling.CountingIdlingResource
 import com.google.android.material.bottomsheet.BottomSheetDialog
 import com.magiclane.sdk.content.ContentStore
@@ -50,10 +46,7 @@ import com.magiclane.sdk.util.Util
 import java.util.Locale
 import kotlin.system.exitProcess
 
-// -------------------------------------------------------------------------------------------------------------------------------
-
-class MainActivity : AppCompatActivity()
-{
+class MainActivity : AppCompatActivity() {
     private lateinit var binding: ActivityMainBinding
 
     private val mapName = "Luxembourg"
@@ -77,9 +70,9 @@ class MainActivity : AppCompatActivity()
     private val navRoute: Route?
         get() = navigationService.getNavigationRoute(navigationListener)
 
-    /*
-    Define a navigation listener that will receive notifications from the
-    navigation service.
+    /**
+     * Define a navigation listener that will receive notifications from the
+     * navigation service.
      */
     private val navigationListener: NavigationListener = NavigationListener.create(
         onNavigationStarted = {
@@ -99,7 +92,7 @@ class MainActivity : AppCompatActivity()
             binding.bottomPanel.isVisible = true
 
             showStatusMessage("Simulation started.")
-            //EspressoIdlingResource.decrementNavigationResource()
+            EspressoIdlingResource.decrementNavigationResource()
         },
         onNavigationInstructionUpdated = { instr ->
             var instrText = ""
@@ -133,13 +126,11 @@ class MainActivity : AppCompatActivity()
                 rtt.text = rttText
                 rtd.text = rtdText
 
-                if (statusText.isVisible)
-                {
+                if (statusText.isVisible) {
                     statusText.isVisible = false
                 }
             }
-            EspressoIdlingResource.decrementNavigationResource()
-        }
+        },
     )
 
     // Define a listener that will let us know the progress of the routing process.
@@ -152,7 +143,7 @@ class MainActivity : AppCompatActivity()
             binding.progressBar.isVisible = false
             showStatusMessage("Routing process completed.")
         },
-        postOnMain = true
+        postOnMain = true,
     )
 
     private val contentListener = ProgressListener.create(
@@ -164,25 +155,23 @@ class MainActivity : AppCompatActivity()
             binding.progressBar.isVisible = false
             showStatusMessage("Content store service completed with error code: $errorCode")
 
-            when (errorCode)
-            {
-                GemError.NoError ->
-                {
+            when (errorCode) {
+                GemError.NoError -> {
                     // No error encountered, we can handle the results.
-                    SdkCall.execute { // Get the list of maps that was retrieved in the content store.
+                    SdkCall.execute {
+                        // Get the list of maps that was retrieved in the content store.
                         val contentListPair =
-                            contentStore.getStoreContentList(EContentType.RoadMap) ?: return@execute
+                            contentStore.getStoreContentList(
+                                EContentType.RoadMap,
+                            ) ?: return@execute
 
-                        for (map in contentListPair.first)
-                        {
+                        for (map in contentListPair.first) {
                             val mapName = map.name ?: continue
-                            if (mapName.compareTo(this.mapName, true) != 0) // searching another map
-                            {
+                            if (mapName.compareTo(this.mapName, true) != 0) {
                                 continue
                             }
 
-                            if (!map.isCompleted())
-                            {
+                            if (!map.isCompleted()) {
                                 // Define a listener to the progress of the map download action.
                                 val downloadProgressListener = ProgressListener.create(
                                     onStarted = {
@@ -196,19 +185,20 @@ class MainActivity : AppCompatActivity()
                                         onProgressUpdated(progress)
                                     },
                                     onCompleted = { errorCode, _ ->
-                                        if (errorCode == GemError.NoError)
-                                        {
+                                        if (errorCode == GemError.NoError) {
                                             showStatusMessage("$mapName was downloaded.")
                                             onOnboardMapReady()
-                                        } else
+                                        } else {
                                             EspressoIdlingResource.decrementDownloadingResource()
-                                    })
+                                        }
+                                    },
+                                )
 
                                 // Start downloading the first map item.
                                 map.asyncDownload(
                                     downloadProgressListener,
                                     GemSdk.EDataSavePolicy.UseDefault,
-                                    true
+                                    true,
                                 )
                             }
 
@@ -217,35 +207,35 @@ class MainActivity : AppCompatActivity()
                     }
                 }
 
-                GemError.Cancel ->
-                { // The action was cancelled.
-                    showStatusMessage("Content store service completed with error code: $errorCode")
+                GemError.Cancel -> {
+                    showStatusMessage(
+                        "Content store service completed with error code: $errorCode",
+                    )
                     EspressoIdlingResource.decrementDownloadingResource()
                 }
 
-                else ->
-                {
+                else -> {
                     // There was a problem at retrieving the content store items.
-                    showStatusMessage("Content store service completed with error code: $errorCode")
+                    showStatusMessage(
+                        "Content store service completed with error code: $errorCode",
+                    )
                     showDialog("Content store service error: ${GemError.getMessage(errorCode)}")
                     EspressoIdlingResource.decrementDownloadingResource()
                 }
             }
-        }
+        },
     )
 
-    // ---------------------------------------------------------------------------------------------------------------------------
-
-    override fun onCreate(savedInstanceState: Bundle?)
-    {
+    override fun onCreate(savedInstanceState: Bundle?) {
+        enableEdgeToEdge()
         super.onCreate(savedInstanceState)
-        binding = ActivityMainBinding.inflate(layoutInflater)
-        setContentView(binding.root)
+        binding = DataBindingUtil.setContentView(this, R.layout.activity_main)
 
-        if (EspressoIdlingResource.isDownloadingTest)
+        if (EspressoIdlingResource.isDownloadingTest) {
             EspressoIdlingResource.incrementDownloadingResource()
-        else
+        } else {
             EspressoIdlingResource.incrementNavigationResource()
+        }
         val loadMaps = {
             mapsCatalogRequested = true
             val loadMapsCatalog = {
@@ -257,38 +247,48 @@ class MainActivity : AppCompatActivity()
 
             val token = GemSdk.getTokenFromManifest(this)
 
-            if (!token.isNullOrEmpty() && (token != kDefaultToken)) loadMapsCatalog()
-            else // if token is not present try to avoid content server requests limitation by delaying the voices catalog request
-            {
+            if (!token.isNullOrEmpty() && (token != kDefaultToken)) {
+                loadMapsCatalog()
+            } else {
                 binding.progressBar.isVisible = true
 
-                Handler(Looper.getMainLooper()).postDelayed({
-                    loadMapsCatalog()
-                }, 3000)
+                // If token is not present try to avoid content server
+                // requests limitation by delaying the voices catalog request
+                Handler(Looper.getMainLooper()).postDelayed(
+                    {
+                        loadMapsCatalog()
+                    },
+                    3000,
+                )
             }
         }
 
         SdkSettings.onMapDataReady = { it ->
-            if (!requiredMapHasBeenDownloaded)
-            {
+            if (!requiredMapHasBeenDownloaded) {
                 mapReady = it
                 if (connected && mapReady && !mapsCatalogRequested) loadMaps()
             }
         }
 
         SdkSettings.onConnectionStatusUpdated = { it ->
-            if (!requiredMapHasBeenDownloaded)
-            {
+            if (!requiredMapHasBeenDownloaded) {
                 connected = it
                 if (connected && mapReady && !mapsCatalogRequested) loadMaps()
             }
         }
 
+        // If SDK is already initialized (e.g. by GemSdkTestRule), callbacks above won't fire.
+        if (SdkSettings.isMapDataReady && !requiredMapHasBeenDownloaded) {
+            mapReady = true
+            connected = true
+            if (!mapsCatalogRequested) loadMaps()
+        }
+
         SdkSettings.onApiTokenRejected = {
-            /*
-            The TOKEN you provided in the AndroidManifest.xml file was rejected.
-            Make sure you provide the correct value, or if you don't have a TOKEN,
-            check the magiclane.com website, sign up/sign in and generate one.
+            /**
+             * The TOKEN you provided in the AndroidManifest.xml file was rejected.
+             * Make sure you provide the correct value, or if you don't have a TOKEN,
+             * check the magiclane.com website, sign up/sign in and generate one.
              */
             showDialog("TOKEN REJECTED")
         }
@@ -297,11 +297,9 @@ class MainActivity : AppCompatActivity()
             val localMaps =
                 contentStore.getLocalContentList(EContentType.RoadMap) ?: return@onSdkInitSucceeded
 
-            for (map in localMaps)
-            {
+            for (map in localMaps) {
                 val mapName = map.name ?: continue
-                if (mapName.compareTo(this.mapName, true) == 0)
-                {
+                if (mapName.compareTo(this.mapName, true) == 0) {
                     requiredMapHasBeenDownloaded = map.isCompleted()
                     break
                 }
@@ -311,31 +309,26 @@ class MainActivity : AppCompatActivity()
             if (requiredMapHasBeenDownloaded) onOnboardMapReady()
         }
 
-        if (!requiredMapHasBeenDownloaded && !Util.isInternetConnected(this))
+        if (!requiredMapHasBeenDownloaded && !Util.isInternetConnected(this)) {
             showDialog("You must be connected to the internet!")
+        }
 
         onBackPressedDispatcher.addCallback(this) {
             finish()
             exitProcess(0)
         }
-
     }
 
-    // ---------------------------------------------------------------------------------------------------------------------------
-
-    override fun onStop()
-    {
+    override fun onStop() {
         super.onStop()
 
         // Release the SDK.
-        if (isFinishing)
+        if (isFinishing) {
             GemSdk.release()
+        }
     }
 
-    // ---------------------------------------------------------------------------------------------------------------------------
-
-    private fun onDownloadStarted(map: ContentStoreItem)
-    {
+    private fun onDownloadStarted(map: ContentStoreItem) {
         binding.apply {
             mapContainer.isVisible = true
 
@@ -353,49 +346,37 @@ class MainActivity : AppCompatActivity()
         EspressoIdlingResource.decrementDownloadingResource()
     }
 
-    // ---------------------------------------------------------------------------------------------------------------------------
-
-    private fun onStatusChanged(status: Int)
-    {
+    private fun onStatusChanged(status: Int) {
         binding.downloadedIcon.isVisible =
             EContentStoreItemStatus.entries.toTypedArray()[status] == EContentStoreItemStatus.Completed
         binding.downloadProgressBar.isInvisible =
             EContentStoreItemStatus.entries.toTypedArray()[status] == EContentStoreItemStatus.Completed
     }
 
-    // ---------------------------------------------------------------------------------------------------------------------------
-
-    private fun onProgressUpdated(progress: Int)
-    {
+    private fun onProgressUpdated(progress: Int) {
         binding.downloadProgressBar.progress = progress
     }
 
-    // ---------------------------------------------------------------------------------------------------------------------------
-
-    private fun onOnboardMapReady()
-    {
+    private fun onOnboardMapReady() {
         startSimulation()
         binding.mapContainer.isVisible = false
     }
 
-    // ---------------------------------------------------------------------------------------------------------------------------
-
     private fun startSimulation() = SdkCall.execute {
         val waypoints = arrayListOf(
             Landmark("Luxembourg", 49.61588784436375, 6.135843869736401),
-            Landmark("Mersch", 49.74785494642988, 6.103323786692679)
+            Landmark("Mersch", 49.74785494642988, 6.103323786692679),
         )
 
         navigationService.startSimulation(
-            waypoints, navigationListener, routingProgressListener
+            waypoints,
+            navigationListener,
+            routingProgressListener,
         )
     }
 
-    // ---------------------------------------------------------------------------------------------------------------------------
-
     @SuppressLint("InflateParams")
-    private fun showDialog(text: String)
-    {
+    private fun showDialog(text: String) {
         val dialog = BottomSheetDialog(this)
         val view = layoutInflater.inflate(R.layout.dialog_layout, null).apply {
             findViewById<TextView>(R.id.title).text = getString(R.string.error)
@@ -411,29 +392,21 @@ class MainActivity : AppCompatActivity()
         }
     }
 
-    // ---------------------------------------------------------------------------------------------------------------------------
-
-    private fun showStatusMessage(text: String)
-    {
+    private fun showStatusMessage(text: String) {
         binding.statusText.isVisible = true
         binding.statusText.text = text
     }
 
-    // ---------------------------------------------------------------------------------------------------------------------------
-
-    private fun NavigationInstruction.getDistanceInMeters(): String
-    {
+    private fun NavigationInstruction.getDistanceInMeters(): String {
         return GemUtil.getDistText(
-            this.timeDistanceToNextTurn?.totalDistance ?: 0, EUnitSystem.Metric
+            this.timeDistanceToNextTurn?.totalDistance ?: 0,
+            EUnitSystem.Metric,
         ).let { pair ->
             pair.first + " " + pair.second
         }
     }
 
-    // ---------------------------------------------------------------------------------------------------------------------------
-
-    private fun Route.getEta(): String
-    {
+    private fun Route.getEta(): String {
         val etaNumber = this.getTimeDistance(true)?.totalTime ?: 0
 
         val time = Time()
@@ -442,32 +415,24 @@ class MainActivity : AppCompatActivity()
         return String.format(Locale.getDefault(), "%d:%02d", time.hour, time.minute)
     }
 
-    // ---------------------------------------------------------------------------------------------------------------------------
-
-    private fun Route.getRtt(): String
-    {
+    private fun Route.getRtt(): String {
         return GemUtil.getTimeText(
-            this.getTimeDistance(true)?.totalTime ?: 0
+            this.getTimeDistance(true)?.totalTime ?: 0,
         ).let { pair ->
             pair.first + " " + pair.second
         }
     }
 
-    // ---------------------------------------------------------------------------------------------------------------------------
-
-    private fun Route.getRtd(): String
-    {
+    private fun Route.getRtd(): String {
         return GemUtil.getDistText(
-            this.getTimeDistance(true)?.totalDistance ?: 0, EUnitSystem.Metric
+            this.getTimeDistance(true)?.totalDistance ?: 0,
+            EUnitSystem.Metric,
         ).let { pair ->
             pair.first + " " + pair.second
         }
     }
 
-    // ---------------------------------------------------------------------------------------------------------------------------
-
-    private fun enableGPSButton()
-    { // Set actions for entering/ exiting following position mode.
+    private fun enableGPSButton() { // Set actions for entering/ exiting following position mode.
         binding.apply {
             gemSurfaceView.mapView?.apply {
                 onExitFollowingPosition = {
@@ -484,17 +449,17 @@ class MainActivity : AppCompatActivity()
         }
     }
 }
-// -------------------------------------------------------------------------------------------------------------------------------
 
 @VisibleForTesting(VisibleForTesting.PRIVATE)
-object EspressoIdlingResource
-{
+object EspressoIdlingResource {
     var isDownloadingTest = false
     val navigationIdlingResource = CountingIdlingResource("NavigationIdlingResource")
     val downloadingIdlingResource = CountingIdlingResource("DownloadingIdlingResource")
     fun incrementNavigationResource() = navigationIdlingResource.increment()
     fun incrementDownloadingResource() = downloadingIdlingResource.increment()
-    fun decrementNavigationResource() = if (!navigationIdlingResource.isIdleNow) navigationIdlingResource.decrement() else Unit
-    fun decrementDownloadingResource() = if (!downloadingIdlingResource.isIdleNow) downloadingIdlingResource.decrement() else Unit
+    fun decrementNavigationResource() =
+        if (!navigationIdlingResource.isIdleNow) navigationIdlingResource.decrement() else Unit
+
+    fun decrementDownloadingResource() =
+        if (!downloadingIdlingResource.isIdleNow) downloadingIdlingResource.decrement() else Unit
 }
-// -------------------------------------------------------------------------------------------------------------------------------

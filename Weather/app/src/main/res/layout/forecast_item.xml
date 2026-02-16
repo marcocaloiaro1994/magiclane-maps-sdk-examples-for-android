@@ -13,7 +13,7 @@
             android:layout_height="wrap_content"
             android:padding="@dimen/standard_margin">
 
-            <ImageView
+            <com.google.android.material.imageview.ShapeableImageView
                 android:id="@+id/forecast_image"
                 android:layout_width="@dimen/image_size"
                 android:layout_height="@dimen/image_size"
@@ -23,22 +23,21 @@
                 app:layout_constraintTop_toTopOf="parent"
                 tools:ignore="ContentDescription" />
 
-            <TextView
+            <com.google.android.material.textview.MaterialTextView
                 android:id="@+id/main_text"
-                android:layout_width="wrap_content"
+                android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:textStyle="bold"
                 app:layout_constraintEnd_toStartOf="@id/forecast_image"
                 app:layout_constraintStart_toStartOf="parent"
                 app:layout_constraintTop_toTopOf="parent"
-                android:gravity="center"
                 app:layout_constraintBottom_toTopOf="@id/subtext"
                 android:textSize="@dimen/standard_text_size"
                 tools:text="main text"/>
 
-            <TextView
+            <com.google.android.material.textview.MaterialTextView
                 android:id="@+id/subtext"
-                android:layout_width="wrap_content"
+                android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 app:layout_constraintBottom_toBottomOf="parent"
                 app:layout_constraintEnd_toStartOf="@id/forecast_image"
@@ -49,7 +48,7 @@
                 android:textSize="@dimen/small_text"
                 tools:text="main text"/>
 
-            <TextView
+            <com.google.android.material.textview.MaterialTextView
                 android:id="@+id/main_details"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
@@ -59,7 +58,7 @@
                 app:layout_constraintTop_toTopOf="parent"
                 android:textSize="@dimen/standard_text_size"/>
 
-            <TextView
+            <com.google.android.material.textview.MaterialTextView
                 android:id="@+id/sub_details"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
@@ -68,6 +67,6 @@
                 app:layout_constraintTop_toTopOf="parent"
                 android:textSize="@dimen/standard_text_size"/>
         </androidx.constraintlayout.widget.ConstraintLayout>
-        
+
     </com.google.android.material.card.MaterialCardView>
 </layout>

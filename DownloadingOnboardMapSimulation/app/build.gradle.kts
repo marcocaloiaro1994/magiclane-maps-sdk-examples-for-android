@@ -1,5 +1,5 @@
 plugins {
-    id("com.magiclane.examples.sdk.gradle.application")
+    id("com.magiclane.sdk.examples.gradle.application")
 }
 
 android {
@@ -16,7 +16,6 @@ android {
 
     buildFeatures {
         buildConfig = true
-        viewBinding = true
     }
 }
 
@@ -29,6 +28,7 @@ dependencies {
     implementation(shared.junit)
     implementation(shared.material)
 
+    androidTestImplementation(project(":build-testing"))
     androidTestImplementation(shared.androidx.junit)
     androidTestImplementation(shared.androidx.espresso.core)
 }

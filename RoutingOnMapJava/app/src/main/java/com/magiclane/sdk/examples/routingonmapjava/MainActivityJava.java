@@ -1,7 +1,7 @@
 // -------------------------------------------------------------------------------------------------
 
 /*
- * SPDX-FileCopyrightText: 1995-2025 Magic Lane International B.V. <info@magiclane.com>
+ * SPDX-FileCopyrightText: 2021-2026 Magic Lane International B.V. <info@magiclane.com>
  * SPDX-License-Identifier: Apache-2.0
  *
  * Contact Magic Lane at <info@magiclane.com> for SDK licensing options.
@@ -14,11 +14,13 @@ package com.magiclane.sdk.examples.routingonmapjava;
 // -------------------------------------------------------------------------------------------------
 
 import android.os.Bundle;
+import android.view.LayoutInflater;
 import android.view.View;
 import android.widget.Button;
 import android.widget.ProgressBar;
 import android.widget.TextView;
 
+import androidx.activity.EdgeToEdge;
 import androidx.appcompat.app.AppCompatActivity;
 
 import com.magiclane.sdk.core.GemError;
@@ -28,6 +30,7 @@ import com.magiclane.sdk.d3scene.Animation;
 import com.magiclane.sdk.d3scene.EAnimation;
 import com.magiclane.sdk.d3scene.ERouteDisplayMode;
 import com.magiclane.sdk.d3scene.MapView;
+import com.magiclane.sdk.examples.routingonmapjava.databinding.ActivityMainJavaBinding;
 import com.magiclane.sdk.places.Landmark;
 import com.magiclane.sdk.routesandnavigation.Route;
 import com.magiclane.sdk.routesandnavigation.RoutingService;
@@ -41,8 +44,7 @@ import java.util.ArrayList;
 
 @SuppressWarnings("ALL")
 public class MainActivityJava extends AppCompatActivity {
-    private ProgressBar progressBar;
-    private GemSurfaceView gemSurfaceView;
+    private ActivityMainJavaBinding binding;
     private RoutingService routingService;
     private ArrayList<Route> routesList = new ArrayList<Route>();
 
@@ -53,13 +55,13 @@ public class MainActivityJava extends AppCompatActivity {
 
         routingService.setOnStarted(hasProgress ->
         {
-            progressBar.setVisibility(View.VISIBLE);
+            binding.progressBar.setVisibility(View.VISIBLE);
             return null;
         });
 
         routingService.setOnCompleted((routes, errorCode, hint) ->
         {
-            progressBar.setVisibility(View.GONE);
+            binding.progressBar.setVisibility(View.GONE);
 
             switch (errorCode) {
                 case GemError.NoError: {
@@ -67,7 +69,7 @@ public class MainActivityJava extends AppCompatActivity {
 
                     GemCall.INSTANCE.execute(() ->
                     {
-                        MapView mapView = gemSurfaceView.getMapView();
+                        MapView mapView = binding.gemSurfaceView.getMapView();
                         if (mapView != null) {
                             Animation animation = new Animation(EAnimation.Linear, 1000, null, null);
 
@@ -98,11 +100,10 @@ public class MainActivityJava extends AppCompatActivity {
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
+        EdgeToEdge.enable(this);
         super.onCreate(savedInstanceState);
-        setContentView(R.layout.activity_main_java);
-
-        progressBar = findViewById(R.id.progressBar);
-        gemSurfaceView = findViewById(R.id.gem_surface);
+        binding = ActivityMainJavaBinding.inflate(this.getLayoutInflater());
+        setContentView(binding.getRoot());
 
         SdkSettings.INSTANCE.setOnMapDataReady(isReady ->
         {
@@ -113,24 +114,24 @@ public class MainActivityJava extends AppCompatActivity {
             calculateRoute();
 
             // onTouch event callback
-            gemSurfaceView.getMapView().setOnTouch((xy ->
+            binding.gemSurfaceView.getMapView().setOnTouch((xy ->
             {
                 // xy are the coordinates of the touch event
                 GemCall.INSTANCE.execute(() ->
                 {
                     // tell the map view where the touch event happened
-                    gemSurfaceView.getMapView().setCursorScreenPosition(xy);
+                    binding.gemSurfaceView.getMapView().setCursorScreenPosition(xy);
 
                     // get the visible routes at the touch event point
-                    ArrayList<Route> routes = gemSurfaceView.getMapView().getCursorSelectionRoutes();
+                    ArrayList<Route> routes = binding.gemSurfaceView.getMapView().getCursorSelectionRoutes();
 
                     // check if there is any route
                     if (routes != null && !routes.isEmpty()) {
                         // set the touched route as the main route and center on it
                         Route route = routes.get(0);
 
-                        gemSurfaceView.getMapView().getPreferences().getRoutes().setMainRoute(route);
-                        gemSurfaceView.getMapView().centerOnRoutes(routesList, ERouteDisplayMode.Full, null, new Animation(EAnimation.Linear, null, null, null));
+                        binding.gemSurfaceView.getMapView().getPreferences().getRoutes().setMainRoute(route);
+                        binding.gemSurfaceView.getMapView().centerOnRoutes(routesList, ERouteDisplayMode.Full, null, new Animation(EAnimation.Linear, null, null, null));
                     }
 
                     return 0;
@@ -144,10 +145,10 @@ public class MainActivityJava extends AppCompatActivity {
 
         SdkSettings.INSTANCE.setOnApiTokenRejected(() ->
         {
-            /* 
+            /*
             The TOKEN you provided in the AndroidManifest.xml file was rejected.
             Make sure you provide the correct value, or if you don't have a TOKEN,
-            check the magiclane.com website, sign up/sign in and generate one. 
+            check the magiclane.com website, sign up/sign in and generate one.
              */
             showDialog("TOKEN REJECTED");
             return null;

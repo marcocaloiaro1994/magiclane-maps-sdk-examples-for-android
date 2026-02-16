@@ -1,18 +1,20 @@
 /*
- * SPDX-FileCopyrightText: 1995-2025 Magic Lane International B.V. <info@magiclane.com>
+ * SPDX-FileCopyrightText: 2021-2026 Magic Lane International B.V. <info@magiclane.com>
  * SPDX-License-Identifier: Apache-2.0
  *
  * Contact Magic Lane at <info@magiclane.com> for SDK licensing options.
  */
 
-import org.jlleitschuh.gradle.ktlint.reporter.ReporterType
-import org.jlleitschuh.gradle.ktlint.KtlintExtension
-import org.jlleitschuh.gradle.ktlint.tasks.GenerateReportsTask
-
 import org.gradle.api.Plugin
 import org.gradle.api.Project
-import org.gradle.kotlin.dsl.*
 import org.gradle.api.artifacts.VersionCatalogsExtension
+import org.gradle.kotlin.dsl.configure
+import org.gradle.kotlin.dsl.getByType
+import org.gradle.kotlin.dsl.named
+import org.gradle.kotlin.dsl.withType
+import org.jlleitschuh.gradle.ktlint.KtlintExtension
+import org.jlleitschuh.gradle.ktlint.reporter.ReporterType
+import org.jlleitschuh.gradle.ktlint.tasks.GenerateReportsTask
 
 class GradleKtlintConventionPlugin : Plugin<Project> {
 
@@ -24,23 +26,23 @@ class GradleKtlintConventionPlugin : Plugin<Project> {
             pluginManager.apply(libs.findPlugin("ktlint").get().get().pluginId)
 
             configure<KtlintExtension> {
-                 version.set(KTLINT_VERSION)
-                 debug.set(true)
-                 verbose.set(true)
-                 outputToConsole.set(true)
-                 coloredOutput.set(true)
-                 android.set(false)
-                 outputColorName.set("RED")
-                 ignoreFailures.set(true)
-                 enableExperimentalRules.set(false)
+                version.set(KTLINT_VERSION)
+                debug.set(true)
+                verbose.set(true)
+                outputToConsole.set(true)
+                coloredOutput.set(true)
+                android.set(true)
+                outputColorName.set("RED")
+                ignoreFailures.set(true)
+                enableExperimentalRules.set(false)
 
-                 reporters {
-                     reporter(ReporterType.HTML)
-                 }
-                 filter {
-                     exclude("**/generated/**")
-                     include("**/kotlin/**")
-                 }
+                reporters {
+                    reporter(ReporterType.HTML)
+                }
+                filter {
+                    exclude("**/generated/**")
+                    include("**/kotlin/**")
+                }
             }
 
             tasks.named("check") {

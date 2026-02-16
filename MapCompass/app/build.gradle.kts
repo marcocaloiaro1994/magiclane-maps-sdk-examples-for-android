@@ -1,5 +1,5 @@
 plugins {
-    id("com.magiclane.examples.sdk.gradle.application")
+    id("com.magiclane.sdk.examples.gradle.application")
 }
 
 android {
@@ -30,6 +30,7 @@ dependencies {
     implementation(shared.material)
 
     testImplementation(shared.junit)
+    androidTestImplementation(project(":build-testing"))
     androidTestImplementation(shared.androidx.junit)
     androidTestImplementation(shared.androidx.espresso.core)
     androidTestImplementation(shared.androidx.test.rules)

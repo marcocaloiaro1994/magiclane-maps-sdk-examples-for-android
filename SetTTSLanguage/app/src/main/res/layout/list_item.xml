@@ -15,12 +15,12 @@
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintStart_toStartOf="parent" />
 
-    <TextView
+    <com.google.android.material.textview.MaterialTextView
         android:id="@+id/text"
         android:layout_width="0dp"
         android:layout_height="wrap_content"
         android:layout_marginStart="@dimen/big_padding"
-        android:textColor="@color/text_color"
+        android:textColor="@color/on_background"
         android:textSize="@dimen/font_small"
         android:textDirection="ltr"
         app:layout_constraintBottom_toBottomOf="parent"
@@ -28,14 +28,14 @@
         app:layout_constraintStart_toEndOf="@id/radioButton"
         app:layout_constraintTop_toTopOf="parent" />
 
-    <TextView
+    <com.google.android.material.textview.MaterialTextView
         android:id="@+id/status_text"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_marginStart="@dimen/big_padding"
         android:layout_marginEnd="@dimen/big_padding"
         android:paddingTop="@dimen/big_padding"
-        android:textColor="@color/text_color"
+        android:textColor="@color/on_background"
         android:textSize="@dimen/font_small"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintStart_toEndOf="@id/text"

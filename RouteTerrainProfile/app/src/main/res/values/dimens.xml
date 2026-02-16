@@ -15,4 +15,5 @@
     <dimen name="elevation_chart_height">250dp</dimen>
     <dimen name="bar_chart_height">40dp</dimen>
     <dimen name="elevation_chart_text_size">12sp</dimen>
+    <dimen name="no_extra_inset">0dp</dimen>
 </resources>

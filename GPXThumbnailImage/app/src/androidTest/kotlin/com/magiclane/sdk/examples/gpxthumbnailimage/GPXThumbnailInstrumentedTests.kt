@@ -1,31 +1,22 @@
-// -------------------------------------------------------------------------------------------------------------------------------
-
 /*
- * SPDX-FileCopyrightText: 1995-2025 Magic Lane International B.V. <info@magiclane.com>
+ * SPDX-FileCopyrightText: 2021-2026 Magic Lane International B.V. <info@magiclane.com>
  * SPDX-License-Identifier: Apache-2.0
  *
  * Contact Magic Lane at <info@magiclane.com> for SDK licensing options.
  */
 
-// -------------------------------------------------------------------------------------------------------------------------------
-
-
 package com.magiclane.sdk.examples.gpxthumbnailimage
 
 import android.content.Context
 import android.graphics.Bitmap
-import android.net.ConnectivityManager
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.filters.LargeTest
 import androidx.test.internal.runner.junit4.AndroidJUnit4ClassRunner
-import com.magiclane.sdk.core.GemError
 import com.magiclane.sdk.core.GemOffscreenSurfaceView
-import com.magiclane.sdk.core.GemSdk
 import com.magiclane.sdk.core.ImageDatabase
 import com.magiclane.sdk.core.Path
 import com.magiclane.sdk.core.Rect
 import com.magiclane.sdk.core.Rgba
-import com.magiclane.sdk.core.SdkSettings
 import com.magiclane.sdk.d3scene.Animation
 import com.magiclane.sdk.d3scene.EAnimation
 import com.magiclane.sdk.d3scene.EHighlightOptions
@@ -33,109 +24,30 @@ import com.magiclane.sdk.d3scene.EViewCameraTransitionStatus
 import com.magiclane.sdk.d3scene.EViewDataTransitionStatus
 import com.magiclane.sdk.d3scene.HighlightRenderSettings
 import com.magiclane.sdk.d3scene.MapView
+import com.magiclane.sdk.examples.testing.GemSdkTestRule
 import com.magiclane.sdk.places.Landmark
 import com.magiclane.sdk.util.SdkCall
 import com.magiclane.sdk.util.SdkImages
 import kotlinx.coroutines.async
 import kotlinx.coroutines.channels.Channel
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeout
-import kotlinx.coroutines.withTimeoutOrNull
-import org.junit.Before
-import org.junit.BeforeClass
 import org.junit.ClassRule
 import org.junit.Test
-import org.junit.rules.TestRule
-import org.junit.runner.Description
 import org.junit.runner.RunWith
-import org.junit.runners.model.Statement
 
 @LargeTest
 @RunWith(AndroidJUnit4ClassRunner::class)
-class GPXThumbnailInstrumentedTests
-{
-    companion object
-    {
-        const val TIMEOUT = 600000L
+class GPXThumbnailInstrumentedTests {
+    companion object {
         private val appContext: Context = ApplicationProvider.getApplicationContext()
-        private var initResult = false
 
         @get:ClassRule
         @JvmStatic
-        val sdkInitRule = SDKInitRule()
-
-        @BeforeClass
-        @JvmStatic
-        fun checkSdkInitStartActivity()
-        {
-            assert(initResult) { "GEM SDK not initialized" }
-        }
-
-        fun isInternetOn() = appContext.getSystemService(ConnectivityManager::class.java).activeNetwork != null
-    }
-    
-    @Before
-    fun checkTokenAndNetwork(){
-        //verify token and internet connection
-        SdkCall.execute { assert(GemSdk.getTokenFromManifest(appContext)?.isNotEmpty() == true) { "Invalid token." } }
-        assert(isInternetOn()) { " No internet connection." }
-
-    }
-    
-    // -------------------------------------------------------------------------------------------------
-    class SDKInitRule : TestRule
-    {
-        override fun apply(base: Statement, description: Description) = SDKStatement(base)
-
-        inner class SDKStatement(private val base: Statement) : Statement()
-        {
-            private val channel = Channel<Boolean>()
-
-            init
-            {
-                SdkSettings.onMapDataReady = { isReady ->
-                    if (isReady)
-                        runBlocking {
-                            channel.send(true)
-                        }
-                }
-            }
-
-            @Throws(Throwable::class)
-            override fun evaluate()
-            {
-                //before tests are executed
-                if (!GemSdk.isInitialized())
-                {
-                    runBlocking {
-                        initResult = GemSdk.initSdkWithDefaults(appContext)
-                        // must wait for map data ready
-                        withTimeoutOrNull(TIMEOUT) {
-                            channel.receive()
-                        } ?: if (isInternetOn()) assert(false) { "No internet." }
-                        else assert(false) { "Unexpected error. SDK not initialised." }
-                    }
-                }
-                else return
-
-                if (!SdkSettings.isMapDataReady)
-                    throw Error(GemError.getMessage(GemError.OperationTimeout))
-
-                try
-                {
-                    base.evaluate() // This executes tests
-                }
-                finally
-                {
-                    GemSdk.release()
-                }
-            }
-        }
+        val sdkRule = GemSdkTestRule()
     }
 
-    // -------------------------------------------------------------------------------------------------
     @Test
     fun createMapBitmap() = runBlocking {
         val channel = Channel<Bitmap?>()
@@ -149,10 +61,9 @@ class GPXThumbnailInstrumentedTests
             appContext.resources.displayMetrics.densityDpi,
             onDefaultMapViewCreated = {
                 launch { channel2.send(it) }
-            }
+            },
         )
         var screenShotReceived = false
-
 
         async {
             channel2.receive()
@@ -167,8 +78,7 @@ class GPXThumbnailInstrumentedTests
                 val path = Path.produceWithGpx(input) ?: return@execute
 
                 val coordinatesList = path.coordinates
-                if (!coordinatesList.isNullOrEmpty())
-                {
+                if (!coordinatesList.isNullOrEmpty()) {
                     val departureLmk = Landmark("", coordinatesList.first()).also {
                         it.image =
                             ImageDatabase().getImageById(SdkImages.Core.Waypoint_Start.value)
@@ -178,16 +88,18 @@ class GPXThumbnailInstrumentedTests
                             ImageDatabase().getImageById(SdkImages.Core.Waypoint_Finish.value)
                     }
 
-                    val highlightSettings = HighlightRenderSettings().also {
-                        it.options = EHighlightOptions.ShowLandmark
+                    val highlightSettings = HighlightRenderSettings(
+                        option = EHighlightOptions.ShowLandmark,
+                    ).also {
                         it.imageSize = 4.0
                     }
 
                     mapView.activateHighlightLandmarks(
                         arrayListOf(
                             departureLmk,
-                            destinationLmk
-                        ), highlightSettings
+                            destinationLmk,
+                        ),
+                        highlightSettings,
                     )
                 }
 
@@ -197,7 +109,7 @@ class GPXThumbnailInstrumentedTests
                     colorBorder = Rgba.black(),
                     colorInner = Rgba.orange(),
                     szBorder = 0.5,
-                    szInner = 1.0
+                    szInner = 1.0,
                 )
 
                 path.area?.let { area ->
@@ -208,16 +120,15 @@ class GPXThumbnailInstrumentedTests
                             margin,
                             margin,
                             thumbnailWidth - margin,
-                            thumbnailHeight - margin
+                            thumbnailHeight - margin,
                         ),
-                        animation = Animation(EAnimation.Linear, 10)
+                        animation = Animation(EAnimation.Linear, 10),
                     )
                 }
                 mapView.preferences?.mapLabelsFading = false
                 mapView.onViewRendered = onViewRendered@{ tivStatus, camStatus ->
                     if (screenShotReceived) return@onViewRendered
-                    if (tivStatus == EViewDataTransitionStatus.Complete && camStatus == EViewCameraTransitionStatus.Stationary)
-                    {
+                    if (tivStatus == EViewDataTransitionStatus.Complete && camStatus == EViewCameraTransitionStatus.Stationary) {
                         gemOffscreenSurfaceView.takeScreenshot { bitmap ->
                             screenShotReceived = true
                             runBlocking {
@@ -230,8 +141,7 @@ class GPXThumbnailInstrumentedTests
             }
         }
 
-        withTimeout(60000)
-        {
+        withTimeout(60000) {
             val bmp = channel.receive()
             assert(bmp != null)
             gemOffscreenSurfaceView.destroy()

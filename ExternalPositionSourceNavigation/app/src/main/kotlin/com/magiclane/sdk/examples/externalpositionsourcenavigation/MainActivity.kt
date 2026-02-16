@@ -1,44 +1,42 @@
-// -------------------------------------------------------------------------------------------------------------------------------
-
 /*
- * SPDX-FileCopyrightText: 1995-2025 Magic Lane International B.V. <info@magiclane.com>
+ * SPDX-FileCopyrightText: 2021-2026 Magic Lane International B.V. <info@magiclane.com>
  * SPDX-License-Identifier: Apache-2.0
  *
  * Contact Magic Lane at <info@magiclane.com> for SDK licensing options.
  */
 
-// -------------------------------------------------------------------------------------------------------------------------------
-
 @file:Suppress("SameParameterValue")
 
-// -------------------------------------------------------------------------------------------------------------------------------
-
 package com.magiclane.sdk.examples.externalpositionsourcenavigation
-
-// -------------------------------------------------------------------------------------------------------------------------------
 
 import android.annotation.SuppressLint
 import android.graphics.Bitmap
 import android.os.Bundle
 import android.util.Log
 import android.widget.Button
-import android.widget.ImageView
-import android.widget.ProgressBar
 import android.widget.TextView
 import androidx.activity.addCallback
+import androidx.activity.enableEdgeToEdge
 import androidx.appcompat.app.AppCompatActivity
-import androidx.constraintlayout.widget.ConstraintLayout
 import androidx.core.view.isVisible
 import androidx.test.espresso.idling.CountingIdlingResource
 import com.google.android.material.bottomsheet.BottomSheetDialog
-import com.google.android.material.floatingactionbutton.FloatingActionButton
-import com.magiclane.sdk.core.*
+import com.magiclane.sdk.core.EUnitSystem
+import com.magiclane.sdk.core.GemSdk
+import com.magiclane.sdk.core.ProgressListener
+import com.magiclane.sdk.core.SdkSettings
+import com.magiclane.sdk.core.Time
+import com.magiclane.sdk.examples.externalpositionsourcenavigation.databinding.ActivityMainBinding
 import com.magiclane.sdk.places.Landmark
 import com.magiclane.sdk.routesandnavigation.NavigationInstruction
 import com.magiclane.sdk.routesandnavigation.NavigationListener
 import com.magiclane.sdk.routesandnavigation.NavigationService
 import com.magiclane.sdk.routesandnavigation.Route
-import com.magiclane.sdk.sensordatasource.*
+import com.magiclane.sdk.sensordatasource.DataSourceFactory
+import com.magiclane.sdk.sensordatasource.ExternalDataSource
+import com.magiclane.sdk.sensordatasource.PositionData
+import com.magiclane.sdk.sensordatasource.PositionListener
+import com.magiclane.sdk.sensordatasource.PositionService
 import com.magiclane.sdk.sensordatasource.enums.EDataType
 import com.magiclane.sdk.util.GemUtil
 import com.magiclane.sdk.util.SdkCall
@@ -51,14 +49,9 @@ import kotlin.math.cos
 import kotlin.math.sin
 import kotlin.system.exitProcess
 
-// -------------------------------------------------------------------------------------------------------------------------------
+class MainActivity : AppCompatActivity() {
 
-class MainActivity : AppCompatActivity()
-{
-    // ---------------------------------------------------------------------------------------------------------------------------
-
-    companion object
-    {
+    companion object {
         val positions = arrayOf(
             Pair(48.133931, 11.582914),
             Pair(48.134015, 11.583203),
@@ -149,25 +142,12 @@ class MainActivity : AppCompatActivity()
             Pair(48.140364, 11.593802),
             Pair(48.140514, 11.593876),
             Pair(48.140670, 11.593947),
-            Pair(48.140827, 11.594018)
+            Pair(48.140827, 11.594018),
         )
         val destination = Pair(48.17192581, 11.80789822)
     }
 
-    private lateinit var gemSurfaceView: GemSurfaceView
-    private lateinit var progressBar: ProgressBar
-    private lateinit var followCursorButton: FloatingActionButton
-
-    private lateinit var topPanel: ConstraintLayout
-    private lateinit var navInstruction: TextView
-    private lateinit var navInstructionDistance: TextView
-    private lateinit var navInstructionIcon: ImageView
-    private lateinit var statusText: TextView
-
-    private lateinit var bottomPanel: ConstraintLayout
-    private lateinit var eta: TextView
-    private lateinit var rtt: TextView
-    private lateinit var rtd: TextView
+    private lateinit var binding: ActivityMainBinding
 
     private lateinit var positionListener: PositionListener
 
@@ -177,16 +157,16 @@ class MainActivity : AppCompatActivity()
     private val navRoute: Route?
         get() = navigationService.getNavigationRoute(navigationListener)
 
-    private var timer : Timer? = null
-    
-    /*
-    Define a navigation listener that will receive notifications from the
-    navigation service.
+    private var timer: Timer? = null
+
+    /**
+     * Define a navigation listener that will receive notifications from the
+     * navigation service.
      */
     private val navigationListener: NavigationListener = NavigationListener.create(
         onNavigationStarted = {
             SdkCall.execute {
-                gemSurfaceView.mapView?.let { mapView ->
+                binding.gemSurfaceView.mapView?.let { mapView ->
                     mapView.preferences?.enableCursor = false
                     navRoute?.let { route ->
                         mapView.presentRoute(route)
@@ -194,13 +174,13 @@ class MainActivity : AppCompatActivity()
 
                     enableGPSButton()
                     mapView.followPosition()
-                    
+
                     EspressoIdlingResource.decrement()
                 }
             }
 
-            topPanel.isVisible = true
-            bottomPanel.isVisible = true
+            binding.topPanel.isVisible = true
+            binding.bottomPanel.isVisible = true
 
             showStatusMessage("Navigation started.")
         },
@@ -228,67 +208,51 @@ class MainActivity : AppCompatActivity()
             }
 
             // Update the navigation panels info.
-            navInstruction.text = instrText
-            navInstructionIcon.setImageBitmap(instrIcon)
-            navInstructionDistance.text = instrDistance
+            binding.apply {
+                navInstruction.text = instrText
+                navIcon.setImageBitmap(instrIcon)
+                instructionDistance.text = instrDistance
 
-            eta.text = etaText
-            rtt.text = rttText
-            rtd.text = rtdText
+                eta.text = etaText
+                rtt.text = rttText
+                rtd.text = rtdText
 
-            statusText.isVisible = false
-        }
+                statusText.isVisible = false
+            }
+        },
     )
 
     // Define a listener that will let us know the progress of the routing process.
     private val routingProgressListener = ProgressListener.create(
         onStarted = {
-            progressBar.isVisible = true
+            binding.progressBar.isVisible = true
             showStatusMessage("Routing process started.")
         },
         onCompleted = { _, _ ->
-            progressBar.isVisible = false
+            binding.progressBar.isVisible = false
             showStatusMessage("Routing process completed.")
         },
-        postOnMain = true
+        postOnMain = true,
     )
 
-    // ---------------------------------------------------------------------------------------------------------------------------
-
-    override fun onCreate(savedInstanceState: Bundle?)
-    {
+    override fun onCreate(savedInstanceState: Bundle?) {
+        enableEdgeToEdge()
         super.onCreate(savedInstanceState)
-        setContentView(R.layout.activity_main)
+        binding = ActivityMainBinding.inflate(layoutInflater)
+        setContentView(binding.root)
         EspressoIdlingResource.increment()
 
-        gemSurfaceView = findViewById(R.id.gem_surface)
-        progressBar = findViewById(R.id.progress_bar)
-        followCursorButton = findViewById(R.id.follow_cursor)
-
-        topPanel = findViewById(R.id.top_panel)
-        navInstruction = findViewById(R.id.nav_instruction)
-        navInstructionDistance = findViewById(R.id.instr_distance)
-        navInstructionIcon = findViewById(R.id.nav_icon)
-        statusText = findViewById(R.id.status_text)
-
-        bottomPanel = findViewById(R.id.bottom_panel)
-        eta = findViewById(R.id.eta)
-        rtt = findViewById(R.id.rtt)
-        rtd = findViewById(R.id.rtd)
-
-        /// MAGIC LANE
         SdkSettings.onApiTokenRejected = {
-            /*
-            The TOKEN you provided in the AndroidManifest.xml file was rejected.
-            Make sure you provide the correct value, or if you don't have a TOKEN,
-            check the magiclane.com website, sign up/sign in and generate one.
+            /**
+             * The TOKEN you provided in the AndroidManifest.xml file was rejected.
+             * Make sure you provide the correct value, or if you don't have a TOKEN,
+             * check the magiclane.com website, sign up/sign in and generate one.
              */
             showDialog("TOKEN REJECTED")
         }
 
         SdkSettings.onMapDataReady = { mapReady ->
-            if (mapReady)
-            {
+            if (mapReady) {
                 var externalDataSource: ExternalDataSource?
 
                 SdkCall.execute {
@@ -297,12 +261,11 @@ class MainActivity : AppCompatActivity()
                     externalDataSource?.start()
 
                     positionListener = PositionListener { position: PositionData ->
-                        if (position.isValid())
-                        {
+                        if (position.isValid()) {
                             navigationService.startNavigation(
                                 Landmark("Poing", destination.first, destination.second),
                                 navigationListener,
-                                routingProgressListener
+                                routingProgressListener,
                             )
 
                             PositionService.removeListener(positionListener)
@@ -322,25 +285,24 @@ class MainActivity : AppCompatActivity()
                                     positions[index].second,
                                     -1.0,
                                     positions.getBearing(index),
-                                    positions.getSpeed(index)
+                                    positions.getSpeed(index),
                                 )
                                 externalPosition?.let { pos ->
                                     dataSource.pushData(pos)
                                 }
-
                             }
                             index++
-                            if (index == positions.size)
-                              index = 0
-                            Log.d("BLABLA", index.toString() )
+                            if (index == positions.size) {
+                                index = 0
+                            }
+                            Log.d("BLABLA", index.toString())
                         }
                     }
                 }
             }
         }
 
-        if (!Util.isInternetConnected(this))
-        {
+        if (!Util.isInternetConnected(this)) {
             showDialog("You must be connected to the internet!")
         }
 
@@ -350,10 +312,7 @@ class MainActivity : AppCompatActivity()
         }
     }
 
-    // ---------------------------------------------------------------------------------------------------------------------------
-
-    override fun onDestroy()
-    {
+    override fun onDestroy() {
         super.onDestroy()
         timer?.cancel()
         timer = null
@@ -361,11 +320,8 @@ class MainActivity : AppCompatActivity()
         GemSdk.release()
     }
 
-    // ---------------------------------------------------------------------------------------------------------------------------
-
     @SuppressLint("InflateParams")
-    private fun showDialog(text: String)
-    {
+    private fun showDialog(text: String) {
         val dialog = BottomSheetDialog(this)
         val view = layoutInflater.inflate(R.layout.dialog_layout, null).apply {
             findViewById<TextView>(R.id.title).text = getString(R.string.error)
@@ -381,54 +337,45 @@ class MainActivity : AppCompatActivity()
         }
     }
 
-    // ---------------------------------------------------------------------------------------------------------------------------
-
-    private fun showStatusMessage(text: String)
-    {
-        statusText.isVisible = true
-        statusText.text = text
+    private fun showStatusMessage(text: String) {
+        binding.statusText.isVisible = true
+        binding.statusText.text = text
     }
 
-    // ---------------------------------------------------------------------------------------------------------------------------
-
-    private fun enableGPSButton()
-    {
+    private fun enableGPSButton() {
         // Set actions for entering/ exiting following position mode.
-        gemSurfaceView.mapView?.apply {
-            onExitFollowingPosition = {
-                followCursorButton.isVisible = true
-            }
+        binding.apply {
+            gemSurfaceView.mapView?.apply {
+                onExitFollowingPosition = {
+                    followCursorButton.isVisible = true
+                }
 
-            onEnterFollowingPosition = {
-                followCursorButton.isVisible = false
-            }
+                onEnterFollowingPosition = {
+                    followCursorButton.isVisible = false
+                }
 
-            // Set on click action for the GPS button.
-            followCursorButton.setOnClickListener {
-                SdkCall.execute { followPosition() }
+                // Set on click action for the GPS button.
+                followCursorButton.setOnClickListener {
+                    SdkCall.execute { followPosition() }
+                }
             }
         }
     }
 
-    // ---------------------------------------------------------------------------------------------------------------------------
-
-    private fun NavigationInstruction.getDistanceInMeters(): String
-    {
+    private fun NavigationInstruction.getDistanceInMeters(): String {
         return GemUtil.getDistText(
-            this.timeDistanceToNextTurn?.totalDistance ?: 0, EUnitSystem.Metric
+            this.timeDistanceToNextTurn?.totalDistance ?: 0,
+            EUnitSystem.Metric,
         ).let { pair ->
             pair.first + " " + pair.second
         }
     }
 
-    // ---------------------------------------------------------------------------------------------------------------------------
-
     /**
      * @return estimated time of arrival
      */
     @SuppressLint("DefaultLocale")
-    private fun Route.getEta(): String
-    {
+    private fun Route.getEta(): String {
         val etaNumber = this.getTimeDistance(true)?.totalTime ?: 0
 
         val time = Time()
@@ -437,43 +384,35 @@ class MainActivity : AppCompatActivity()
         return String.format("%d:%02d", time.hour, time.minute)
     }
 
-    // ---------------------------------------------------------------------------------------------------------------------------
     /**
      * @return remaining travel time
      */
-    private fun Route.getRtt(): String
-    {
+    private fun Route.getRtt(): String {
         return GemUtil.getTimeText(
-            this.getTimeDistance(true)?.totalTime ?: 0
+            this.getTimeDistance(true)?.totalTime ?: 0,
         ).let { pair ->
             pair.first + " " + pair.second
         }
     }
-
-    // ---------------------------------------------------------------------------------------------------------------------------
 
     /**
      * @return remaining travel distance
      */
-    private fun Route.getRtd(): String
-    {
+    private fun Route.getRtd(): String {
         return GemUtil.getDistText(
-            this.getTimeDistance(true)?.totalDistance ?: 0, EUnitSystem.Metric
+            this.getTimeDistance(true)?.totalDistance ?: 0,
+            EUnitSystem.Metric,
         ).let { pair ->
             pair.first + " " + pair.second
         }
     }
-
-    // ---------------------------------------------------------------------------------------------------------------------------
 }
 
-// -------------------------------------------------------------------------------------------------------------------------------
 /**
  * Mathematical formula for calculating real distance between 2 coordinates
  * @return real distance between 2 geographical points
  */
-fun Pair<Double, Double>.getDistanceOnGeoid(to: Pair<Double, Double>): Double
-{
+fun Pair<Double, Double>.getDistanceOnGeoid(to: Pair<Double, Double>): Double {
     val (latitude1, longitude1) = this
     val (latitude2, longitude2) = to
     // convert degrees to radians
@@ -502,44 +441,39 @@ fun Pair<Double, Double>.getDistanceOnGeoid(to: Pair<Double, Double>): Double
     return (r * theta)
 }
 
-// -------------------------------------------------------------------------------------------------------------------------------
 /**
  * @return speed value equal with distance between point at [index] and previous point.
  * If there is no previous point returns -1.0
  */
-fun Array<Pair<Double, Double>>.getSpeed(index: Int): Double
-{
-    if ((index > 0) && (index < size))
+fun Array<Pair<Double, Double>>.getSpeed(index: Int): Double {
+    if ((index > 0) && (index < size)) {
         return this[index - 1].getDistanceOnGeoid(this[index])
+    }
     return -1.0
 }
 
-// -------------------------------------------------------------------------------------------------------------------------------
 /**
  * Calculates bearing between 2 points Formula β = atan2(X,Y) where  X and Y are two quantities
  * that can be calculated based on the given latitude and longitude
  * @return Bearing value between point at [index] and previous point.
  * If there is no previous point returns -1.0
  */
-fun Array<Pair<Double, Double>>.getBearing(index: Int): Double
-{
-    if ((index > 0) && (index < size))
-    {
+fun Array<Pair<Double, Double>>.getBearing(index: Int): Double {
+    if ((index > 0) && (index < size)) {
         val x = cos(this[index].first) * sin(this[index].second - this[index - 1].second)
         val y =
             cos(this[index - 1].first) * sin(this[index].first) - sin(this[index - 1].first) * cos(
-                this[index].first
+                this[index].first,
             ) * cos(this[index].second - this[index - 1].second)
         return (atan2(x, y) * 180) / Math.PI
     }
     return -1.0
 }
 
-// -------------------------------------------------------------------------------------------------------------------------------
-// -------------------------------------------------------------------------------------------------------------------------------
 object EspressoIdlingResource {
-    val espressoIdlingResource = CountingIdlingResource("ApplyMapStyleInstrumentedTestsIdlingResource")
+    val espressoIdlingResource =
+        CountingIdlingResource("ApplyMapStyleInstrumentedTestsIdlingResource")
+
     fun increment() = espressoIdlingResource.increment()
-    fun decrement() = if(!espressoIdlingResource.isIdleNow) espressoIdlingResource.decrement() else Unit
+    fun decrement() = if (!espressoIdlingResource.isIdleNow) espressoIdlingResource.decrement() else Unit
 }
-// -------------------------------------------------------------------------------------------------------------------------------

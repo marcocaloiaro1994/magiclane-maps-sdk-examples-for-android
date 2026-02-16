@@ -1,19 +1,13 @@
-// -------------------------------------------------------------------------------------------------
-
 /*
- * SPDX-FileCopyrightText: 1995-2025 Magic Lane International B.V. <info@magiclane.com>
+ * SPDX-FileCopyrightText: 2021-2026 Magic Lane International B.V. <info@magiclane.com>
  * SPDX-License-Identifier: Apache-2.0
  *
  * Contact Magic Lane at <info@magiclane.com> for SDK licensing options.
  */
 
-// -------------------------------------------------------------------------------------------------
-
 @file:Suppress("SameParameterValue")
 
 package com.magiclane.sdk.examples.routeterrainprofile
-
-// -------------------------------------------------------------------------------------------------
 
 import android.annotation.SuppressLint
 import android.content.Context
@@ -79,73 +73,52 @@ import java.util.concurrent.TimeUnit
 import kotlin.math.abs
 import kotlin.math.round
 
-// -------------------------------------------------------------------------------------------------
-
 @SuppressLint("ClickableViewAccessibility")
 class RouteProfile(
     private val parentActivity: MainActivity,
     private val route: Route,
-) : OnChartGestureListener, OnChartValueSelectedListener
-{
-    // ---------------------------------------------------------------------------------------------
+) : OnChartGestureListener, OnChartValueSelectedListener {
 
-    enum class TRouteProfileSectionType
-    {
+    enum class TRouteProfileSectionType {
         EElevation,
         EClimbDetails,
         EWays,
         ESurfaces,
-        ESteepnesses
+        ESteepnesses,
     }
 
-    // ---------------------------------------------------------------------------------------------
-
-    enum class TElevationProfileButtonType
-    {
+    enum class TElevationProfileButtonType {
         EElevationAtDeparture,
         EElevationAtDestination,
         EMinElevation,
-        EMaxElevation
+        EMaxElevation,
     }
 
-    // ---------------------------------------------------------------------------------------------
-
-    enum class TClimbDetailsInfoType
-    {
+    enum class TClimbDetailsInfoType {
         ERating,
         EStartEndPoints,
         EStartEndElevation,
         ELength,
-        EAvgGrade
+        EAvgGrade,
     }
 
-    // ---------------------------------------------------------------------------------------------
-
-    enum class TTouchChartEvent
-    {
+    enum class TTouchChartEvent {
         EDown,
         EMove,
-        EUp
+        EUp,
     }
-
-    // ---------------------------------------------------------------------------------------------
 
     data class CSectionItem(var mStartDistanceM: Int, var mLengthM: Int)
 
-    // ---------------------------------------------------------------------------------------------
-
-    enum class TSteepnessImageType
-    {
+    enum class TSteepnessImageType {
         EUnknown,
         EDown,
         EPlain,
-        EUp
+        EUp,
     }
 
-    // ---------------------------------------------------------------------------------------------
-    
     private lateinit var routeTerrainProfile: RouteTerrainProfile
-    
+
     private val scrollView: NestedScrollView
     private val elevationChart: CombinedChart
     private val buttonsContainer: ConstraintLayout
@@ -161,24 +134,28 @@ class RouteProfile(
     private val steepnessImage: ImageView
     private val highlightedSteepness: TextView
     private val steepnessChart: CombinedChart
-    
+
     private val tableViewRowHeight: Int
 
     private val lineBarYAxisMaximum = 150f
     private val lineBarChartPlottedValuesCount = 1000
     private val barChartMinX = 0.0
     private val barChartMaxX = 0.1
-    
+
     private var _lastElevationChartValueSelected: Point? = null
 
-    private val steepnessIconSize = parentActivity.resources.getDimension(R.dimen.steepness_icon_size).toInt()
-    private val elevationIconSize = parentActivity.resources.getDimension(R.dimen.elevation_button_size).toInt()
-    
+    private val steepnessIconSize = parentActivity.resources.getDimension(
+        R.dimen.steepness_icon_size,
+    ).toInt()
+    private val elevationIconSize = parentActivity.resources.getDimension(
+        R.dimen.elevation_button_size,
+    ).toInt()
+
     private var routeLength = 0
-    
+
     private var chartMinX = 0.0
     private var chartMaxX = 0.0
-    
+
     private var previousTouchXMeters = -1
 
     private var highlightedLandmarkList = arrayListOf<Landmark>()
@@ -197,29 +174,27 @@ class RouteProfile(
     private var highlightedRoadPaths = arrayListOf<Path>()
     private var highlightedSteepnessType = -1
     private var highlightedSteepnessPaths = arrayListOf<Path>()
-    
+
     val lastElevationChartValueSelected: PointF?
-        get() = if (_lastElevationChartValueSelected != null)
-        {
-            _lastElevationChartValueSelected?.x?.let { x -> 
-                _lastElevationChartValueSelected?.y?.let { y -> 
+        get() = if (_lastElevationChartValueSelected != null) {
+            _lastElevationChartValueSelected?.x?.let { x ->
+                _lastElevationChartValueSelected?.y?.let { y ->
                     PointF(x, y)
                 }
             }
+        } else {
+            null
         }
-        else null
-    
-    // ---------------------------------------------------------------------------------------------
-    
+
     init
     {
         parentActivity.apply {
-            SdkCall.execute { 
+            SdkCall.execute {
                 routeTerrainProfile = route.terrainProfile!!
                 routeLength = route.timeDistance?.totalDistance ?: 0
                 highlightPathsColor = Rgba(239, 38, 81, 255)
             }
-            
+
             scrollView = findViewById(R.id.route_profile_scroll_view)
             elevationChart = findViewById(R.id.elevation_chart)
             buttonsContainer = findViewById(R.id.buttons_container)
@@ -235,9 +210,11 @@ class RouteProfile(
             steepnessImage = findViewById(R.id.steepness_image)
             highlightedSteepness = findViewById(R.id.highlighted_steepness)
             steepnessChart = findViewById(R.id.steepness_chart)
-            
+
             val displayMetrics = Resources.getSystem().displayMetrics
-            tableViewRowHeight = displayMetrics.widthPixels.coerceAtMost(displayMetrics.heightPixels) * 3 / 20
+            tableViewRowHeight = displayMetrics.widthPixels.coerceAtMost(
+                displayMetrics.heightPixels,
+            ) * 3 / 20
 
             loadData()
             addElevationViews()
@@ -246,101 +223,71 @@ class RouteProfile(
             addSteepnessViews()
         }
     }
-    
-    // ---------------------------------------------------------------------------------------------
-    
-    override fun onChartGestureStart(me: MotionEvent?, lastPerformedGesture: ChartTouchListener.ChartGesture?) = Unit
 
-    // ---------------------------------------------------------------------------------------------
+    override fun onChartGestureStart(me: MotionEvent?, lastPerformedGesture: ChartTouchListener.ChartGesture?) = Unit
 
     override fun onChartGestureEnd(me: MotionEvent?, lastPerformedGesture: ChartTouchListener.ChartGesture?) = Unit
 
-    // ---------------------------------------------------------------------------------------------
-
     override fun onChartLongPressed(me: MotionEvent?) = Unit
-
-    // ---------------------------------------------------------------------------------------------
 
     override fun onChartDoubleTapped(me: MotionEvent?) = Unit
 
-    // ---------------------------------------------------------------------------------------------
-
     override fun onChartSingleTapped(me: MotionEvent?) = Unit
-
-    // ---------------------------------------------------------------------------------------------
 
     override fun onChartFling(me1: MotionEvent?, me2: MotionEvent?, velocityX: Float, velocityY: Float) = Unit
 
-    // ---------------------------------------------------------------------------------------------
-
-    override fun onChartScale(me: MotionEvent?, scaleX: Float, scaleY: Float)
-    {
+    override fun onChartScale(me: MotionEvent?, scaleX: Float, scaleY: Float) {
         var minX = elevationChart.xAxis.axisMinimum
         var maxX = elevationChart.xAxis.axisMaximum
-        
-        if (elevationChart.data.dataSetCount > 0)
-        {
+
+        if (elevationChart.data.dataSetCount > 0) {
             minX = elevationChart.lowestVisibleX
             maxX = elevationChart.highestVisibleX
         }
-        
-        SdkCall.execute {  onElevationChartIntervalUpdate(minX.toDouble(), maxX.toDouble(), true)  }
+
+        SdkCall.execute { onElevationChartIntervalUpdate(minX.toDouble(), maxX.toDouble(), true) }
         updateElevationChartInterval(minX.toDouble(), maxX.toDouble())
         updateElevationChartHighlight()
     }
 
-    // ---------------------------------------------------------------------------------------------
-
-    override fun onChartTranslate(me: MotionEvent?, dX: Float, dY: Float)
-    {
+    override fun onChartTranslate(me: MotionEvent?, dX: Float, dY: Float) {
         var minX = elevationChart.xAxis.axisMinimum
         var maxX = elevationChart.xAxis.axisMaximum
 
-        if (elevationChart.data.dataSetCount > 0)
-        {
+        if (elevationChart.data.dataSetCount > 0) {
             minX = elevationChart.lowestVisibleX
             maxX = elevationChart.highestVisibleX
         }
-        
-        SdkCall.execute {  onElevationChartIntervalUpdate(minX.toDouble(), maxX.toDouble(), true)  }
+
+        SdkCall.execute { onElevationChartIntervalUpdate(minX.toDouble(), maxX.toDouble(), true) }
         updateElevationChartInterval(minX.toDouble(), maxX.toDouble())
         updateElevationChartHighlight()
     }
 
-    // ---------------------------------------------------------------------------------------------
-
-    override fun onValueSelected(e: Entry, h: Highlight)
-    {
-        if (h.dataIndex == 0)
-        {
+    override fun onValueSelected(e: Entry, h: Highlight) {
+        if (h.dataIndex == 0) {
             removeSelection(surfacesChart)
             removeSelection(roadsChart)
             removeSelection(steepnessChart)
-            
-            if (_lastElevationChartValueSelected == null)
-            {
+
+            if (_lastElevationChartValueSelected == null) {
                 _lastElevationChartValueSelected = Point(0f, 0f)
             }
-            
-            _lastElevationChartValueSelected?.run { 
+
+            _lastElevationChartValueSelected?.run {
                 x = e.x
                 y = e.y
             }
             elevationChart.highlightValue(h)
-            
-            SdkCall.execute {  onTouchElevationChart(0, e.x.toDouble())  }
+
+            SdkCall.execute { onTouchElevationChart(0, e.x.toDouble()) }
         }
     }
 
-    // ---------------------------------------------------------------------------------------------
-    
-    override fun onNothingSelected()
-    {
+    override fun onNothingSelected() {
         _lastElevationChartValueSelected = null
     }
-    
-    // ---------------------------------------------------------------------------------------------
-    
+
     private fun loadData() = SdkCall.execute {
         chartMinX = 0.0
         chartMaxX = routeLength.toDouble()
@@ -350,86 +297,66 @@ class RouteProfile(
         removeHighlightedSurfacePathsFromMap()
         removeHighlightedRoadPathsFromMap()
         removeHighlightedSteepnessPathsFromMap()
-        
+
         val steepnessIntervals = arrayListOf(-16f, -10f, -7f, -4f, -1f, 1f, 4f, 7f, 10f, 16f)
         routeTerrainProfile.surfaceSections?.let { surfacesSectionList ->
             var length: Int
-            for ((i, item) in surfacesSectionList.withIndex())
-            {
-                length = if (i < surfacesSectionList.size - 1)
-                {
+            for ((i, item) in surfacesSectionList.withIndex()) {
+                length = if (i < surfacesSectionList.size - 1) {
                     surfacesSectionList[i + 1].startDistanceM - item.startDistanceM
-                }
-                else
-                {
+                } else {
                     routeLength - item.startDistanceM
                 }
-                
-                if (surfacesTypes.containsKey(item.type))
-                {
+
+                if (surfacesTypes.containsKey(item.type)) {
                     surfacesTypes[item.type]?.add(CSectionItem(item.startDistanceM, length))
-                }
-                else
-                {
-                    surfacesTypes[item.type] = arrayListOf(CSectionItem(item.startDistanceM, length))
+                } else {
+                    surfacesTypes[item.type] = arrayListOf(
+                        CSectionItem(item.startDistanceM, length),
+                    )
                 }
             }
         }
-        
-        routeTerrainProfile.roadTypeSections?.let { roadTypeSectionList -> 
+
+        routeTerrainProfile.roadTypeSections?.let { roadTypeSectionList ->
             var length: Int
-            for ((i, item) in roadTypeSectionList.withIndex())
-            {
-                length = if (i < roadTypeSectionList.size - 1)
-                {
+            for ((i, item) in roadTypeSectionList.withIndex()) {
+                length = if (i < roadTypeSectionList.size - 1) {
                     roadTypeSectionList[i + 1].startDistanceM - item.startDistanceM
-                }
-                else
-                {
+                } else {
                     routeLength - item.startDistanceM
                 }
-                
-                if (roadsTypes.containsKey(item.type))
-                {
+
+                if (roadsTypes.containsKey(item.type)) {
                     roadsTypes[item.type]?.add(CSectionItem(item.startDistanceM, length))
-                }
-                else
-                {
+                } else {
                     roadsTypes[item.type] = arrayListOf(CSectionItem(item.startDistanceM, length))
                 }
             }
         }
-        
-        routeTerrainProfile.getSteepSections(steepnessIntervals)?.let { steepnessSectionList -> 
+
+        routeTerrainProfile.getSteepSections(steepnessIntervals)?.let { steepnessSectionList ->
             var length: Int
-            
-            for ((i, item) in steepnessSectionList.withIndex())
-            {
-                length = if (i < steepnessSectionList.size - 1)
-                {
+
+            for ((i, item) in steepnessSectionList.withIndex()) {
+                length = if (i < steepnessSectionList.size - 1) {
                     steepnessSectionList[i + 1].startDistanceM - item.startDistanceM
-                }
-                else
-                {
+                } else {
                     routeLength - item.startDistanceM
                 }
-                
-                if (steepnessTypes.containsKey(item.category))
-                {
+
+                if (steepnessTypes.containsKey(item.category)) {
                     steepnessTypes[item.category]?.add(CSectionItem(item.startDistanceM, length))
-                }
-                else
-                {
-                    steepnessTypes[item.category] = arrayListOf(CSectionItem(item.startDistanceM, length))
+                } else {
+                    steepnessTypes[item.category] = arrayListOf(
+                        CSectionItem(item.startDistanceM, length),
+                    )
                 }
             }
         }
     }
-    
-    // ---------------------------------------------------------------------------------------------
 
-    private fun addElevationViews()
-    {
+    private fun addElevationViews() {
         setElevationChartPlottedValuesCount()
         setElevationChartMarkerView(parentActivity)
         initLayout(tableViewRowHeight)
@@ -441,37 +368,33 @@ class RouteProfile(
         addClimbDetailsTableView()
     }
 
-    // ---------------------------------------------------------------------------------------------
-    
-    private fun addSurfacesViews()
-    {
+    private fun addSurfacesViews() {
         val surfaceTypesCount = surfacesTypes.size
         val title = getSectionTitle(TRouteProfileSectionType.ESteepnesses.ordinal)
-        
-        if (surfaceTypesCount > 0)
-        {
+
+        if (surfaceTypesCount > 0) {
             setAttributesToSurfacesChart()
             setLineBarChartAxisBounds(surfacesChart)
-            
-            surfacesTitle.apply { 
+
+            surfacesTitle.apply {
                 visibility = View.VISIBLE
                 text = title
             }
             highlightedSurface.visibility = View.VISIBLE
             surfacesChart.visibility = View.VISIBLE
             surfacesChart.setOnTouchListener { view, event ->
-                when (event.action)
-                {
+                when (event.action) {
                     MotionEvent.ACTION_DOWN ->
-                    {
-                        scrollView.requestDisallowInterceptTouchEvent(true)
-                    }
+                        {
+                            scrollView.requestDisallowInterceptTouchEvent(true)
+                        }
 
                     MotionEvent.ACTION_CANCEL,
-                    MotionEvent.ACTION_UP ->
-                    {
-                        scrollView.requestDisallowInterceptTouchEvent(false)
-                    }
+                    MotionEvent.ACTION_UP,
+                    ->
+                        {
+                            scrollView.requestDisallowInterceptTouchEvent(false)
+                        }
 
                     else -> return@setOnTouchListener false
                 }
@@ -481,51 +404,45 @@ class RouteProfile(
             }
             loadSurfacesData()
             updateHighlightedSurfaceLabel(0.0)
-            
+
             val highlight = surfacesChart.getHighlightByTouchPoint(0f, 0f)
             highlight?.let { surfacesChart.highlightValue(it) }
-            
+
             setLineBarChartMarkerView(parentActivity, surfacesChart)
-        }
-        else
-        {
+        } else {
             surfacesTitle.visibility = View.GONE
             highlightedSurface.visibility = View.GONE
             surfacesChart.visibility = View.GONE
         }
     }
 
-    // ---------------------------------------------------------------------------------------------
-    
-    private fun addRoadsViews()
-    {
+    private fun addRoadsViews() {
         val roadTypesCount = roadsTypes.size
         val title = getSectionTitle(TRouteProfileSectionType.ESteepnesses.ordinal)
-        
-        if (roadTypesCount > 0)
-        {
+
+        if (roadTypesCount > 0) {
             setAttributesToRoadsChart()
             setLineBarChartAxisBounds(roadsChart)
-            
-            roadsTitle.apply { 
+
+            roadsTitle.apply {
                 visibility = View.VISIBLE
                 text = title
             }
             highlightedRoad.visibility = View.VISIBLE
             roadsChart.visibility = View.VISIBLE
             roadsChart.setOnTouchListener { view, event ->
-                when (event.action)
-                {
+                when (event.action) {
                     MotionEvent.ACTION_DOWN ->
-                    {
-                        scrollView.requestDisallowInterceptTouchEvent(true)
-                    }
+                        {
+                            scrollView.requestDisallowInterceptTouchEvent(true)
+                        }
 
                     MotionEvent.ACTION_CANCEL,
-                    MotionEvent.ACTION_UP ->
-                    {
-                        scrollView.requestDisallowInterceptTouchEvent(false)
-                    }
+                    MotionEvent.ACTION_UP,
+                    ->
+                        {
+                            scrollView.requestDisallowInterceptTouchEvent(false)
+                        }
 
                     else -> return@setOnTouchListener false
                 }
@@ -535,51 +452,45 @@ class RouteProfile(
             }
             loadRoadsData()
             updateHighlightedRoadLabel(0.0)
-            
+
             val highlight = roadsChart.getHighlightByTouchPoint(0f, 0f)
             highlight?.let { roadsChart.highlightValue(it) }
-            
+
             setLineBarChartMarkerView(parentActivity, roadsChart)
-        }
-        else
-        {
+        } else {
             roadsTitle.visibility = View.GONE
             highlightedRoad.visibility = View.GONE
             roadsChart.visibility = View.GONE
         }
     }
 
-    // ---------------------------------------------------------------------------------------------
-    
-    private fun addSteepnessViews()
-    {
+    private fun addSteepnessViews() {
         val steepnessTypeCount = steepnessTypes.size
         val title = getSectionTitle(TRouteProfileSectionType.ESteepnesses.ordinal)
-        
-        if (steepnessTypeCount > 0)
-        {
+
+        if (steepnessTypeCount > 0) {
             setAttributesToSteepnessChart()
             setLineBarChartAxisBounds(steepnessChart)
-            
-            steepnessTitle.apply { 
+
+            steepnessTitle.apply {
                 visibility = View.VISIBLE
                 text = title
             }
             highlightedSteepness.visibility = View.VISIBLE
             steepnessChart.visibility = View.VISIBLE
             steepnessChart.setOnTouchListener { view, event ->
-                when (event.action)
-                {
+                when (event.action) {
                     MotionEvent.ACTION_DOWN ->
-                    {
-                        scrollView.requestDisallowInterceptTouchEvent(true)
-                    }
+                        {
+                            scrollView.requestDisallowInterceptTouchEvent(true)
+                        }
 
                     MotionEvent.ACTION_CANCEL,
-                    MotionEvent.ACTION_UP ->
-                    {
-                        scrollView.requestDisallowInterceptTouchEvent(false)
-                    }
+                    MotionEvent.ACTION_UP,
+                    ->
+                        {
+                            scrollView.requestDisallowInterceptTouchEvent(false)
+                        }
 
                     else -> return@setOnTouchListener false
                 }
@@ -589,34 +500,27 @@ class RouteProfile(
             }
             loadSteepnessData()
             updateHighlightedSteepnessLabel(0.0)
-            
+
             val highlight = steepnessChart.getHighlightByTouchPoint(0f, 0f)
             highlight?.let { steepnessChart.highlightValue(it) }
-            
+
             setLineBarChartMarkerView(parentActivity, steepnessChart)
         }
     }
 
-    // ---------------------------------------------------------------------------------------------
-    
-    private fun setElevationChartPlottedValuesCount()
-    {
+    private fun setElevationChartPlottedValuesCount() {
         var chartVerticalBandsCount = 0
         SdkCall.execute { chartVerticalBandsCount = getElevationChartVerticalBandsCount() }
-        
-        elevationChartPlottedValuesCount = when
-        {
+
+        elevationChartPlottedValuesCount = when {
             chartVerticalBandsCount > 9 -> 1000
             chartVerticalBandsCount > 4 -> 600
             else -> 300
         }
     }
 
-    // ---------------------------------------------------------------------------------------------
-
     private fun getClosestElevationChartPlottedXValue(distance: Float, y: Float): Float {
-        if (elevationChart.data.dataSetCount > 0)
-        {
+        if (elevationChart.data.dataSetCount > 0) {
             val lineDataSet = elevationChart.data.dataSets[0]
             val entry = lineDataSet.getEntryForXValue(distance, y)
             return entry.x
@@ -624,148 +528,134 @@ class RouteProfile(
 
         return distance
     }
-    
-    // ---------------------------------------------------------------------------------------------
-    
-    private fun setElevationChartMarkerView(context: Context)
-    {
-        val markerView = ElevationCustomMarkerView(context, R.layout.elevation_custom_marker_view, this)
+
+    private fun setElevationChartMarkerView(context: Context) {
+        val markerView =
+            ElevationCustomMarkerView(context, R.layout.elevation_custom_marker_view, this)
         markerView.chartView = elevationChart
         elevationChart.marker = markerView
     }
-    
-    // ---------------------------------------------------------------------------------------------
-    
-    private fun loadElevationData()
-    {
-        elevationChart.apply { 
+
+    private fun loadElevationData() {
+        elevationChart.apply {
             data = null
             highlightValue(null)
             _lastElevationChartValueSelected = null
-            
+
             val minX = xAxis.axisMinimum
             val maxX = xAxis.axisMaximum
-            
+
             updateElevationChart(minX, maxX)
         }
     }
-    
-    // ---------------------------------------------------------------------------------------------
-    
-    private fun setElevationExtraInfo()
-    {
+
+    private fun setElevationExtraInfo() {
         buttonsContainer.removeAllViews()
-        
+
         val buttonsCount = 4
         val buttonIdsArray = IntArray(buttonsCount)
         var bmp: Bitmap? = null
         var text = ""
-        
-        for (i in 0 until buttonsCount)
-        {
-            val buttonContainer = View.inflate(parentActivity, R.layout.image_and_text_button, null).also { 
+
+        for (i in 0 until buttonsCount) {
+            val buttonContainer = View.inflate(
+                parentActivity,
+                R.layout.image_and_text_button,
+                null,
+            ).also {
                 it.id = i + 100
                 buttonIdsArray[i] = it.id
             }
-            
+
             val imageView = buttonContainer.findViewById<ImageView>(R.id.image)
             val textView = buttonContainer.findViewById<TextView>(R.id.text)
-            
-            SdkCall.execute { 
+
+            SdkCall.execute {
                 bmp = getElevationProfileButtonImage(i, elevationIconSize, elevationIconSize)
                 text = getElevationProfileButtonText(i)
             }
-            
+
             imageView.apply {
                 setImageBitmap(bmp)
-                if (i == 2 || i == 3)
-                {
-                    if (parentActivity.isDarkThemeOn())
-                    {
+                if (i == 2 || i == 3) {
+                    if (parentActivity.isDarkThemeOn()) {
                         setColorFilter(Color.WHITE)
-                    }
-                    else
-                    {
+                    } else {
                         clearColorFilter()
                     }
                 }
             }
             textView.text = text
-            
-            buttonContainer.setOnClickListener { 
+
+            buttonContainer.setOnClickListener {
                 onButtonClick(i)
             }
-            
+
             buttonsContainer.addView(buttonContainer)
         }
-        
+
         val constraintSet = ConstraintSet().also { it.clone(buttonsContainer) }
-        
-        for (i in 0 until buttonsCount)
-        {
-            when (i)
-            {
+
+        for (i in 0 until buttonsCount) {
+            when (i) {
                 0 ->
-                {
-                    constraintSet.connect(
-                        buttonIdsArray[i],
-                        ConstraintSet.START,
-                        ConstraintSet.PARENT_ID,
-                        ConstraintSet.START
-                    )
-                    constraintSet.connect(
-                        buttonIdsArray[i],
-                        ConstraintSet.END,
-                        buttonIdsArray[1],
-                        ConstraintSet.START
-                    )
-                }
-                
+                    {
+                        constraintSet.connect(
+                            buttonIdsArray[i],
+                            ConstraintSet.START,
+                            ConstraintSet.PARENT_ID,
+                            ConstraintSet.START,
+                        )
+                        constraintSet.connect(
+                            buttonIdsArray[i],
+                            ConstraintSet.END,
+                            buttonIdsArray[1],
+                            ConstraintSet.START,
+                        )
+                    }
+
                 buttonsCount - 1 ->
-                {
-                    constraintSet.connect(
-                        buttonIdsArray[i],
-                        ConstraintSet.START,
-                        buttonIdsArray[i - 1],
-                        ConstraintSet.END
-                    )
-                    constraintSet.connect(
-                        buttonIdsArray[i],
-                        ConstraintSet.END,
-                        ConstraintSet.PARENT_ID,
-                        ConstraintSet.END
-                    )
-                }
-                
+                    {
+                        constraintSet.connect(
+                            buttonIdsArray[i],
+                            ConstraintSet.START,
+                            buttonIdsArray[i - 1],
+                            ConstraintSet.END,
+                        )
+                        constraintSet.connect(
+                            buttonIdsArray[i],
+                            ConstraintSet.END,
+                            ConstraintSet.PARENT_ID,
+                            ConstraintSet.END,
+                        )
+                    }
+
                 else ->
-                {
-                    constraintSet.connect(
-                        buttonIdsArray[i],
-                        ConstraintSet.START,
-                        buttonIdsArray[i - 1],
-                        ConstraintSet.END
-                    )
-                    constraintSet.connect(
-                        buttonIdsArray[i],
-                        ConstraintSet.END,
-                        buttonIdsArray[i + 1],
-                        ConstraintSet.START
-                    )
-                }
+                    {
+                        constraintSet.connect(
+                            buttonIdsArray[i],
+                            ConstraintSet.START,
+                            buttonIdsArray[i - 1],
+                            ConstraintSet.END,
+                        )
+                        constraintSet.connect(
+                            buttonIdsArray[i],
+                            ConstraintSet.END,
+                            buttonIdsArray[i + 1],
+                            ConstraintSet.START,
+                        )
+                    }
             }
         }
-        
+
         constraintSet.apply {
             setHorizontalChainStyle(buttonIdsArray[0], ConstraintSet.CHAIN_SPREAD_INSIDE)
             applyTo(buttonsContainer)
         }
     }
-    
-    // ---------------------------------------------------------------------------------------------
-    
-    private fun onButtonClick(index: Int)
-    {
-        elevationChart.apply { 
+
+    private fun onButtonClick(index: Int) {
+        elevationChart.apply {
             highlightValue(null)
             SdkCall.execute {
                 onElevationChartIntervalUpdate(0.0, routeLength.toDouble(), true)
@@ -776,65 +666,61 @@ class RouteProfile(
             fitScreen()
         }
     }
-    
-    // ---------------------------------------------------------------------------------------------
-    
-    private fun onPushButton(index: Int)
-    {
-        val distance = when (index)
-        {
+
+    private fun onPushButton(index: Int) {
+        val distance = when (index) {
             TElevationProfileButtonType.EElevationAtDeparture.ordinal -> 0.0
-            TElevationProfileButtonType.EElevationAtDestination.ordinal -> route.getTimeDistance(false)?.totalDistance?.toDouble() ?: 0.0
+            TElevationProfileButtonType.EElevationAtDestination.ordinal -> route.getTimeDistance(
+                false,
+            )?.totalDistance?.toDouble() ?: 0.0
             TElevationProfileButtonType.EMinElevation.ordinal -> routeTerrainProfile.minElevationDistance.toDouble()
             TElevationProfileButtonType.EMaxElevation.ordinal -> routeTerrainProfile.maxElevationDistance.toDouble()
             else -> 0.0
         }
-        
+
         val landmark = Landmark()
         val landmarkList = arrayListOf<Landmark>()
         val mapView = parentActivity.gemSurfaceView.mapView
-        
-        val image = ImageDatabase().getImageById(SdkImages.Engine_Misc.LocationDetails_PlacePushpin.value)
-        image?.let { 
+
+        val image = ImageDatabase().getImageById(
+            SdkImages.Engine_Misc.LocationDetails_PlacePushpin.value,
+        )
+        image?.let {
             landmark.image = image
             highlightedLandmarkList.add(landmark)
-            route.getCoordinateOnRoute(distance.toInt())?.let { 
+            route.getCoordinateOnRoute(distance.toInt())?.let {
                 highlightedLandmarkList.first().coordinates = it
                 mapView?.deactivateHighlight()
 
-                val settings = HighlightRenderSettings(EHighlightOptions.ShowLandmark.value
-                    or EHighlightOptions.Overlap.value
-                    or EHighlightOptions.NoFading.value)
-                
+                val settings = HighlightRenderSettings(
+                    EHighlightOptions.ShowLandmark.value
+                        or EHighlightOptions.Overlap.value
+                        or EHighlightOptions.NoFading.value,
+                )
+
                 mapView?.activateHighlightLandmarks(landmarkList, settings)
-                
+
                 Util.postOnMain { updateElevationChartPinPosition(distance.toFloat()) }
-                
+
                 onTouchElevationChart(TTouchChartEvent.EDown.ordinal, distance)
             }
         }
     }
-    
-    // ---------------------------------------------------------------------------------------------
-    
-    private fun setElevationChartTextSize()
-    {
-        elevationChart.apply { 
+
+    private fun setElevationChartTextSize() {
+        elevationChart.apply {
             val textSize = 12f
             xAxis.textSize = textSize
             axisLeft.textSize = textSize
-            
+
             var chartVerticalBandsCount = 0
             SdkCall.execute { chartVerticalBandsCount = getElevationChartVerticalBandsCount() }
-            
-            if (chartVerticalBandsCount > 0 && lineData != null)
-            {
-                for (i in 0 until chartVerticalBandsCount)
-                {
+
+            if (chartVerticalBandsCount > 0 && lineData != null) {
+                for (i in 0 until chartVerticalBandsCount) {
                     val lineDataSet = lineData.getDataSetByIndex(i + 1)
-                    lineDataSet?.let { 
-                        if (it is LineDataSet)
-                        {
+                    lineDataSet?.let {
+                        if (it is LineDataSet) {
                             it.valueTextSize = textSize
                         }
                     }
@@ -842,83 +728,70 @@ class RouteProfile(
             }
         }
     }
-    
-    // ---------------------------------------------------------------------------------------------
-    
-    private fun updateElevationChart(minX: Float, maxX: Float)
-    {
+
+    private fun updateElevationChart(minX: Float, maxX: Float) {
         val initialLineDataSet: LineDataSet
         var elevationLineDataSet: LineDataSet
-        
+
         val initialLineValues = ArrayList<Entry>()
         val elevationArrayGroup = ArrayList<List<Entry>>()
-        
+
         var yValues: IntArray? = null
         var verticalBandsCount = 0
-        SdkCall.execute { 
+        SdkCall.execute {
             yValues = getElevationChartYValues(elevationChartPlottedValuesCount)
             verticalBandsCount = getElevationChartVerticalBandsCount()
         }
-        
+
         val step = (maxX - minX) / (elevationChartPlottedValuesCount - 1)
         var x = minX
         val lastItemIndex = elevationChartPlottedValuesCount - 1
-        
-        for (i in 0 until lastItemIndex)
-        {
+
+        for (i in 0 until lastItemIndex) {
             yValues?.get(i)?.toFloat()?.let { Entry(x, it) }?.let { initialLineValues.add(it) }
             x += step
         }
         yValues?.get(lastItemIndex)?.toFloat()?.let { Entry(maxX, it) }?.let {
             initialLineValues.add(it)
         }
-        
-        if (verticalBandsCount > 0)
-        {
-            for (i in 0 until verticalBandsCount)
-            {
+
+        if (verticalBandsCount > 0) {
+            for (i in 0 until verticalBandsCount) {
                 val valuesLineSteepness = ArrayList<Entry>()
-                
+
                 var verticalBandMinX = 0.0
                 var verticalBandMaxX = 0.0
-                SdkCall.execute { 
+                SdkCall.execute {
                     verticalBandMinX = getElevationChartVerticalBandMinX(i)
                     verticalBandMaxX = getElevationChartVerticalBandMaxX(i)
                 }
-                
-                for (entry in initialLineValues)
-                {
-                    if (entry.x in verticalBandMinX..verticalBandMaxX)
-                    {
+
+                for (entry in initialLineValues) {
+                    if (entry.x in verticalBandMinX..verticalBandMaxX) {
                         valuesLineSteepness.add(entry)
                     }
                 }
-                
+
                 elevationArrayGroup.add(i, valuesLineSteepness)
             }
         }
-        
-        elevationChart.apply { 
-            if (data != null && data.dataSetCount > 0)
-            {
+
+        elevationChart.apply {
+            if (data != null && data.dataSetCount > 0) {
                 initialLineDataSet = data.getDataSetByIndex(0) as LineDataSet
                 initialLineDataSet.clear()
                 initialLineValues.forEach { initialLineDataSet.addEntry(it) }
-                //initialLineDataSet.entries = initialLineValues
-                
+                // initialLineDataSet.entries = initialLineValues
+
                 data.lineData?.let {
                     val count = data.dataSetCount
-                    for (i in count - 1 downTo 1)
-                    {
+                    for (i in count - 1 downTo 1) {
                         it.removeDataSet(i)
                     }
-                    
-                    if (verticalBandsCount > 0)
-                    {
-                        for (i in 0 until verticalBandsCount)
-                        {
-                            if (elevationArrayGroup[i].isNotEmpty())
-                            {
+
+                    if (verticalBandsCount > 0) {
+                        for (i in 0 until verticalBandsCount) {
+                            if (elevationArrayGroup[i].isNotEmpty()) {
                                 elevationLineDataSet = LineDataSet(elevationArrayGroup[i], null)
                                 customizeElevationDataSet(elevationLineDataSet, i)
                                 it.addDataSet(elevationLineDataSet)
@@ -926,61 +799,55 @@ class RouteProfile(
                         }
                     }
                 }
-                
+
                 data.notifyDataChanged()
                 notifyDataSetChanged()
-            }
-            else
-            {
+            } else {
                 val combinedData = CombinedData()
                 val dataSets = ArrayList<ILineDataSet>()
                 val bubbleData = BubbleData()
-                
+
                 initialLineDataSet = LineDataSet(initialLineValues, null)
                 customizeInitialDataSet(initialLineDataSet)
                 dataSets.add(initialLineDataSet)
-                
-                if (verticalBandsCount > 0)
-                {
-                    for (i in 0 until verticalBandsCount)
-                    {
-                        if (elevationArrayGroup[i].isNotEmpty())
-                        {
+
+                if (verticalBandsCount > 0) {
+                    for (i in 0 until verticalBandsCount) {
+                        if (elevationArrayGroup[i].isNotEmpty()) {
                             elevationLineDataSet = LineDataSet(elevationArrayGroup[i], null)
                             customizeElevationDataSet(elevationLineDataSet, i)
                             dataSets.add(elevationLineDataSet)
                         }
                     }
                 }
-                
+
                 val lineData = LineData(dataSets)
-                combinedData.apply { 
+                combinedData.apply {
                     setData(bubbleData)
                     setData(lineData)
                 }
-                
+
                 data = combinedData
                 invalidate()
             }
         }
     }
-    
-    // ---------------------------------------------------------------------------------------------
-    
-    private fun updateElevationChartHighlight()
-    {
+
+    private fun updateElevationChartHighlight() {
         elevationChart.apply {
             _lastElevationChartValueSelected?.let { lastElevationChartValueSelected ->
                 val highlightedArray = highlighted
-                if (!highlightedArray.isNullOrEmpty())
-                {
+                if (!highlightedArray.isNullOrEmpty()) {
                     val highlight = highlightedArray[0]
                     val entry = lineData.getEntryForHighlight(highlight)
 
                     entry?.let {
-                        if (lineData.dataSetCount > 0)
-                        {
-                            val x = getClosestElevationChartPlottedXValue(lastElevationChartValueSelected.x, it.y)
+                        if (lineData.dataSetCount > 0) {
+                            val x =
+                                getClosestElevationChartPlottedXValue(
+                                    lastElevationChartValueSelected.x,
+                                    it.y,
+                                )
                             val h = Highlight(x, lastElevationChartValueSelected.y, 0)
                             h.dataIndex = 0
                             highlightValue(h)
@@ -990,86 +857,78 @@ class RouteProfile(
             }
         }
     }
-    
-    // ---------------------------------------------------------------------------------------------
-    
-    private fun updateElevationChartPinPosition(distance: Float)
-    {
+
+    private fun updateElevationChartPinPosition(distance: Float) {
         val threshold = (elevationChart.highestVisibleX - elevationChart.lowestVisibleX) / 2
         var leftSide = distance - threshold
         var rightSide = distance + threshold
-        
+
         val isInsideRange = distance >= elevationChart.lowestVisibleX && distance <= elevationChart.highestVisibleX
-        
+
         var chartYValue = 0
         SdkCall.execute { chartYValue = getElevationChartYValue(distance.toDouble()) }
-        
-        if (leftSide < chartMinX)
-        {
+
+        if (leftSide < chartMinX) {
             leftSide = chartMinX.toFloat()
             rightSide = leftSide + threshold * 2
         }
-        
-        if (rightSide > chartMaxX)
-        {
+
+        if (rightSide > chartMaxX) {
             rightSide = chartMaxX.toFloat()
             leftSide = rightSide - threshold * 2
         }
-        
-        if (_lastElevationChartValueSelected == null)
-        {
+
+        if (_lastElevationChartValueSelected == null) {
             _lastElevationChartValueSelected = Point(0f, 0f)
         }
         _lastElevationChartValueSelected?.x = distance
         _lastElevationChartValueSelected?.y = chartYValue.toFloat()
-        
-        if (!isInsideRange)
-        {
+
+        if (!isInsideRange) {
             updateElevationChart(leftSide, rightSide)
             elevationChart.moveViewToX(leftSide)
 
-            SdkCall.execute { onElevationChartIntervalUpdate(leftSide.toDouble(), rightSide.toDouble(), false) }
+            SdkCall.execute {
+                onElevationChartIntervalUpdate(
+                    leftSide.toDouble(),
+                    rightSide.toDouble(),
+                    false,
+                )
+            }
 
             elevationChart.invalidate()
         }
-        
+
         val x = getClosestElevationChartPlottedXValue(distance, chartYValue.toFloat())
         val h = Highlight(x, chartYValue.toFloat(), 0)
         h.dataIndex = 0
         elevationChart.highlightValue(h)
     }
-    
-    // ---------------------------------------------------------------------------------------------
-    
-    private fun updateElevationChartInterval(minX: Double, maxX: Double)
-    {
+
+    private fun updateElevationChartInterval(minX: Double, maxX: Double) {
         val chartMin = elevationChart.lowestVisibleX
         val chartMax = elevationChart.highestVisibleX
-        
+
         val mapMin = minX.toFloat()
         val mapMax = maxX.toFloat()
-        
-        if (mapMax - mapMin != 0f)
-        {
+
+        if (mapMax - mapMin != 0f) {
             val scaleFactor = (chartMax - chartMin) / (mapMax - mapMin)
-            
+
             elevationChart.zoomToCenter(scaleFactor, 1f)
             updateElevationChartHighlight()
             elevationChart.moveViewToX(mapMin)
         }
     }
-    
-    // ---------------------------------------------------------------------------------------------
-    
-    private fun customizeInitialDataSet(dataSet: LineDataSet)
-    {
+
+    private fun customizeInitialDataSet(dataSet: LineDataSet) {
         val colorToFill = Color.parseColor("#D964b1ff")
 
         dataSet.apply {
             setDrawIcons(false)
             setDrawCircles(false)
             setDrawFilled(true)
-            color = ContextCompat.getColor(parentActivity, R.color.blue_color)
+            color = ContextCompat.getColor(parentActivity, R.color.primary)
             fillColor = colorToFill
             lineWidth = 2f
             formSize = 0f
@@ -1080,14 +939,11 @@ class RouteProfile(
             mode = LineDataSet.Mode.HORIZONTAL_BEZIER
         }
     }
-    
-    // ---------------------------------------------------------------------------------------------
-    
-    private fun customizeElevationDataSet(dataSetVerticalBars: LineDataSet, count: Int)
-    {
+
+    private fun customizeElevationDataSet(dataSetVerticalBars: LineDataSet, count: Int) {
         var verticalBandText = ""
         SdkCall.execute { verticalBandText = getElevationChartVerticalBandText(count) }
-        
+
         dataSetVerticalBars.apply {
             axisDependency = YAxis.AxisDependency.LEFT
             setDrawIcons(false)
@@ -1095,19 +951,20 @@ class RouteProfile(
             setDrawFilled(true)
             setDrawCircles(false)
             mode = LineDataSet.Mode.HORIZONTAL_BEZIER
-            
+
             val limit = elevationChartPlottedValuesCount / 11
 
-            valueFormatter = object : IValueFormatter
-            {
-                override fun getFormattedValue(value: Float, entry: Entry?, dataSetIndex: Int, viewPortHandler: ViewPortHandler?): String
-                {
+            valueFormatter = object : IValueFormatter {
+                override fun getFormattedValue(
+                    value: Float,
+                    entry: Entry?,
+                    dataSetIndex: Int,
+                    viewPortHandler: ViewPortHandler?,
+                ): String {
                     val itemsCount = entries.size
-                    if (itemsCount > 0 && itemsCount >= limit)
-                    {
+                    if (itemsCount > 0 && itemsCount >= limit) {
                         val e = dataSetVerticalBars.entries[itemsCount / 2]
-                        if (e.equalTo(entry))
-                        {
+                        if (e.equalTo(entry)) {
                             return verticalBandText
                         }
                     }
@@ -1123,8 +980,7 @@ class RouteProfile(
             isHighlightEnabled = false
             setDrawCircleHole(false)
 
-            val bgColor = when (verticalBandText)
-            {
+            val bgColor = when (verticalBandText) {
                 "0" -> Color.parseColor("#FF6428")
 
                 "1" -> Color.parseColor("#FF8C28")
@@ -1138,68 +994,69 @@ class RouteProfile(
                 else -> Color.WHITE
             }
 
-            fillColor = ContextCompat.getColor(parentActivity, R.color.blue_color)
+            fillColor = ContextCompat.getColor(parentActivity, R.color.primary)
             color = bgColor
         }
     }
-    
-    // ---------------------------------------------------------------------------------------------
-    
-    private fun addClimbDetailsTableView()
-    {
+
+    private fun addClimbDetailsTableView() {
         setDataForClimbDetailsTableView()
-        tableView.addDataClickListener { _, climbClicked -> 
+        tableView.addDataClickListener { _, climbClicked ->
             climbClicked?.let { climb ->
                 val startPointString = climb.startEndPoint.split(" ")[0]
-                val s = climbClicked.startEndPoint.substring(climbClicked.startEndPoint.lastIndexOf("/") + 1)
+                val s = climbClicked.startEndPoint.substring(
+                    climbClicked.startEndPoint.lastIndexOf("/") + 1,
+                )
                 val endPointString = s.split(" ").dropLastWhile { it.isEmpty() }.toTypedArray()[0]
                 val startPointDouble = startPointString.toDouble() + 0.01
                 val endPointDouble = endPointString.toDouble() - 0.01
-                
+
                 elevationChart.highlightValue(null)
-                SdkCall.execute { 
+                SdkCall.execute {
                     onTouchElevationChart(0, chartMinX)
                     onElevationChartIntervalUpdate(startPointDouble, endPointDouble, true)
                 }
-                
+
                 updateElevationChartInterval(startPointDouble, endPointDouble)
-                
+
                 removeSelection(surfacesChart)
                 removeSelection(roadsChart)
                 removeSelection(steepnessChart)
             }
         }
     }
-    
-    // ---------------------------------------------------------------------------------------------
-    
-    private fun setDataForClimbDetailsTableView()
-    {
+
+    private fun setDataForClimbDetailsTableView() {
         var chartVerticalBandsCount = 0
         val climbDetailsText = getSectionTitle(TRouteProfileSectionType.EClimbDetails.ordinal)
         val ratingText = getClimbDetailsColumnText(TClimbDetailsInfoType.ERating)
         val startEndPointsText = getClimbDetailsColumnText(TClimbDetailsInfoType.EStartEndPoints)
         val lengthText = getClimbDetailsColumnText(TClimbDetailsInfoType.ELength)
-        val startEndElevationText = getClimbDetailsColumnText(TClimbDetailsInfoType.EStartEndElevation)
+        val startEndElevationText =
+            getClimbDetailsColumnText(TClimbDetailsInfoType.EStartEndElevation)
         val avgGradeText = getClimbDetailsColumnText(TClimbDetailsInfoType.EAvgGrade)
-        
-        SdkCall.execute { 
+
+        SdkCall.execute {
             chartVerticalBandsCount = getElevationChartVerticalBandsCount()
         }
-        
-        if (chartVerticalBandsCount > 0)
-        {
+
+        if (chartVerticalBandsCount > 0) {
             val climbDataAdapter = ClimbTableDataAdapter(
                 tableView.context,
                 createClimbListDetails(),
-                tableView
+                tableView,
             )
-            
-            val climbHeaderTableAdapter = object : TableHeaderAdapter(parentActivity)
-            {
+
+            val climbHeaderTableAdapter = object : TableHeaderAdapter(parentActivity) {
                 override fun getHeaderView(columnIndex: Int, parentView: ViewGroup?): View {
                     val textView = TextView(context)
-                    val headers = arrayOf(ratingText, "$startEndPointsText \n $startEndElevationText", lengthText, avgGradeText)
+                    val headers =
+                        arrayOf(
+                            ratingText,
+                            "$startEndPointsText \n $startEndElevationText",
+                            lengthText,
+                            avgGradeText,
+                        )
 
                     textView.apply {
                         if (columnIndex < headers.size) {
@@ -1218,82 +1075,82 @@ class RouteProfile(
                     return textView
                 }
             }
-                
-            /*SimpleTableHeaderAdapter(
-                tableView.context,
-                ratingText,
-                "$startEndPointsText \n $startEndElevationText",
-                lengthText,
-                avgGradeText
-            ).also { 
-                it.setTextColor(Color.BLACK)
-                it.setGravity(Gravity.CENTER)
-                it.setTextSize(15)
-            }*/
-            
-            tableView.apply { 
+
+            /**
+             * tableView.context,
+             * ratingText,
+             * "$startEndPointsText \n $startEndElevationText",
+             * lengthText,
+             * avgGradeText
+             * ).also {
+             * it.setTextColor(Color.BLACK)
+             * it.setGravity(Gravity.CENTER)
+             * it.setTextSize(15)
+             */
+
+            tableView.apply {
                 dataAdapter = climbDataAdapter
                 headerAdapter = climbHeaderTableAdapter
             }
-            
-            climbDetailsTitle.apply { 
+
+            climbDetailsTitle.apply {
                 visibility = View.VISIBLE
                 text = climbDetailsText
             }
-        }
-        else
-        {
+        } else {
             climbDetailsTitle.visibility = View.GONE
         }
     }
-    
-    // ---------------------------------------------------------------------------------------------
-    
-    private fun createClimbListDetails() : List<Climb>
-    {
+
+    private fun createClimbListDetails(): List<Climb> {
         val climbs = ArrayList<Climb>()
         var climbDetailsRowsCount = 0
-        
-        SdkCall.execute { 
+
+        SdkCall.execute {
             climbDetailsRowsCount = routeTerrainProfile.climbSections?.size ?: 0
         }
-        
-        for (rowCount in 0 until climbDetailsRowsCount)
-        {
+
+        for (rowCount in 0 until climbDetailsRowsCount) {
             var rating = ""
             var startEndPoints = ""
             var length = ""
             var startEndElevation = ""
             var avgGrade = ""
-            
-            SdkCall.execute { 
+
+            SdkCall.execute {
                 rating = getClimbDetailsItemText(rowCount, TClimbDetailsInfoType.ERating)
-                startEndPoints = getClimbDetailsItemText(rowCount, TClimbDetailsInfoType.EStartEndPoints)
+                startEndPoints = getClimbDetailsItemText(
+                    rowCount,
+                    TClimbDetailsInfoType.EStartEndPoints,
+                )
                 length = getClimbDetailsItemText(rowCount, TClimbDetailsInfoType.ELength)
-                startEndElevation = getClimbDetailsItemText(rowCount, TClimbDetailsInfoType.EStartEndElevation)
+                startEndElevation = getClimbDetailsItemText(
+                    rowCount,
+                    TClimbDetailsInfoType.EStartEndElevation,
+                )
                 avgGrade = getClimbDetailsItemText(rowCount, TClimbDetailsInfoType.EAvgGrade)
             }
-            
+
             val climb = Climb(rating, startEndPoints, length, startEndElevation, avgGrade)
             climbs.add(rowCount, climb)
         }
-        
+
         return climbs
     }
-    
-    // ---------------------------------------------------------------------------------------------
-    
-    private fun setLineBarChartMarkerView(context: Context, chart: CombinedChart)
-    {
-        val markerView = LineBarMarkerView(context, R.layout.line_bar_marker_view, highlightColorUnselected, chart)
+
+    private fun setLineBarChartMarkerView(context: Context, chart: CombinedChart) {
+        val markerView =
+            LineBarMarkerView(
+                context,
+                R.layout.line_bar_marker_view,
+                highlightColorUnselected,
+                chart,
+            )
         markerView.chartView = chart
         chart.marker = markerView
     }
-    
-    // ---------------------------------------------------------------------------------------------
-    
-    private fun setLineDataSetAttributes(lineDataSet: LineDataSet, color: Int)
-    {
+
+    private fun setLineDataSetAttributes(lineDataSet: LineDataSet, color: Int) {
         lineDataSet.apply {
             setDrawIcons(false)
             setDrawCircles(false)
@@ -1311,116 +1168,102 @@ class RouteProfile(
             valueTextColor = color
         }
     }
-    
-    // ---------------------------------------------------------------------------------------------
-    
-    private fun loadSurfacesData()
-    {
+
+    private fun loadSurfacesData() {
         val surfaceTypesCount = surfacesTypes.size
-        
+
         val step = (barChartMaxX - barChartMinX) / (lineBarChartPlottedValuesCount - 1)
         var x = 0.0
         var limit = 0.0
         val dataSets = ArrayList<ILineDataSet>()
-        
-        for (i in 0 until surfaceTypesCount)
-        {
+
+        for (i in 0 until surfaceTypesCount) {
             val initialLineValues = ArrayList<Entry>()
 
             val surfaceTypeName = getSurfaceText(i)
             var surfacePercentWidth = 0.0
             var surfaceTypeColor = 0
-            SdkCall.execute { 
+            SdkCall.execute {
                 surfacePercentWidth = getSurfacePercent(i)
                 surfaceTypeColor = getColor(getSurfaceColor(i))
             }
-            
+
             limit += surfacePercentWidth
-            
-            while (x <= limit)
-            {
+
+            while (x <= limit) {
                 val lineDataEntry = Entry(x.toFloat(), lineBarYAxisMaximum)
                 x += step
-                    
+
                 initialLineValues.add(lineDataEntry)
             }
-            
+
             val lineDataSet = LineDataSet(initialLineValues, surfaceTypeName)
             setLineDataSetAttributes(lineDataSet, surfaceTypeColor)
             dataSets.add(lineDataSet)
         }
-        
+
         val combinedData = CombinedData().also { it.setData(LineData(dataSets)) }
-        surfacesChart.apply { 
+        surfacesChart.apply {
             data = combinedData
             invalidate()
         }
     }
-    
-    // ---------------------------------------------------------------------------------------------
-    
-    private fun loadRoadsData()
-    {
+
+    private fun loadRoadsData() {
         val roadTypesCount = roadsTypes.size
 
         val step = (barChartMaxX - barChartMinX) / (lineBarChartPlottedValuesCount - 1)
         var x = 0.0
         var limit = 0.0
         val dataSets = ArrayList<ILineDataSet>()
-        
-        for (i in 0 until roadTypesCount)
-        {
+
+        for (i in 0 until roadTypesCount) {
             val initialLineValues = ArrayList<Entry>()
 
             val roadTypeName = getRoadText(i)
             var roadTypePercentWidth = 0.0
             var roadTypeColor = 0
-            SdkCall.execute { 
+            SdkCall.execute {
                 roadTypePercentWidth = getRoadPercent(i)
                 roadTypeColor = getColor(getRoadColor(i))
             }
-            
+
             limit += roadTypePercentWidth
-            
-            while (x <= limit)
-            {
+
+            while (x <= limit) {
                 val lineDataEntry = Entry(x.toFloat(), lineBarYAxisMaximum)
                 x += step
-                
+
                 initialLineValues.add(lineDataEntry)
             }
-            
+
             val lineDataSet = LineDataSet(initialLineValues, roadTypeName)
             setLineDataSetAttributes(lineDataSet, roadTypeColor)
             dataSets.add(lineDataSet)
         }
-        
+
         val combinedData = CombinedData().also { it.setData(LineData(dataSets)) }
-        roadsChart.apply { 
+        roadsChart.apply {
             data = combinedData
             invalidate()
         }
     }
-    
-    // ---------------------------------------------------------------------------------------------
-    
-    private fun loadSteepnessData()
-    {
+
+    private fun loadSteepnessData() {
         val steepnessTypesCount = steepnessTypes.size
 
         val step = (barChartMaxX - barChartMinX) / (lineBarChartPlottedValuesCount - 1)
         var x = 0.0
         var limit = 0.0
         val dataSets = ArrayList<ILineDataSet>()
-        
-        for (i in 0 until steepnessTypesCount)
-        {
+
+        for (i in 0 until steepnessTypesCount) {
             val initialLineValues = ArrayList<Entry>()
 
             var steepnessTypePercentWidth = 0.0
             var steepnessTypeName = ""
             var steepnessTypeColor = 0
-            SdkCall.execute { 
+            SdkCall.execute {
                 steepnessTypePercentWidth = getSteepnessPercent(i)
                 steepnessTypeName = getSteepnessText(i)
                 steepnessTypeColor = getColor(getSteepnessColor(i))
@@ -1428,8 +1271,7 @@ class RouteProfile(
 
             limit += steepnessTypePercentWidth
 
-            while (x <= limit)
-            {
+            while (x <= limit) {
                 val lineDataEntry = Entry(x.toFloat(), lineBarYAxisMaximum)
                 x += step
 
@@ -1447,141 +1289,116 @@ class RouteProfile(
             invalidate()
         }
     }
-    
-    // ---------------------------------------------------------------------------------------------
-    
-    private fun updateHighlightedSurfaceLabel(percent: Double)
-    {
+
+    private fun updateHighlightedSurfaceLabel(percent: Double) {
         val surfaceTypesCount = surfacesTypes.size
-        
+
         var index = -1
         var d = 0.0
-        
-        for (i in 0 until surfaceTypesCount)
-        {
+
+        for (i in 0 until surfaceTypesCount) {
             var surfacePercentWidth = 0.0
-            SdkCall.execute { surfacePercentWidth = getSurfacePercent(i)  }
+            SdkCall.execute { surfacePercentWidth = getSurfacePercent(i) }
             d += surfacePercentWidth
-            if (percent <= d)
-            {
+            if (percent <= d) {
                 index = i
                 break
             }
         }
-        
-        if (index in 0 until surfaceTypesCount)
-        {
+
+        if (index in 0 until surfaceTypesCount) {
             val surfaceTypeName = getSurfaceText(index)
             highlightedSurface.text = surfaceTypeName
         }
     }
-    
-    // ---------------------------------------------------------------------------------------------
-    
-    private fun updateHighlightedRoadLabel(percent: Double)
-    {
+
+    private fun updateHighlightedRoadLabel(percent: Double) {
         val roadTypesCount = roadsTypes.size
-        
+
         var index = -1
         var d = 0.0
-        
-        for (i in 0 until roadTypesCount)
-        {
+
+        for (i in 0 until roadTypesCount) {
             var roadTypePercentWidth = 0.0
             SdkCall.execute { roadTypePercentWidth = getRoadPercent(i) }
             d += roadTypePercentWidth
-            if (percent <= d)
-            {
+            if (percent <= d) {
                 index = i
                 break
             }
         }
-        
-        if (index in 0 until roadTypesCount)
-        {
+
+        if (index in 0 until roadTypesCount) {
             highlightedRoad.text = getRoadText(index)
         }
     }
-    
-    // ---------------------------------------------------------------------------------------------
-    
-    private fun updateHighlightedSteepnessLabel(percent: Double)
-    {
+
+    private fun updateHighlightedSteepnessLabel(percent: Double) {
         val steepnessTypesCount = steepnessTypes.size
 
         var index = -1
         var d = 0.0
-        
-        for (i in 0 until steepnessTypesCount)
-        {
+
+        for (i in 0 until steepnessTypesCount) {
             var steepnessTypePercentWidth = 0.0
             SdkCall.execute { steepnessTypePercentWidth = getSteepnessPercent(i) }
             d += steepnessTypePercentWidth
-            if (percent <= d)
-            {
+            if (percent <= d) {
                 index = i
                 break
             }
         }
-        
-        if (index in 0 until steepnessTypesCount)
-        {
+
+        if (index in 0 until steepnessTypesCount) {
             var steepnessTypeName = ""
             val steepnessBmp = getSteepnessImage(index, steepnessIconSize, steepnessIconSize)
-            
-            SdkCall.execute { 
+
+            SdkCall.execute {
                 steepnessTypeName = getSteepnessText(index)
             }
-            
+
             highlightedSteepness.text = steepnessTypeName
             steepnessImage.setImageBitmap(steepnessBmp)
-            steepnessImage.setColorFilter(if (parentActivity.isDarkThemeOn()) Color.WHITE else Color.BLACK)
+            steepnessImage.setColorFilter(
+                if (parentActivity.isDarkThemeOn()) Color.WHITE else Color.BLACK,
+            )
         }
     }
-    
-    // ---------------------------------------------------------------------------------------------
-    
-    private fun initLayout(tableViewRowHeight: Int)
-    {
+
+    private fun initLayout(tableViewRowHeight: Int) {
         var chartVerticalBandsCount = 0
         SdkCall.execute { chartVerticalBandsCount = getElevationChartVerticalBandsCount() }
-        
+
         tableView.layoutParams.apply {
             width = LinearLayout.LayoutParams.MATCH_PARENT
-            height = if (chartVerticalBandsCount > 0)
-            {
+            height = if (chartVerticalBandsCount > 0) {
                 tableViewRowHeight + chartVerticalBandsCount * (tableViewRowHeight + 1)
-            }
-            else
-            {
+            } else {
                 0
             }
         }
         tableView.requestLayout()
     }
-    
-    // ---------------------------------------------------------------------------------------------
-    
-    private fun setAttributesToElevationChart()
-    {
+
+    private fun setAttributesToElevationChart() {
         elevationChart.apply {
-            setOnTouchListener { view, event -> 
-                when (event.action)
-                {
+            setOnTouchListener { view, event ->
+                when (event.action) {
                     MotionEvent.ACTION_DOWN ->
-                    {
-                        scrollView.requestDisallowInterceptTouchEvent(true)           
-                    }
-                    
+                        {
+                            scrollView.requestDisallowInterceptTouchEvent(true)
+                        }
+
                     MotionEvent.ACTION_CANCEL,
-                        MotionEvent.ACTION_UP ->
-                    {
-                        scrollView.requestDisallowInterceptTouchEvent(false)
-                    }
-                    
+                    MotionEvent.ACTION_UP,
+                    ->
+                        {
+                            scrollView.requestDisallowInterceptTouchEvent(false)
+                        }
+
                     else -> return@setOnTouchListener false
                 }
-                
+
                 view.performClick()
                 return@setOnTouchListener false
             }
@@ -1605,32 +1422,27 @@ class RouteProfile(
                 0f,
                 CHART_OFFSET_TOP.toFloat(),
                 CHART_OFFSET_RIGHT.toFloat(),
-                (-CHART_OFFSET_BOTTOM).toFloat()
+                (-CHART_OFFSET_BOTTOM).toFloat(),
             )
             fitScreen()
         }
     }
 
-    // ---------------------------------------------------------------------------------------------
-    
-    private fun setAttributesToSurfacesChart()
-    {
+    private fun setAttributesToSurfacesChart() {
         setLineBarChartAttributes(surfacesChart)
-        
-        surfacesChart.setOnChartValueSelectedListener(object : OnChartValueSelectedListener 
-        {
-            override fun onValueSelected(e: Entry?, h: Highlight?)
-            {
+
+        surfacesChart.setOnChartValueSelectedListener(object : OnChartValueSelectedListener {
+            override fun onValueSelected(e: Entry?, h: Highlight?) {
                 enableSelection(surfacesChart)
-                
+
                 surfacesChart.highlightValue(h)
-                
+
                 val maxX = surfacesChart.xAxis.axisMaximum.toDouble()
                 val percent = e?.x?.div(maxX)
                 SdkCall.execute { percent?.let { onTouchSurfacesChart(0, it) } }
 
                 percent?.let { updateHighlightedSurfaceLabel(it) }
-                
+
                 removeSelection(roadsChart)
                 removeSelection(steepnessChart)
             }
@@ -1638,17 +1450,12 @@ class RouteProfile(
             override fun onNothingSelected() = Unit
         })
     }
-    
-    // ---------------------------------------------------------------------------------------------
 
-    private fun setAttributesToRoadsChart()
-    {
+    private fun setAttributesToRoadsChart() {
         setLineBarChartAttributes(roadsChart)
 
-        roadsChart.setOnChartValueSelectedListener(object : OnChartValueSelectedListener
-        {
-            override fun onValueSelected(e: Entry?, h: Highlight?)
-            {
+        roadsChart.setOnChartValueSelectedListener(object : OnChartValueSelectedListener {
+            override fun onValueSelected(e: Entry?, h: Highlight?) {
                 enableSelection(roadsChart)
 
                 roadsChart.highlightValue(h)
@@ -1666,27 +1473,22 @@ class RouteProfile(
             override fun onNothingSelected() = Unit
         })
     }
-    
-    // ---------------------------------------------------------------------------------------------
-    
-    private fun setAttributesToSteepnessChart()
-    {
+
+    private fun setAttributesToSteepnessChart() {
         setLineBarChartAttributes(steepnessChart)
-        
-        steepnessChart.setOnChartValueSelectedListener(object : OnChartValueSelectedListener
-        {
-            override fun onValueSelected(e: Entry?, h: Highlight?)
-            {
+
+        steepnessChart.setOnChartValueSelectedListener(object : OnChartValueSelectedListener {
+            override fun onValueSelected(e: Entry?, h: Highlight?) {
                 enableSelection(steepnessChart)
-                
+
                 steepnessChart.highlightValue(h)
-                
+
                 val maxX = steepnessChart.xAxis.axisMaximum.toDouble()
                 val percent = e?.x?.div(maxX)
                 SdkCall.execute { percent?.let { onTouchSteepnessesChart(0, it) } }
 
                 percent?.let { updateHighlightedSteepnessLabel(it) }
-                
+
                 removeSelection(surfacesChart)
                 removeSelection(roadsChart)
             }
@@ -1694,20 +1496,13 @@ class RouteProfile(
             override fun onNothingSelected() = Unit
         })
     }
-    
-    // ---------------------------------------------------------------------------------------------
-    
-    private fun onElevationChartIntervalUpdate(minX: Double, maxX: Double, updateMap: Boolean)
-    {
-        if (updateMap)
-        {
-            if (abs(minX - chartMinX) > 0.000001 || abs(maxX - chartMaxX) > 0.000001)
-            {
+
+    private fun onElevationChartIntervalUpdate(minX: Double, maxX: Double, updateMap: Boolean) {
+        if (updateMap) {
+            if (abs(minX - chartMinX) > 0.000001 || abs(maxX - chartMaxX) > 0.000001) {
                 zoomRoute(minX, maxX)
             }
-        }
-        else
-        {
+        } else {
             chartMinX = minX
             chartMaxX = maxX
 
@@ -1716,172 +1511,155 @@ class RouteProfile(
             removeHighlightedSteepnessPathsFromMap()
         }
     }
-    
-    // ---------------------------------------------------------------------------------------------
-    
-    private fun onTouchElevationChart(event: Int, x: Double)
-    {
+
+    private fun onTouchElevationChart(event: Int, x: Double) {
         removeHighlightedSurfacePathsFromMap()
         removeHighlightedRoadPathsFromMap()
         removeHighlightedSteepnessPathsFromMap()
-        
-        val mapView = parentActivity.gemSurfaceView.mapView 
+
+        val mapView = parentActivity.gemSurfaceView.mapView
         mapView?.deactivateHighlight()
-        
-        if (event == TTouchChartEvent.EDown.ordinal || event == TTouchChartEvent.EMove.ordinal)
-        {
+
+        if (event == TTouchChartEvent.EDown.ordinal || event == TTouchChartEvent.EMove.ordinal) {
             highlightedLandmarkList.clear()
-            
+
             val landmark = Landmark()
-            ImageDatabase().getImageById(SdkImages.Engine_Misc.LocationDetails_PlacePushpin.value)?.let { 
+            ImageDatabase().getImageById(
+                SdkImages.Engine_Misc.LocationDetails_PlacePushpin.value,
+            )?.let {
                 landmark.image = it
             }
             highlightedLandmarkList.add(landmark)
-            
+
             val xM = x.toInt().coerceIn(0, route.getTimeDistance(false)?.totalDistance)
-            
-            route.getCoordinateOnRoute(xM)?.let { 
+
+            route.getCoordinateOnRoute(xM)?.let {
                 highlightedLandmarkList.first().coordinates = it
             }
-            
-            if (previousTouchXMeters == xM && event == TTouchChartEvent.EDown.ordinal)
-            {
+
+            if (previousTouchXMeters == xM && event == TTouchChartEvent.EDown.ordinal) {
                 mapView?.deactivateHighlight()
-                
-                val settings = HighlightRenderSettings(EHighlightOptions.ShowContour.value
-                    or EHighlightOptions.Overlap.value
-                    or EHighlightOptions.NoFading.value)
-                
+
+                val settings = HighlightRenderSettings(
+                    EHighlightOptions.ShowContour.value
+                        or EHighlightOptions.Overlap.value
+                        or EHighlightOptions.NoFading.value,
+                )
+
                 val task = {
-                    parentActivity.gemSurfaceView.mapView?.activateHighlightLandmarks(highlightedLandmarkList, settings)
+                    parentActivity.gemSurfaceView.mapView?.activateHighlightLandmarks(
+                        highlightedLandmarkList,
+                        settings,
+                    )
                 }
-                Executors.newSingleThreadScheduledExecutor().schedule(task, 500, TimeUnit.MILLISECONDS)
-            }
-            else
-            {
-                val settings = HighlightRenderSettings(EHighlightOptions.ShowLandmark.value
-                    or EHighlightOptions.Overlap.value
-                    or EHighlightOptions.NoFading.value)
+                Executors.newSingleThreadScheduledExecutor().schedule(
+                    task,
+                    500,
+                    TimeUnit.MILLISECONDS,
+                )
+            } else {
+                val settings = HighlightRenderSettings(
+                    EHighlightOptions.ShowLandmark.value
+                        or EHighlightOptions.Overlap.value
+                        or EHighlightOptions.NoFading.value,
+                )
                 mapView?.activateHighlightLandmarks(highlightedLandmarkList, settings)
-                
-                previousTouchXMeters = if (event == TTouchChartEvent.EDown.ordinal)
-                {
+
+                previousTouchXMeters = if (event == TTouchChartEvent.EDown.ordinal) {
                     xM
-                }
-                else
-                {
+                } else {
                     -1
                 }
             }
-            
+
             val viewport = mapView?.viewport
-            val xy = highlightedLandmarkList.first().coordinates?.let { 
+            val xy = highlightedLandmarkList.first().coordinates?.let {
                 mapView?.transformWgsToScreen(it)
             }
-            
-            viewport?.let { 
-                xy?.let { xy -> 
-                    if (!pointInRectangle(it, xy.x, xy.y))
-                    {
+
+            viewport?.let {
+                xy?.let { xy ->
+                    if (!pointInRectangle(it, xy.x, xy.y)) {
                         zoomRoute(chartMinX, chartMaxX)
                     }
                 }
             }
         }
     }
-    
-    // ---------------------------------------------------------------------------------------------
-    
-    private fun onTouchSurfacesChart(event: Int, x: Double)
-    {
-        if (event == TTouchChartEvent.EUp.ordinal)
-        {
+
+    private fun onTouchSurfacesChart(event: Int, x: Double) {
+        if (event == TTouchChartEvent.EUp.ordinal) {
             return
         }
-        
-        if (event == TTouchChartEvent.EDown.ordinal)
-        {
+
+        if (event == TTouchChartEvent.EDown.ordinal) {
             removeHighlightedRoadPathsFromMap()
             removeHighlightedSteepnessPathsFromMap()
-            
-            if (highlightedSurfacePaths.isEmpty())
-            {
+
+            if (highlightedSurfacePaths.isEmpty()) {
                 parentActivity.zoomToRoute()
 
                 chartMinX = 0.0
                 chartMaxX = routeLength.toDouble()
 
-                 Util.postOnMain { updateElevationChartInterval(chartMinX, chartMaxX) } 
+                Util.postOnMain { updateElevationChartInterval(chartMinX, chartMaxX) }
             }
         }
-        
+
         val mapView = parentActivity.gemSurfaceView.mapView?.also { it.deactivateHighlight() }
-        
+
         var percent: Double
         var length: Double
         var prevPercent = 0.0
-        
-        for (item in surfacesTypes)
-        {
+
+        for (item in surfacesTypes) {
             length = 0.0
-            for (it in item.value)
-            {
+            for (it in item.value) {
                 length += it.mLengthM
             }
-            
+
             percent = prevPercent + length / routeLength
-            
-            if (x in prevPercent..percent)
-            {
-                if (highlightedSurfaceType != item.key.value)
-                {
+
+            if (x in prevPercent..percent) {
+                if (highlightedSurfaceType != item.key.value) {
                     removeHighlightedSurfacePathsFromMap()
                     highlightedSurfaceType = item.key.value
-                }
-                else
-                {
+                } else {
                     break
                 }
-                
+
                 val pathsCollection = mapView?.preferences?.paths
-                for (it in item.value)
-                {
+                for (it in item.value) {
                     val path = route.getPath(it.mStartDistanceM, it.mStartDistanceM + it.mLengthM)
-                    path?.let { 
+                    path?.let {
                         pathsCollection?.add(it, highlightPathsColor, highlightPathsColor)
                         highlightedSurfacePaths.add(it)
                     }
                 }
-                
+
                 break
             }
-            
+
             prevPercent = percent
         }
     }
-    
-    // ---------------------------------------------------------------------------------------------
-    
-    private fun onTouchRoadsChart(event: Int, x: Double)
-    {
-        if (event == TTouchChartEvent.EUp.ordinal)
-        {
+
+    private fun onTouchRoadsChart(event: Int, x: Double) {
+        if (event == TTouchChartEvent.EUp.ordinal) {
             return
         }
-        
-        if (event == TTouchChartEvent.EDown.ordinal)
-        {
+
+        if (event == TTouchChartEvent.EDown.ordinal) {
             removeHighlightedSurfacePathsFromMap()
             removeHighlightedSteepnessPathsFromMap()
-            
-            if (highlightedRoadPaths.isEmpty())
-            {
+
+            if (highlightedRoadPaths.isEmpty()) {
                 parentActivity.zoomToRoute()
 
                 chartMinX = 0.0
                 chartMaxX = routeLength.toDouble()
 
-                 Util.postOnMain { updateElevationChartInterval(chartMinX, chartMaxX) } 
+                Util.postOnMain { updateElevationChartInterval(chartMinX, chartMaxX) }
             }
         }
 
@@ -1890,68 +1668,55 @@ class RouteProfile(
         var percent: Double
         var length: Double
         var prevPercent = 0.0
-        
-        for (item in roadsTypes)
-        {
+
+        for (item in roadsTypes) {
             length = 0.0
-            for (it in item.value)
-            {
+            for (it in item.value) {
                 length += it.mLengthM
             }
-            
+
             percent = prevPercent + length / routeLength
-            
-            if (x in prevPercent..percent)
-            {
-                if (highlightedRoadType != item.key.value)
-                {
+
+            if (x in prevPercent..percent) {
+                if (highlightedRoadType != item.key.value) {
                     removeHighlightedRoadPathsFromMap()
                     highlightedRoadType = item.key.value
-                }
-                else
-                {
+                } else {
                     break
                 }
-                
+
                 val pathsCollection = mapView?.preferences?.paths
-                for (it in item.value)
-                {
+                for (it in item.value) {
                     val path = route.getPath(it.mStartDistanceM, it.mStartDistanceM + it.mLengthM)
-                    path?.let { 
+                    path?.let {
                         pathsCollection?.add(it, highlightPathsColor, highlightPathsColor)
                         highlightedRoadPaths.add(it)
                     }
                 }
-                
+
                 break
             }
-            
+
             prevPercent = percent
         }
     }
-    
-    // ---------------------------------------------------------------------------------------------
-    
-    private fun onTouchSteepnessesChart(event: Int, x: Double)
-    {
-        if (event == TTouchChartEvent.EUp.ordinal)
-        {
+
+    private fun onTouchSteepnessesChart(event: Int, x: Double) {
+        if (event == TTouchChartEvent.EUp.ordinal) {
             return
         }
-        
-        if (event == TTouchChartEvent.EDown.ordinal)
-        {
+
+        if (event == TTouchChartEvent.EDown.ordinal) {
             removeHighlightedSurfacePathsFromMap()
             removeHighlightedRoadPathsFromMap()
-            
-            if (highlightedSteepnessPaths.isEmpty())
-            {
+
+            if (highlightedSteepnessPaths.isEmpty()) {
                 parentActivity.zoomToRoute()
-                
+
                 chartMinX = 0.0
                 chartMaxX = routeLength.toDouble()
 
-                 Util.postOnMain { updateElevationChartInterval(chartMinX, chartMaxX) } 
+                Util.postOnMain { updateElevationChartInterval(chartMinX, chartMaxX) }
             }
         }
 
@@ -1960,81 +1725,60 @@ class RouteProfile(
         var percent: Double
         var length: Double
         var prevPercent = 0.0
-        
-        for (item in steepnessTypes)
-        {
+
+        for (item in steepnessTypes) {
             length = 0.0
-            for (it in item.value)
-            {
+            for (it in item.value) {
                 length += it.mLengthM
             }
-            
+
             percent = prevPercent + length / routeLength
-            
-            if (x in prevPercent..percent)
-            {
-                if (highlightedSteepnessType != item.key)
-                {
+
+            if (x in prevPercent..percent) {
+                if (highlightedSteepnessType != item.key) {
                     removeHighlightedSteepnessPathsFromMap()
                     highlightedSteepnessType = item.key
-                }
-                else
-                {
+                } else {
                     break
                 }
-                
+
                 val pathsCollection = mapView?.preferences?.paths
-                for (it in item.value)
-                {
+                for (it in item.value) {
                     val path = route.getPath(it.mStartDistanceM, it.mStartDistanceM + it.mLengthM)
-                    path?.let { 
+                    path?.let {
                         pathsCollection?.add(it, highlightPathsColor, highlightPathsColor)
                         highlightedSteepnessPaths.add(it)
                     }
                 }
-                
+
                 break
             }
-            
+
             prevPercent = percent
         }
     }
-    
-    // ---------------------------------------------------------------------------------------------
-    
-    private fun removeHighlightedSurfacePathsFromMap()
-    {
+
+    private fun removeHighlightedSurfacePathsFromMap() {
         removeHighlightedPathsFromMap(highlightedSurfacePaths)
         highlightedSurfaceType = -1
     }
-    
-    // ---------------------------------------------------------------------------------------------
-    
-    private fun removeHighlightedRoadPathsFromMap()
-    {
+
+    private fun removeHighlightedRoadPathsFromMap() {
         removeHighlightedPathsFromMap(highlightedRoadPaths)
         highlightedRoadType = -1
     }
-    
-    // ---------------------------------------------------------------------------------------------
-    
-    private fun removeHighlightedSteepnessPathsFromMap()
-    {
+
+    private fun removeHighlightedSteepnessPathsFromMap() {
         removeHighlightedPathsFromMap(highlightedSteepnessPaths)
         highlightedSteepnessType = -1
     }
-    
-    // ---------------------------------------------------------------------------------------------
-    
-    private fun removeHighlightedPathsFromMap(paths : ArrayList<Path>)
-    {
+
+    private fun removeHighlightedPathsFromMap(paths: ArrayList<Path>) {
         parentActivity.gemSurfaceView.mapView?.let {
-            if (paths.isNotEmpty())
-            {
+            if (paths.isNotEmpty()) {
                 val pathCollection = it.preferences?.paths
                 pathCollection?.let {
-                    for (path in paths)
-                    {
+                    for (path in paths) {
                         pathCollection.remove(path)
                     }
                 }
@@ -2042,382 +1786,319 @@ class RouteProfile(
             }
         }
     }
-    
-    // ---------------------------------------------------------------------------------------------
-    
-    private fun zoomRoute(minX: Double, maxX: Double)
-    {
+
+    private fun zoomRoute(minX: Double, maxX: Double) {
         removeHighlightedSurfacePathsFromMap()
         removeHighlightedRoadPathsFromMap()
         removeHighlightedSteepnessPathsFromMap()
-        
+
         val mapView = parentActivity.gemSurfaceView.mapView
-        
+
         mapView?.preferences?.setMapViewPerspective(EMapViewPerspective.TwoDimensional)
-        
+
         var automaticZoomToRoute = false
-        if (minX == 0.0)
-        {
+        if (minX == 0.0) {
             val max = routeLength
-            if (abs(max - maxX) < 0.0001)
-            {
+            if (abs(max - maxX) < 0.0001) {
                 automaticZoomToRoute = true
             }
         }
-        
-        if (automaticZoomToRoute)
-        {
+
+        if (automaticZoomToRoute) {
             val mainRoute = mapView?.preferences?.routes?.mainRoute
             parentActivity.flyToRoute(mainRoute)
-        }
-        else
-        {
+        } else {
             mapView?.centerOnDistRoute(route, minX.toInt(), maxX.toInt(), Rect(), Animation())
         }
 
         chartMinX = minX
         chartMaxX = maxX
     }
-    
-    // ---------------------------------------------------------------------------------------------
-    
-    private fun getSurfacePercent(index: Int): Double
-    {
+
+    private fun getSurfacePercent(index: Int): Double {
         var auxIndex = index
-        if (routeLength > 0 && index in 0 until surfacesTypes.size)
-        {
-            for (surface in surfacesTypes)
-            {
+        if (routeLength > 0 && index in 0 until surfacesTypes.size) {
+            for (surface in surfacesTypes) {
                 --auxIndex
-                if (auxIndex < 0)
-                {
+                if (auxIndex < 0) {
                     var length = 0.0
-                    for (it in surface.value)
-                    {
+                    for (it in surface.value) {
                         length += it.mLengthM
                     }
-                    
+
                     return length / routeLength
                 }
             }
         }
-        
+
         return 0.0
     }
-    
-    // ---------------------------------------------------------------------------------------------
-    
-    private fun getSurfaceText(index: Int) : String
-    {
+
+    private fun getSurfaceText(index: Int): String {
         var auxIndex = index
-        if (index in 0 until surfacesTypes.size)
-        {
-            for (surface in surfacesTypes)
-            {
+        if (index in 0 until surfacesTypes.size) {
+            for (surface in surfacesTypes) {
                 --auxIndex
-                if (auxIndex < 0)
-                {
+                if (auxIndex < 0) {
                     val temp = getSurfaceName(surface.key)
                     return String.format("%s (%.2f%%)", temp, getSurfacePercent(index) * 100)
                 }
             }
         }
-        
+
         return ""
     }
 
-    // ---------------------------------------------------------------------------------------------
-
-    private fun getSurfaceColor(index: Int) : Int
-    {
+    private fun getSurfaceColor(index: Int): Int {
         var auxIndex = index
-        if (index in 0 until surfacesTypes.size)
-        {
-            for (surface in surfacesTypes)
-            {
+        if (index in 0 until surfacesTypes.size) {
+            for (surface in surfacesTypes) {
                 --auxIndex
-                if (auxIndex < 0)
-                {
+                if (auxIndex < 0) {
                     return getSurfaceColor(surface.key)
                 }
             }
         }
-        
+
         return 0
     }
-    
-    // ---------------------------------------------------------------------------------------------
-    
-    private fun getClimbDetailsColumnText(type: TClimbDetailsInfoType) : String = when (type)
-    {
+
+    private fun getClimbDetailsColumnText(type: TClimbDetailsInfoType): String = when (type) {
         TClimbDetailsInfoType.ERating -> parentActivity.resources.getString(R.string.rating)
-        TClimbDetailsInfoType.EStartEndPoints -> parentActivity.resources.getString(R.string.start_end_points)
-        TClimbDetailsInfoType.EStartEndElevation -> parentActivity.resources.getString(R.string.start_end_elevation)
+        TClimbDetailsInfoType.EStartEndPoints -> parentActivity.resources.getString(
+            R.string.start_end_points,
+        )
+        TClimbDetailsInfoType.EStartEndElevation -> parentActivity.resources.getString(
+            R.string.start_end_elevation,
+        )
         TClimbDetailsInfoType.ELength -> parentActivity.resources.getString(R.string.length)
         TClimbDetailsInfoType.EAvgGrade -> parentActivity.resources.getString(R.string.avg_grade)
     }
-    
-    // ---------------------------------------------------------------------------------------------
-    
-    private fun getClimbDetailsItemText(row: Int, type: TClimbDetailsInfoType) : String
-    {
+
+    private fun getClimbDetailsItemText(row: Int, type: TClimbDetailsInfoType): String {
         var climbDetailsRowsCount = 0
         SdkCall.execute { climbDetailsRowsCount = routeTerrainProfile.climbSections?.size ?: 0 }
-        
-        if (row in 0 until climbDetailsRowsCount)
-        {
-            return when (type)
-            {
+
+        if (row in 0 until climbDetailsRowsCount) {
+            return when (type) {
                 TClimbDetailsInfoType.ERating -> getElevationChartVerticalBandText(row)
                 TClimbDetailsInfoType.EStartEndPoints -> String.format(
-                    "%.2f %s/%.2f %s", 
-                    getElevationChartVerticalBandMinX(row), 
+                    "%.2f %s/%.2f %s",
+                    getElevationChartVerticalBandMinX(row),
                     "m",
                     getElevationChartVerticalBandMaxX(row),
-                    "m"
+                    "m",
                 )
                 TClimbDetailsInfoType.EStartEndElevation -> String.format(
                     "%d %s/%d %s",
                     getElevationChartYValue(getElevationChartVerticalBandMinX(row)),
                     "m",
                     getElevationChartYValue(getElevationChartVerticalBandMaxX(row)),
-                    "m"
+                    "m",
                 )
                 TClimbDetailsInfoType.ELength -> String.format(
                     "%.2f %s",
                     getElevationChartVerticalBandMaxX(row) - getElevationChartVerticalBandMinX(row),
-                    "m"
+                    "m",
                 )
                 TClimbDetailsInfoType.EAvgGrade -> String.format(
                     "%.1f%%",
-                    routeTerrainProfile.climbSections?.get(row)?.slope
+                    routeTerrainProfile.climbSections?.get(row)?.slope,
                 )
             }
         }
-        
+
         return ""
     }
-    
-    // ---------------------------------------------------------------------------------------------
-    
-    private fun getElevationChartMinValueY() : Int
-    {
+
+    private fun getElevationChartMinValueY(): Int {
         var diff = routeTerrainProfile.maxElevation - routeTerrainProfile.minElevation
         diff = 0.1f * abs(diff)
 
-        val round = if (diff <= 5) 2 else if (diff <= 25) 10 else 50
+        val round = if (diff <= 5) {
+            2
+        } else if (diff <= 25) {
+            10
+        } else {
+            50
+        }
         var intDiff = 1f.coerceAtMost(diff).toInt()
         val elevation = (routeTerrainProfile.minElevation - intDiff).toDouble()
         var result = round(elevation).toInt()
-        
-        if (result < 0)
-        {
-            if (routeTerrainProfile.minElevation >= 0)
-            {
+
+        if (result < 0) {
+            if (routeTerrainProfile.minElevation >= 0) {
                 result = 0
-            }
-            else
-            {
+            } else {
                 diff = routeTerrainProfile.minElevation
                 diff = 0.1f * abs(diff)
                 intDiff = diff.coerceIn(1f, 100f).toInt()
-                
+
                 result = ((routeTerrainProfile.minElevation - intDiff).toInt())
             }
         }
 
-        if ((result % round) != 0)
-        {
-            result = if (result < 0)
-            {
+        if ((result % round) != 0) {
+            result = if (result < 0) {
                 ((result - round) / round) * round
-            }
-            else
-            {
+            } else {
                 (result / round) * round
             }
         }
-        
+
         return result
     }
-    
-    // ---------------------------------------------------------------------------------------------
-    
-    private fun getElevationChartMaxValueY(): Int
-    {
+
+    private fun getElevationChartMaxValueY(): Int {
         var diff = routeTerrainProfile.maxElevation - routeTerrainProfile.minElevation
         diff = 0.1f * abs(diff)
-        
-        val round = if (diff <= 5) 2 else if (diff <= 25) 10 else 50
+
+        val round = if (diff <= 5) {
+            2
+        } else if (diff <= 25) {
+            10
+        } else {
+            50
+        }
         val intDiff = 1f.coerceAtMost(diff).toInt()
         val elevation = routeTerrainProfile.maxElevation + intDiff
         var result = round(elevation).toInt()
-        
-        if (result % round != 0)
-        {
-            result = if (result < 0)
-            {
+
+        if (result % round != 0) {
+            result = if (result < 0) {
                 (result / round) * round
-            }
-            else
-            {
+            } else {
                 ((result + round) / round) * round
             }
         }
-        
+
         return result
     }
-    
-    // ---------------------------------------------------------------------------------------------
-    
-    private fun getElevationChartYValue(distance: Double) : Int
-    {
-        return routeTerrainProfile.getElevation(distance.toInt()).toInt() 
+
+    private fun getElevationChartYValue(distance: Double): Int {
+        return routeTerrainProfile.getElevation(distance.toInt()).toInt()
     }
-    
-    // ---------------------------------------------------------------------------------------------
-    
-    private fun getElevationChartYValues(valuesCount: Int) : IntArray
-    {
+
+    private fun getElevationChartYValues(valuesCount: Int): IntArray {
         val yValuesArray = IntArray(valuesCount)
-        
-        val samples = routeTerrainProfile.getElevationSamples(valuesCount, chartMinX.toInt(), chartMaxX.toInt())
-        samples?.first?.size?.let { 
-            if (valuesCount <= it)
-            {
-                for (i in 0 until valuesCount)
-                {
+
+        val samples = routeTerrainProfile.getElevationSamples(
+            valuesCount,
+            chartMinX.toInt(),
+            chartMaxX.toInt(),
+        )
+        samples?.first?.size?.let {
+            if (valuesCount <= it) {
+                for (i in 0 until valuesCount) {
                     yValuesArray[i] = (samples.first[i]).toInt()
                 }
             }
         }
-        
+
         return yValuesArray
     }
-    
-    // ---------------------------------------------------------------------------------------------
-    
-    private fun getElevationChartVerticalBandText(index: Int) : String
-    {
-        routeTerrainProfile.climbSections?.let { 
-            if (index in 0 until it.size)
-            {
+
+    private fun getElevationChartVerticalBandText(index: Int): String {
+        routeTerrainProfile.climbSections?.let {
+            if (index in 0 until it.size) {
                 return String.format("%d", it[index].grade.value)
             }
         }
-        
+
         return ""
     }
-    
-    // ---------------------------------------------------------------------------------------------
-    
-    private fun getElevationChartVerticalBandMinX(index: Int) : Double
-    {
-        routeTerrainProfile.climbSections?.let { 
-            if (index in 0 until it.size)
-            {
+
+    private fun getElevationChartVerticalBandMinX(index: Int): Double {
+        routeTerrainProfile.climbSections?.let {
+            if (index in 0 until it.size) {
                 return it[index].startDistanceM.toDouble()
             }
         }
-        
+
         return 0.0
     }
-    
-    // ---------------------------------------------------------------------------------------------
-    
-    private fun getElevationChartVerticalBandMaxX(index: Int) : Double
-    {
+
+    private fun getElevationChartVerticalBandMaxX(index: Int): Double {
         routeTerrainProfile.climbSections?.let {
-            if (index in 0 until it.size)
-            {
+            if (index in 0 until it.size) {
                 return it[index].endDistanceM.toDouble()
             }
         }
 
         return 0.0
     }
-    
-    // ---------------------------------------------------------------------------------------------
 
-    private fun getElevationProfileButtonImage(index: Int, width: Int, height: Int) : Bitmap? = when (index)
-    {
+    private fun getElevationProfileButtonImage(index: Int, width: Int, height: Int): Bitmap? = when (index) {
         TElevationProfileButtonType.EElevationAtDeparture.ordinal -> GemUtilImages.asBitmap(
             SdkImages.Engine_Misc.WaypointFlag_PointStart.value,
             width,
-            height
+            height,
         )
-        
+
         TElevationProfileButtonType.EElevationAtDestination.ordinal -> GemUtilImages.asBitmap(
             SdkImages.Engine_Misc.WaypointFlag_PointFinish.value,
             width,
-            height
+            height,
         )
 
         TElevationProfileButtonType.EMinElevation.ordinal -> ContextCompat.getDrawable(
             parentActivity,
-            R.drawable.ic_height_profile_lowest_point
+            R.drawable.ic_height_profile_lowest_point,
         )?.toBitmap(width, height)
 
         TElevationProfileButtonType.EMaxElevation.ordinal -> ContextCompat.getDrawable(
             parentActivity,
-            R.drawable.ic_height_profile_highest_point
+            R.drawable.ic_height_profile_highest_point,
         )?.toBitmap(width, height)
-        
-        else -> null
-    } 
-    
-    // ---------------------------------------------------------------------------------------------
 
-    private fun getElevationProfileButtonText(index: Int) : String = when (index)
-    {
-        TElevationProfileButtonType.EElevationAtDeparture.ordinal -> getElevationString(routeTerrainProfile.getElevation(0).toInt())
-        TElevationProfileButtonType.EElevationAtDestination.ordinal -> getElevationString(routeTerrainProfile.getElevation(route.getTimeDistance(false)?.totalDistance ?: 0).toInt())
-        TElevationProfileButtonType.EMinElevation.ordinal -> getElevationString(routeTerrainProfile.minElevation.toInt())
-        TElevationProfileButtonType.EMaxElevation.ordinal -> getElevationString(routeTerrainProfile.maxElevation.toInt())
+        else -> null
+    }
+
+    private fun getElevationProfileButtonText(index: Int): String = when (index) {
+        TElevationProfileButtonType.EElevationAtDeparture.ordinal -> getElevationString(
+            routeTerrainProfile.getElevation(0).toInt(),
+        )
+        TElevationProfileButtonType.EElevationAtDestination.ordinal -> getElevationString(
+            routeTerrainProfile.getElevation(
+                route.getTimeDistance(false)?.totalDistance ?: 0,
+            ).toInt(),
+        )
+        TElevationProfileButtonType.EMinElevation.ordinal -> getElevationString(
+            routeTerrainProfile.minElevation.toInt(),
+        )
+        TElevationProfileButtonType.EMaxElevation.ordinal -> getElevationString(
+            routeTerrainProfile.maxElevation.toInt(),
+        )
         else -> ""
     }
-    
-    // ---------------------------------------------------------------------------------------------
-    
-    private fun getElevationString(distance: Int) = String.format("%d %s", distance, GemUtil.getUIString(EStringIds.eStrMeter))
-    
-    // ---------------------------------------------------------------------------------------------
-    
-    private fun getSurfaceName(type: ESurfaceType) : String = when (type)
-    {
+
+    private fun getElevationString(distance: Int) =
+        String.format("%d %s", distance, GemUtil.getUIString(EStringIds.eStrMeter))
+
+    private fun getSurfaceName(type: ESurfaceType): String = when (type) {
         ESurfaceType.Asphalt -> parentActivity.resources.getString(R.string.asphalt)
         ESurfaceType.Paved -> parentActivity.resources.getString(R.string.paved)
         ESurfaceType.Unpaved -> parentActivity.resources.getString(R.string.unpaved)
         ESurfaceType.Unknown -> parentActivity.resources.getString(R.string.unknown)
         else -> ""
     }
-    
-    // ---------------------------------------------------------------------------------------------
-    
-    private fun getSurfaceColor(type: ESurfaceType) : Int = when (type)
-    {
+
+    private fun getSurfaceColor(type: ESurfaceType): Int = when (type) {
         ESurfaceType.Asphalt -> Rgba(127, 137, 149, 255).value
         ESurfaceType.Paved -> Rgba(212, 212, 212, 255).value
         ESurfaceType.Unpaved -> Rgba(157, 133, 104, 255).value
         ESurfaceType.Unknown -> Rgba(0, 0, 0, 255).value
         else -> 0
     }
-    
-    // ---------------------------------------------------------------------------------------------
-    
-    private fun getRoadPercent(index: Int) : Double
-    {
+
+    private fun getRoadPercent(index: Int): Double {
         var auxIndex = index
-        if (routeLength > 0 && index in 0 until roadsTypes.size)
-        {
-            for (surface in roadsTypes)
-            {
+        if (routeLength > 0 && index in 0 until roadsTypes.size) {
+            for (surface in roadsTypes) {
                 --auxIndex
-                if (auxIndex < 0)
-                {
+                if (auxIndex < 0) {
                     var length = 0.0
-                    for (it in surface.value)
-                    {
+                    for (it in surface.value) {
                         length += it.mLengthM
                     }
 
@@ -2428,19 +2109,13 @@ class RouteProfile(
 
         return 0.0
     }
-    
-    // ---------------------------------------------------------------------------------------------
-    
-    private fun getRoadText(index: Int) : String
-    {
+
+    private fun getRoadText(index: Int): String {
         var auxIndex = index
-        if (index in 0 until roadsTypes.size)
-        {
-            for (road in roadsTypes)
-            {
+        if (index in 0 until roadsTypes.size) {
+            for (road in roadsTypes) {
                 --auxIndex
-                if (auxIndex < 0)
-                {
+                if (auxIndex < 0) {
                     val temp = getRoadName(road.key)
                     return String.format("%s (%.2f%%)", temp, getRoadPercent(index) * 100)
                 }
@@ -2449,19 +2124,13 @@ class RouteProfile(
 
         return ""
     }
-    
-    // ---------------------------------------------------------------------------------------------
-    
-    private fun getRoadColor(index: Int) : Int
-    {
+
+    private fun getRoadColor(index: Int): Int {
         var auxIndex = index
-        if (index in 0 until roadsTypes.size)
-        {
-            for (road in roadsTypes)
-            {
+        if (index in 0 until roadsTypes.size) {
+            for (road in roadsTypes) {
                 --auxIndex
-                if (auxIndex < 0)
-                {
+                if (auxIndex < 0) {
                     return getRoadColor(road.key)
                 }
             }
@@ -2469,11 +2138,8 @@ class RouteProfile(
 
         return 0
     }
-    
-    // ---------------------------------------------------------------------------------------------
-    
-    private fun getRoadColor(type: ERoadType) : Int = when (type)
-    {
+
+    private fun getRoadColor(type: ERoadType): Int = when (type) {
         ERoadType.Motorways -> Rgba(242, 144, 99, 255).value
         ERoadType.StateRoad -> Rgba(242, 216, 99, 255).value
         ERoadType.Road -> Rgba(153, 163, 175, 255).value
@@ -2481,13 +2147,9 @@ class RouteProfile(
         ERoadType.Cycleway -> Rgba(15, 175, 135, 255).value
         ERoadType.Path -> Rgba(196, 200, 211, 255).value
         ERoadType.SingleTrack -> Rgba(166, 133, 96, 255).value
-        
     }
-    
-    // ---------------------------------------------------------------------------------------------
-    
-    private fun getRoadName(type: ERoadType) : String = when (type)
-    {
+
+    private fun getRoadName(type: ERoadType): String = when (type) {
         ERoadType.Motorways -> parentActivity.resources.getString(R.string.motorway)
         ERoadType.StateRoad -> parentActivity.resources.getString(R.string.state_road)
         ERoadType.Road -> parentActivity.resources.getString(R.string.road)
@@ -2496,22 +2158,15 @@ class RouteProfile(
         ERoadType.Path -> parentActivity.resources.getString(R.string.path)
         ERoadType.SingleTrack -> parentActivity.resources.getString(R.string.single_track)
     }
-    
-    // ---------------------------------------------------------------------------------------------
-    
-    private fun getSteepnessPercent(index: Int) : Double
-    {
+
+    private fun getSteepnessPercent(index: Int): Double {
         var auxIndex = index
-        if (routeLength > 0 && index in 0 until steepnessTypes.size)
-        {
-            for (steepness in steepnessTypes)
-            {
+        if (routeLength > 0 && index in 0 until steepnessTypes.size) {
+            for (steepness in steepnessTypes) {
                 --auxIndex
-                if (auxIndex < 0)
-                {
+                if (auxIndex < 0) {
                     var length = 0.0
-                    for (it in steepness.value)
-                    {
+                    for (it in steepness.value) {
                         length += it.mLengthM
                     }
 
@@ -2522,19 +2177,13 @@ class RouteProfile(
 
         return 0.0
     }
-    
-    // ---------------------------------------------------------------------------------------------
-    
-    private fun getSteepnessText(index: Int) : String
-    {
+
+    private fun getSteepnessText(index: Int): String {
         var auxIndex = index
-        if (index in 0 until steepnessTypes.size)
-        {
-            for (steepness in steepnessTypes)
-            {
+        if (index in 0 until steepnessTypes.size) {
+            for (steepness in steepnessTypes) {
                 --auxIndex
-                if (auxIndex < 0)
-                {
+                if (auxIndex < 0) {
                     val temp = getSteepnessName(steepness.key)
                     return String.format("%s (%.2f%%)", temp, getSteepnessPercent(index) * 100)
                 }
@@ -2543,21 +2192,14 @@ class RouteProfile(
 
         return ""
     }
-    
-    // ---------------------------------------------------------------------------------------------
-    
-    private fun getSteepnessColor(index: Int) : Int
-    {
+
+    private fun getSteepnessColor(index: Int): Int {
         var auxIndex = index
-        if (index in 0 until steepnessTypes.size)
-        {
-            for (steepness in steepnessTypes)
-            {
+        if (index in 0 until steepnessTypes.size) {
+            for (steepness in steepnessTypes) {
                 --auxIndex
-                if (auxIndex < 0)
-                {
-                    return when (steepness.key)
-                    {
+                if (auxIndex < 0) {
+                    return when (steepness.key) {
                         0 -> { // < -16
                             Rgba(4, 120, 8, 255).value
                         }
@@ -2612,64 +2254,52 @@ class RouteProfile(
 
         return 0
     }
-    
-    // ---------------------------------------------------------------------------------------------
-    
-    private fun getSteepnessImage(index: Int, width: Int, height: Int) : Bitmap?
-    {
+
+    private fun getSteepnessImage(index: Int, width: Int, height: Int): Bitmap? {
         var imageType = TSteepnessImageType.EUnknown
         var auxIndex = index
-        
-        if (index in 0 until steepnessTypes.size)
-        {
-            for (steepness in steepnessTypes)
-            {
+
+        if (index in 0 until steepnessTypes.size) {
+            for (steepness in steepnessTypes) {
                 --auxIndex
-                if (auxIndex < 0)
-                {
-                    if (steepness.key in 0 until 5)
-                    {
+                if (auxIndex < 0) {
+                    if (steepness.key in 0 until 5) {
                         imageType = TSteepnessImageType.EDown
                         break
                     }
-                    
-                    if (steepness.key == 5)
-                    {
+
+                    if (steepness.key == 5) {
                         imageType = TSteepnessImageType.EPlain
                         break
                     }
-                    
+
                     imageType = TSteepnessImageType.EUp
                     break
                 }
             }
         }
-        
-        return when (imageType)
-        {
+
+        return when (imageType) {
             TSteepnessImageType.EUp -> ContextCompat.getDrawable(
                 parentActivity,
-                R.drawable.ic_arrow_up_right
+                R.drawable.ic_arrow_up_right,
             )?.toBitmap(width, height)
-            
+
             TSteepnessImageType.EDown -> ContextCompat.getDrawable(
                 parentActivity,
-                R.drawable.ic_arrow_down_right
+                R.drawable.ic_arrow_down_right,
             )?.toBitmap(width, height)
-            
+
             TSteepnessImageType.EPlain -> ContextCompat.getDrawable(
                 parentActivity,
-                R.drawable.ic_arrow_right
+                R.drawable.ic_arrow_right,
             )?.toBitmap(width, height)
-            
+
             TSteepnessImageType.EUnknown -> null
         }
     }
-    
-    // ---------------------------------------------------------------------------------------------
-    
-    private fun getSteepnessName(index: Int) : String = when (index)
-    {
+
+    private fun getSteepnessName(index: Int): String = when (index) {
         0 -> { // < -16
             "16%+"
         }
@@ -2718,11 +2348,8 @@ class RouteProfile(
             String()
         }
     }
-    
-    // ---------------------------------------------------------------------------------------------
-    
-    private fun setLineBarChartAttributes(chart: CombinedChart)
-    {
+
+    private fun setLineBarChartAttributes(chart: CombinedChart) {
         chart.apply {
             setBackgroundColor(Color.WHITE)
             setExtraOffsets(0f, 0f, 0f, 0f)
@@ -2751,14 +2378,13 @@ class RouteProfile(
             legend.xOffset = 0f
             legend.isWordWrapEnabled = true
 
-            layoutParams?.height = parentActivity.resources.getDimension(R.dimen.bar_chart_height).toInt()
+            layoutParams?.height = parentActivity.resources.getDimension(
+                R.dimen.bar_chart_height,
+            ).toInt()
         }
     }
-    
-    // ---------------------------------------------------------------------------------------------
 
-    private fun setLineBarChartAxisBounds(chart: CombinedChart)
-    {
+    private fun setLineBarChartAxisBounds(chart: CombinedChart) {
         val xAxis = chart.xAxis
         xAxis.position = XAxis.XAxisPosition.BOTTOM
         xAxis.axisMinimum = 0f
@@ -2781,20 +2407,17 @@ class RouteProfile(
         val rightAxis = chart.axisRight
         rightAxis.isEnabled = false
     }
-    
-    // ---------------------------------------------------------------------------------------------
-    
-    private fun setElevationChartAxisBounds()
-    {
-        elevationChart.apply { 
+
+    private fun setElevationChartAxisBounds() {
+        elevationChart.apply {
             xAxis.position = XAxis.XAxisPosition.BOTTOM
-            
+
             val horizontalAxisUnit = "m"
             val verticalAxisUnit = "m"
             var chartMinValueY = 0f
             var chartMaxValueY = 0f
             val zoomThresholdDistX = 0.5f
-            SdkCall.execute { 
+            SdkCall.execute {
                 chartMinValueY = getElevationChartMinValueY().toFloat()
                 chartMaxValueY = getElevationChartMaxValueY().toFloat()
             }
@@ -2809,12 +2432,9 @@ class RouteProfile(
                 val df = DecimalFormat("#.#")
                 val tempValue = (highestVisibleX - lowestVisibleX) / (axis.labelCount + 2)
 
-                if (value > highestVisibleX - tempValue && value < highestVisibleX + tempValue)
-                {
+                if (value > highestVisibleX - tempValue && value < highestVisibleX + tempValue) {
                     df.format(value.toDouble()) + " " + horizontalAxisUnit
-                }
-                else
-                {
+                } else {
                     df.format(value.toDouble())
                 }
             }
@@ -2833,24 +2453,18 @@ class RouteProfile(
             yAxis.setDrawLabels(true)
             yAxis.valueFormatter = IAxisValueFormatter { value, _ ->
                 val df = DecimalFormat("#")
-                if (value == chartMaxValueY)
-                {
+                if (value == chartMaxValueY) {
                     df.format(value.toDouble()) + " " + verticalAxisUnit
-                }
-                else
-                {
+                } else {
                     df.format(value.toDouble())
                 }
             }
-            
+
             axisRight.isEnabled = false
-            
-            val textColor = if (parentActivity.isDarkThemeOn())
-            {
+
+            val textColor = if (parentActivity.isDarkThemeOn()) {
                 Color.WHITE
-            }
-            else
-            {
+            } else {
                 Color.BLACK
             }
 
@@ -2860,60 +2474,50 @@ class RouteProfile(
             setVisibleXRangeMinimum(zoomThresholdDistX)
         }
     }
-    
-    // ---------------------------------------------------------------------------------------------
-    
-    private fun refreshDataSetHighlightColor(chart: CombinedChart, color: Int)
-    {
+
+    private fun refreshDataSetHighlightColor(chart: CombinedChart, color: Int) {
         val count = chart.data.dataSetCount
-        if (count > 0)
-        {
-            for (i in 0 until count)
-            {
-                (chart.data.getDataSetByIndex(i) as LineDataSet).highLightColor = color 
+        if (count > 0) {
+            for (i in 0 until count) {
+                (chart.data.getDataSetByIndex(i) as LineDataSet).highLightColor = color
             }
         }
     }
-    
-    // ---------------------------------------------------------------------------------------------
-    
-    private fun enableSelection(chart: CombinedChart)
-    {
+
+    private fun enableSelection(chart: CombinedChart) {
         refreshDataSetHighlightColor(chart, highlightColorSelected)
-        
+
         val marker = chart.marker
-        if (marker != null && marker is LineBarMarkerView)
-        {
+        if (marker != null && marker is LineBarMarkerView) {
             marker.setColor(highlightColorSelected)
         }
     }
-    
-    // ---------------------------------------------------------------------------------------------
-    
-    private fun removeSelection(chart: CombinedChart)
-    {
+
+    private fun removeSelection(chart: CombinedChart) {
         refreshDataSetHighlightColor(chart, highlightColorUnselected)
-        
+
         val marker = chart.marker
-        if (marker != null && marker is LineBarMarkerView)
-        {
+        if (marker != null && marker is LineBarMarkerView) {
             marker.setColor(highlightColorUnselected)
         }
     }
-    
-    // ---------------------------------------------------------------------------------------------
-    
-    private fun getSectionTitle(section: Int): String = when (section)
-    {
-        TRouteProfileSectionType.EElevation.ordinal -> parentActivity.resources.getString(R.string.elevation)
-        TRouteProfileSectionType.EClimbDetails.ordinal -> parentActivity.resources.getString(R.string.climb_details)
+
+    private fun getSectionTitle(section: Int): String = when (section) {
+        TRouteProfileSectionType.EElevation.ordinal -> parentActivity.resources.getString(
+            R.string.elevation,
+        )
+        TRouteProfileSectionType.EClimbDetails.ordinal -> parentActivity.resources.getString(
+            R.string.climb_details,
+        )
         TRouteProfileSectionType.EWays.ordinal -> parentActivity.resources.getString(R.string.ways)
-        TRouteProfileSectionType.ESurfaces.ordinal -> parentActivity.resources.getString(R.string.surfaces)
-        TRouteProfileSectionType.ESteepnesses.ordinal -> parentActivity.resources.getString(R.string.steepness)
+        TRouteProfileSectionType.ESurfaces.ordinal -> parentActivity.resources.getString(
+            R.string.surfaces,
+        )
+        TRouteProfileSectionType.ESteepnesses.ordinal -> parentActivity.resources.getString(
+            R.string.steepness,
+        )
         else -> ""
     }
-
-    // ---------------------------------------------------------------------------------------------
 
     private fun getColor(gemSdkColor: Int): Int {
         val r = 0x000000ff and gemSdkColor
@@ -2924,31 +2528,17 @@ class RouteProfile(
         return Color.argb(a, r, g, b)
     }
 
-    // ---------------------------------------------------------------------------------------------
-    
     private fun getElevationChartVerticalBandsCount(): Int = routeTerrainProfile.climbSections?.size ?: 0
-    
-    // ---------------------------------------------------------------------------------------------
-    
-    private fun pointInRectangle(rectangle: Rect, x: Int, y: Int): Boolean
-    {
+
+    private fun pointInRectangle(rectangle: Rect, x: Int, y: Int): Boolean {
         return x >= rectangle.x && x <= rectangle.right && y >= rectangle.y && y <= rectangle.bottom
     }
-    
-    // ---------------------------------------------------------------------------------------------
 
     internal class Point(var x: Float, var y: Float)
 
-    // ---------------------------------------------------------------------------------------------
-    
-    companion object
-    {
+    companion object {
         private const val CHART_OFFSET_TOP = 45
         private const val CHART_OFFSET_RIGHT = 17
         private const val CHART_OFFSET_BOTTOM = 20
     }
-    
-    // ---------------------------------------------------------------------------------------------
 }
-
-// -------------------------------------------------------------------------------------------------

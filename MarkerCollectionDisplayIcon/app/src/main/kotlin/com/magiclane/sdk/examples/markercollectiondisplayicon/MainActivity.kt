@@ -1,29 +1,22 @@
-// -------------------------------------------------------------------------------------------------------------------------------
-
 /*
- * SPDX-FileCopyrightText: 1995-2025 Magic Lane International B.V. <info@magiclane.com>
+ * SPDX-FileCopyrightText: 2021-2026 Magic Lane International B.V. <info@magiclane.com>
  * SPDX-License-Identifier: Apache-2.0
  *
  * Contact Magic Lane at <info@magiclane.com> for SDK licensing options.
  */
 
-// -------------------------------------------------------------------------------------------------------------------------------
-
 package com.magiclane.sdk.examples.markercollectiondisplayicon
-
-// -------------------------------------------------------------------------------------------------------------------------------
 
 import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.os.Bundle
 import androidx.activity.addCallback
+import androidx.activity.enableEdgeToEdge
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.res.ResourcesCompat
-import com.magiclane.sdk.core.CircleGeographicArea
 import com.magiclane.sdk.core.DataBuffer
 import com.magiclane.sdk.core.GemSdk
 import com.magiclane.sdk.core.Image
-import com.magiclane.sdk.core.PolygonGeographicArea
 import com.magiclane.sdk.core.Rgba
 import com.magiclane.sdk.d3scene.EMarkerLabelingMode
 import com.magiclane.sdk.d3scene.EMarkerType
@@ -36,18 +29,12 @@ import com.magiclane.sdk.routesandnavigation.EImageFileFormat
 import java.io.ByteArrayOutputStream
 import kotlin.system.exitProcess
 
-// -------------------------------------------------------------------------------------------------------------------------------
+class MainActivity : AppCompatActivity() {
 
-class MainActivity : AppCompatActivity()
-{
-    // ---------------------------------------------------------------------------------------------------------------------------
-    
     private lateinit var binding: ActivityMainBinding
 
-    // ---------------------------------------------------------------------------------------------------------------------------
-
-    override fun onCreate(savedInstanceState: Bundle?)
-    {
+    override fun onCreate(savedInstanceState: Bundle?) {
+        enableEdgeToEdge()
         super.onCreate(savedInstanceState)
 
         binding = ActivityMainBinding.inflate(layoutInflater)
@@ -66,8 +53,7 @@ class MainActivity : AppCompatActivity()
             /* Image and text */
             val imageTextsCollection = MarkerCollection(EMarkerType.Point, "Restaurants Nearby")
 
-            for (place in predefinedPlaces)
-            {
+            for (place in predefinedPlaces) {
                 Marker().apply {
                     setCoordinates(arrayListOf(place.second))
                     name = place.first
@@ -80,7 +66,7 @@ class MainActivity : AppCompatActivity()
             }
 
             val imageTextsSettings = MarkerCollectionRenderSettings(image)
-            imageTextsSettings.labelTextSize = 2.0 //mm
+            imageTextsSettings.labelTextSize = 2.0 // mm
             imageTextsSettings.labelingMode = EMarkerLabelingMode.Item
 
             mapView.preferences?.markers?.add(imageTextsCollection, imageTextsSettings)
@@ -96,32 +82,33 @@ class MainActivity : AppCompatActivity()
             }
 
             val polylineSettings = MarkerCollectionRenderSettings(polylineInnerColor = Rgba.blue())
-            polylineSettings.polylineInnerSize = 1.5 //mm
+            polylineSettings.polylineInnerSize = 1.5 // mm
 
             mapView.preferences?.markers?.add(polylineCollection, polylineSettings)
-            
+
             /* Polygon */
-            val polygonSettings = MarkerCollectionRenderSettings(polylineInnerColor = Rgba.magenta(), polygonFillColor = Rgba(255, 0, 0, 128))
-            polygonSettings.polylineInnerSize = 1.0//mm
-            
+            val polygonSettings =
+                MarkerCollectionRenderSettings(
+                    polylineInnerColor = Rgba.magenta(),
+                    polygonFillColor = Rgba(255, 0, 0, 128),
+                )
+            polygonSettings.polylineInnerSize = 1.0 // mm
+
             val polygonCollection = MarkerCollection(EMarkerType.Polygon, "Polygon")
-            val marker = Marker(Coordinates(45.75242654325917, 4.828547972110576), 200);
+            val marker = Marker(Coordinates(45.75242654325917, 4.828547972110576), 200)
             polygonCollection.add(marker)
             mapView.preferences?.markers?.add(polygonCollection, polygonSettings)
 
             /* Center map on result */
             mapView.centerOnCoordinates(predefinedPlaces[0].second, 80)
         }
-        onBackPressedDispatcher.addCallback(this){
+        onBackPressedDispatcher.addCallback(this) {
             finish()
             exitProcess(0)
         }
     }
 
-    // ---------------------------------------------------------------------------------------------------------------------------
-
-    private fun toPngByteArray(bmp: Bitmap): ByteArray
-    {
+    private fun toPngByteArray(bmp: Bitmap): ByteArray {
         val stream = ByteArrayOutputStream()
         bmp.compress(Bitmap.CompressFormat.PNG, 100, stream)
         val byteArray: ByteArray = stream.toByteArray()
@@ -130,10 +117,7 @@ class MainActivity : AppCompatActivity()
         return byteArray
     }
 
-    // ---------------------------------------------------------------------------------------------------------------------------
-
-    private fun getBitmap(drawableRes: Int): Bitmap?
-    {
+    private fun getBitmap(drawableRes: Int): Bitmap? {
         val drawable =
             ResourcesCompat.getDrawable(resources, drawableRes, theme)
 
@@ -143,7 +127,7 @@ class MainActivity : AppCompatActivity()
         val bitmap = Bitmap.createBitmap(
             drawable.intrinsicWidth,
             drawable.intrinsicHeight,
-            Bitmap.Config.ARGB_8888
+            Bitmap.Config.ARGB_8888,
         )
         canvas.setBitmap(bitmap)
         drawable.setBounds(0, 0, drawable.intrinsicWidth, drawable.intrinsicHeight)
@@ -151,17 +135,10 @@ class MainActivity : AppCompatActivity()
         return bitmap
     }
 
-    // ---------------------------------------------------------------------------------------------------------------------------
-
-    override fun onDestroy()
-    {
+    override fun onDestroy() {
         super.onDestroy()
 
         // Release the SDK.
         GemSdk.release()
     }
-
-    // ---------------------------------------------------------------------------------------------------------------------------
 }
-
-// -------------------------------------------------------------------------------------------------------------------------------

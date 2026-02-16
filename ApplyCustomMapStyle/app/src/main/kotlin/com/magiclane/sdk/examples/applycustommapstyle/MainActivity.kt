@@ -1,78 +1,70 @@
-// -------------------------------------------------------------------------------------------------------------------------------
-
 /*
- * SPDX-FileCopyrightText: 1995-2025 Magic Lane International B.V. <info@magiclane.com>
+ * SPDX-FileCopyrightText: 2021-2026 Magic Lane International B.V. <info@magiclane.com>
  * SPDX-License-Identifier: Apache-2.0
  *
  * Contact Magic Lane at <info@magiclane.com> for SDK licensing options.
  */
 
-// -------------------------------------------------------------------------------------------------------------------------------
-
 package com.magiclane.sdk.examples.applycustommapstyle
 
-// -------------------------------------------------------------------------------------------------------------------------------
-
-import android.annotation.SuppressLint
 import android.os.Bundle
-import android.widget.Button
-import android.widget.ProgressBar
-import android.widget.TextView
 import androidx.activity.addCallback
-import androidx.annotation.VisibleForTesting
+import androidx.activity.enableEdgeToEdge
 import androidx.appcompat.app.AppCompatActivity
 import androidx.test.espresso.idling.CountingIdlingResource
+import com.google.android.material.bottomsheet.BottomSheetBehavior
 import com.google.android.material.bottomsheet.BottomSheetDialog
 import com.magiclane.sdk.core.DataBuffer
+import com.magiclane.sdk.core.GemError
 import com.magiclane.sdk.core.GemSdk
-import com.magiclane.sdk.core.GemSurfaceView
 import com.magiclane.sdk.core.SdkSettings
 import com.magiclane.sdk.d3scene.MapView
+import com.magiclane.sdk.examples.applycustommapstyle.databinding.ActivityMainBinding
+import com.magiclane.sdk.examples.applycustommapstyle.databinding.DialogLayoutBinding
 import com.magiclane.sdk.util.SdkCall
 import com.magiclane.sdk.util.Util
 import kotlin.system.exitProcess
 
-// -------------------------------------------------------------------------------------------------------------------------------
+class MainActivity : AppCompatActivity() {
 
-class MainActivity : AppCompatActivity()
-{
-    // ---------------------------------------------------------------------------------------------------------------------------
+    private lateinit var binding: ActivityMainBinding
 
-    private lateinit var progressBar: ProgressBar
-    private lateinit var gemSurfaceView: GemSurfaceView
-
-    // ---------------------------------------------------------------------------------------------------------------------------
-
-    override fun onCreate(savedInstanceState: Bundle?)
-    {
+    override fun onCreate(savedInstanceState: Bundle?) {
+        enableEdgeToEdge()
         super.onCreate(savedInstanceState)
-        setContentView(R.layout.activity_main)
 
-        progressBar = findViewById(R.id.progressBar)
-        gemSurfaceView = findViewById(R.id.gem_surface)
+        binding = ActivityMainBinding.inflate(layoutInflater)
+        setContentView(binding.root)
 
         EspressoIdlingResource.increment()
 
-        SdkSettings.onMapDataReady = onMapDataReady@{ isReady ->
-            if (!isReady) return@onMapDataReady
-            gemSurfaceView.mapView?.onMapStyleChanged = { _, str ->
+        binding.gemSurface.onDefaultMapViewCreated = { mapView ->
+            mapView.onMapStyleChanged = { _, str ->
                 EspressoIdlingResource.pathString = str
                 EspressoIdlingResource.decrement()
             }
-            applyCustomAssetStyle(gemSurfaceView.mapView)
+            applyCustomAssetStyle(mapView)
+        }
+
+        binding.gemSurface.onSdkInitFailed = { error ->
+            val errorMessage = "SDK initialization failed: ${GemError.getMessage(error, this)}"
+            Util.postOnMain {
+                showDialog(errorMessage) {
+                    finish()
+                    exitProcess(0)
+                }
+            }
         }
 
         SdkSettings.onApiTokenRejected = {
-            /* 
-            The TOKEN you provided in the AndroidManifest.xml file was rejected.
-            Make sure you provide the correct value, or if you don't have a TOKEN,
-            check the magiclane.com website, sign up/ sign in and generate one. 
-             */
-            showDialog("TOKEN REJECTED")
+            showDialog(
+                "The token you provided was rejected. " +
+                    "Make sure you provide the correct value, or if you don't have a token, " +
+                    "check the magiclane.com website, sign up / in and generate one. Then input it in the AndroidManifest.xml file.",
+            )
         }
 
-        if (!Util.isInternetConnected(this))
-        {
+        if (!Util.isInternetConnected(this)) {
             showDialog("You must be connected to the internet!")
         }
 
@@ -80,43 +72,36 @@ class MainActivity : AppCompatActivity()
             finish()
             exitProcess(0)
         }
-
     }
 
-    // ---------------------------------------------------------------------------------------------------------------------------
-
-    override fun onDestroy()
-    {
+    override fun onDestroy() {
         super.onDestroy()
 
         // Deinitialize the SDK.
         GemSdk.release()
     }
 
-    // ---------------------------------------------------------------------------------------------------------------------------
-
-    @SuppressLint("InflateParams")
-    private fun showDialog(text: String)
-    {
+    private fun showDialog(text: String, onDismiss: (() -> Unit)? = null) {
         val dialog = BottomSheetDialog(this)
-        val view = layoutInflater.inflate(R.layout.dialog_layout, null).apply {
-            findViewById<TextView>(R.id.title).text = getString(R.string.error)
-            findViewById<TextView>(R.id.message).text = text
-            findViewById<Button>(R.id.button).setOnClickListener {
+        val dialogBinding = DialogLayoutBinding.inflate(layoutInflater).apply {
+            title.text = getString(R.string.error)
+            message.text = text
+            button.setOnClickListener {
+                onDismiss?.invoke()
                 dialog.dismiss()
             }
         }
         dialog.apply {
+            behavior.state = BottomSheetBehavior.STATE_EXPANDED
+            behavior.isDraggable = false
             setCancelable(false)
-            setContentView(view)
+            setContentView(dialogBinding.root)
             show()
         }
     }
 
-    // ---------------------------------------------------------------------------------------------------------------------------
-
     private fun applyCustomAssetStyle(mapView: MapView?) = SdkCall.execute {
-        val filename = "(Desktop) Monochrome Deep Blue (5a1da93a-dbf2-4a36-9b5c-1370386c1496).style"
+        val filename = "Basic_1_Oldtime_with_Elevation.style"
 
         // Opens style input stream.
         val inputStream = applicationContext.resources.assets.open(filename)
@@ -130,15 +115,11 @@ class MainActivity : AppCompatActivity()
     }
 }
 
-//region --------------------------------------------------FOR TESTING--------------------------------------------------------------
-// ---------------------------------------------------------------------------------------------------------------------------
-@VisibleForTesting
-object EspressoIdlingResource
-{
+//region TESTING
+object EspressoIdlingResource {
     val espressoIdlingResource = CountingIdlingResource("ApplyCustomMapStyleIdlingResource")
     var pathString = ""
     fun increment() = espressoIdlingResource.increment()
     fun decrement() = if (!espressoIdlingResource.isIdleNow) espressoIdlingResource.decrement() else Unit
 }
-//endregion  -------------------------------------------------------------------------------------------------------------------------------
-// -------------------------------------------------------------------------------------------------------------------------------
+//endregion

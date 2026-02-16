@@ -1,17 +1,11 @@
-// -------------------------------------------------------------------------------------------------
-
 /*
- * SPDX-FileCopyrightText: 1995-2025 Magic Lane International B.V. <info@magiclane.com>
+ * SPDX-FileCopyrightText: 2021-2026 Magic Lane International B.V. <info@magiclane.com>
  * SPDX-License-Identifier: Apache-2.0
  *
  * Contact Magic Lane at <info@magiclane.com> for SDK licensing options.
  */
 
-// -------------------------------------------------------------------------------------------------
-
 package com.magiclane.sdk.examples.weather
-
-// -------------------------------------------------------------------------------------------------
 
 import android.graphics.Bitmap
 import androidx.lifecycle.MutableLiveData
@@ -34,19 +28,14 @@ import java.util.Locale
 import java.util.TimeZone
 import kotlin.math.roundToInt
 
-// -------------------------------------------------------------------------------------------------
-class ForecastActivityViewModel : ViewModel()
-{
-    // ---------------------------------------------------------------------------------------------
+class ForecastActivityViewModel : ViewModel() {
     init
     {
-        //initialise the weather service
+        // initialise the weather service
         SdkCall.execute { weatherService = WeatherService() }
     }
 
-    // ---------------------------------------------------------------------------------------------
-    companion object
-    {
+    companion object {
         const val FORECAST_DAYS = 7
         const val FORECAST_HOUR = 48
         const val IMAGE_SIZE = 120
@@ -64,147 +53,200 @@ class ForecastActivityViewModel : ViewModel()
     var currentTemperature = ""
     var feelsLike = ""
 
-    // ---------------------------------------------------------------------------------------------
-
     fun getForecastList(forecastType: EForecastType, coordinates: Coordinates) = SdkCall.execute {
         listener = { results, err, msg ->
-            if (err == GemError.NoError)
+            if (err == GemError.NoError) {
                 SdkCall.execute {
-                    // in this example we require the weather forecast for only one location 
-                    // results[0].forecast holds the list of forecast items for the selected landmark 
+                    // in this example we require the weather forecast for only one location
+                    // results[0].forecast holds the list of forecast items for the selected landmark
                     results[0].forecast?.let {
                         val list = mutableListOf<ForecastItem>()
-                        //map the conditions list to a list of our data object, ForecastItem
+                        // map the conditions list to a list of our data object, ForecastItem
                         val formatter = SimpleDateFormat("HH:mm", Locale.UK)
                         val dateFormatter = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
                         val timeOffset = getUTCOffsetInMilliSeconds(coordinates) ?: 0
                         formatter.timeZone = TimeZone.getTimeZone("GMT")
                         it.mapNotNullTo(list) { forecastItem ->
-                            when (forecastType) 
-                            {
+                            when (forecastType) {
                                 EForecastType.NOT_ASSIGNED -> null
                                 EForecastType.CURRENT ->
-                                {
-                                    val forecastItemTimestamp = forecastItem.timestamp?.asLong() ?: 0L
-                                    updatedAt = results[0].updated?.run {
-                                        "Updated at: " + formatter.format(Date(asLong() + timeOffset))
-                                    } ?: ""
-                                    currentTime = "Current time: " + formatter.format(Date(forecastItemTimestamp + timeOffset))
-                                    description = forecastItem.description ?: "aaaaaaaaaaaa"
-                                    isDay = forecastItem.daylight == EDaylight.Day || forecastItem.daylight == EDaylight.NotAvailable
-                                    forecastItem.parameters?.forEach { param ->
-                                        when (param.type)
-                                        {
-                                            "Temperature" ->
-                                                currentTemperature = String.format(Locale.getDefault(), "%d%s", param.value.roundToInt(), param.unit)
-
-                                            "FeelsLike" ->
-                                                feelsLike = String.format(Locale.getDefault(), "%s %d%s", param.name, param.value.roundToInt(), param.unit)
-
-                                            "Sunrise", "Sunset" ->
-                                            {
-                                                val timeValue = (param.value * 1000).toLong() + timeOffset
-                                                val time = formatter.format(Date(timeValue))
-                                                list.add(
-                                                    ForecastItem(
-                                                        conditionName = param.type ?: "",
-                                                        conditionValue = time
+                                    {
+                                        val forecastItemTimestamp = forecastItem.timestamp?.asLong() ?: 0L
+                                        updatedAt = results[0].updated?.run {
+                                            "Updated at: " + formatter.format(
+                                                Date(asLong() + timeOffset),
+                                            )
+                                        } ?: ""
+                                        currentTime = "Current time: " + formatter.format(
+                                            Date(forecastItemTimestamp + timeOffset),
+                                        )
+                                        description = forecastItem.description ?: ""
+                                        isDay = forecastItem.daylight == EDaylight.Day || forecastItem.daylight == EDaylight.NotAvailable
+                                        forecastItem.parameters?.forEach { param ->
+                                            when (param.type) {
+                                                "Temperature" ->
+                                                    currentTemperature = String.format(
+                                                        Locale.getDefault(),
+                                                        "%d%s",
+                                                        param.value.roundToInt(),
+                                                        param.unit,
                                                     )
-                                                )
-                                            }
 
-                                            else ->
-                                            {
-                                                if (param.value.rem(1) == 0.0)
-                                                    list.add(
-                                                        ForecastItem(
-                                                            conditionName = param.type ?: "",
-                                                            conditionValue = String.format(Locale.getDefault(), "%d %s", param.value.roundToInt(), param.unit)
+                                                "FeelsLike" ->
+                                                    feelsLike = String.format(
+                                                        Locale.getDefault(),
+                                                        "%s %d%s",
+                                                        param.name,
+                                                        param.value.roundToInt(),
+                                                        param.unit,
+                                                    )
+
+                                                "Sunrise", "Sunset" ->
+                                                    {
+                                                        val timeValue = (param.value * 1000).toLong() + timeOffset
+                                                        val time = formatter.format(Date(timeValue))
+                                                        list.add(
+                                                            ForecastItem(
+                                                                conditionName = param.type ?: "",
+                                                                conditionValue = time,
+                                                            ),
                                                         )
-                                                    )
-                                                else
-                                                    list.add(
-                                                        ForecastItem(
-                                                            conditionName = param.type ?: "",
-                                                            conditionValue = String.format(Locale.getDefault(), "%.2f %s", param.value, param.unit)
-                                                        )
-                                                    )
+                                                    }
+
+                                                else ->
+                                                    {
+                                                        if (param.value.rem(1) == 0.0) {
+                                                            list.add(
+                                                                ForecastItem(
+                                                                    conditionName = param.type ?: "",
+                                                                    conditionValue = String.format(
+                                                                        Locale.getDefault(),
+                                                                        "%d %s",
+                                                                        param.value.roundToInt(),
+                                                                        param.unit,
+                                                                    ),
+                                                                ),
+                                                            )
+                                                        } else {
+                                                            list.add(
+                                                                ForecastItem(
+                                                                    conditionName = param.type ?: "",
+                                                                    conditionValue = String.format(
+                                                                        Locale.getDefault(),
+                                                                        "%.2f %s",
+                                                                        param.value,
+                                                                        param.unit,
+                                                                    ),
+                                                                ),
+                                                            )
+                                                        }
+                                                    }
                                             }
                                         }
+                                        currentBMP = forecastItem.image?.asBitmap(
+                                            IMAGE_SIZE,
+                                            IMAGE_SIZE,
+                                        )
+                                        null
                                     }
-                                    currentBMP = forecastItem.image?.asBitmap(IMAGE_SIZE, IMAGE_SIZE)
-                                    null
-                                }
 
                                 EForecastType.DAILY ->
-                                {
-                                    val dateParam = forecastItem.timestamp?.run {
-                                        dateFormatter.format(Date(asLong() + timeOffset))
-                                    } ?: ""
-                                    val dayOfWeekParam = forecastItem.timestamp?.run {
-                                        val dayOfWeekIndex = if (dayOfWeek == 1) 6 else dayOfWeek - 2
-                                        DayOfWeek.entries[dayOfWeekIndex].name
-                                    } ?: ""
-                                    val temperatureHighParam = forecastItem.parameters?.find { param -> param.type == "TemperatureHigh" }?.run {
-                                        String.format(Locale.getDefault(), "%d%s", value.roundToInt(), unit)
-                                    } ?: ""
-                                    val temperatureLowParam = forecastItem.parameters?.find { param -> param.type == "TemperatureLow" }?.run {
-                                        String.format(Locale.getDefault(), "%d%s", value.roundToInt(), unit)
-                                    } ?: ""
-                                    ForecastItem(
-                                        date = dateParam,
-                                        dayOfWeek = dayOfWeekParam,
-                                        bmp = forecastItem.image?.asBitmap(IMAGE_SIZE, IMAGE_SIZE),
-                                        highTemperature = temperatureHighParam,
-                                        lowTemperature = temperatureLowParam
-                                    )
-                                }
+                                    {
+                                        val dateParam = forecastItem.timestamp?.run {
+                                            dateFormatter.format(Date(asLong() + timeOffset))
+                                        } ?: ""
+                                        val dayOfWeekParam = forecastItem.timestamp?.run {
+                                            val dayOfWeekIndex = if (dayOfWeek == 1) 6 else dayOfWeek - 2
+                                            DayOfWeek.entries[dayOfWeekIndex].name
+                                        } ?: ""
+                                        val temperatureHighParam = forecastItem.parameters?.find { param -> param.type == "TemperatureHigh" }?.run {
+                                            String.format(
+                                                Locale.getDefault(),
+                                                "%d%s",
+                                                value.roundToInt(),
+                                                unit,
+                                            )
+                                        } ?: ""
+                                        val temperatureLowParam = forecastItem.parameters?.find { param -> param.type == "TemperatureLow" }?.run {
+                                            String.format(
+                                                Locale.getDefault(),
+                                                "%d%s",
+                                                value.roundToInt(),
+                                                unit,
+                                            )
+                                        } ?: ""
+                                        ForecastItem(
+                                            date = dateParam,
+                                            dayOfWeek = dayOfWeekParam,
+                                            bmp = forecastItem.image?.asBitmap(
+                                                IMAGE_SIZE,
+                                                IMAGE_SIZE,
+                                            ),
+                                            highTemperature = temperatureHighParam,
+                                            lowTemperature = temperatureLowParam,
+                                        )
+                                    }
 
                                 EForecastType.HOURLY ->
-                                {
-                                    val dateParam = forecastItem.timestamp?.run {
-                                        dateFormatter.format(Date(asLong() + timeOffset))
-                                    } ?: ""
-                                    val timeParam = forecastItem.timestamp?.run {
-                                        formatter.format(Date(asLong()+ timeOffset))
-                                    } ?: ""
-                                    val isDayLight = forecastItem.daylight == EDaylight.Day || forecastItem.daylight == EDaylight.NotAvailable
+                                    {
+                                        val dateParam = forecastItem.timestamp?.run {
+                                            dateFormatter.format(Date(asLong() + timeOffset))
+                                        } ?: ""
+                                        val timeParam = forecastItem.timestamp?.run {
+                                            formatter.format(Date(asLong() + timeOffset))
+                                        } ?: ""
+                                        val isDayLight = forecastItem.daylight == EDaylight.Day || forecastItem.daylight == EDaylight.NotAvailable
 
-                                    val temperatureParam = forecastItem.parameters?.find { param -> param.type == "Temperature" }?.run {
-                                        String.format(Locale.getDefault(), "%d%s", value.roundToInt(), unit)
-                                    } ?: ""
+                                        val temperatureParam = forecastItem.parameters?.find { param -> param.type == "Temperature" }?.run {
+                                            String.format(
+                                                Locale.getDefault(),
+                                                "%d%s",
+                                                value.roundToInt(),
+                                                unit,
+                                            )
+                                        } ?: ""
 
-                                    ForecastItem(
-                                        date = dateParam,
-                                        time = timeParam,
-                                        bmp = forecastItem.image?.asBitmap(IMAGE_SIZE, IMAGE_SIZE),
-                                        temperature = temperatureParam,
-                                        isDuringDay = isDayLight
-                                    )
-                                }
+                                        ForecastItem(
+                                            date = dateParam,
+                                            time = timeParam,
+                                            bmp = forecastItem.image?.asBitmap(
+                                                IMAGE_SIZE,
+                                                IMAGE_SIZE,
+                                            ),
+                                            temperature = temperatureParam,
+                                            isDuringDay = isDayLight,
+                                        )
+                                    }
                             }
                         }
-                        //update the value of the live data to trigger the observer 
+                        // update the value of the live data to trigger the observer
                         forecastItemsList.postValue(list)
                     }
                 }
-            else 
+            } else {
                 errorMessage.postValue(msg)
+            }
         }
         val coords = CoordinatesList().apply { add(coordinates) }
-        //get the type of forecast based on the activity's argument
-        when (forecastType)
-        {
+        // get the type of forecast based on the activity's argument
+        when (forecastType) {
             EForecastType.NOT_ASSIGNED -> null
-            //retrieves a list of lists comprised of a single item with in depth details about the weather for each location
+            // retrieves a list of lists comprised of a single item with in depth details about the weather for each location
             EForecastType.CURRENT -> weatherService?.getCurrent(coords, onCompleted = listener)
-            //retrieves a list of lists comprised of multiple items with a few details about the weather for each location
-            EForecastType.DAILY -> weatherService?.getDailyForecast(FORECAST_DAYS, coords, onCompleted = listener)
-            //retrieves a list of lists comprised of multiple items with a few details about the weather for each location
-            EForecastType.HOURLY -> weatherService?.getHourlyForecast(FORECAST_HOUR, coords, onCompleted = listener)
+            // retrieves a list of lists comprised of multiple items with a few details about the weather for each location
+            EForecastType.DAILY -> weatherService?.getDailyForecast(
+                FORECAST_DAYS,
+                coords,
+                onCompleted = listener,
+            )
+            // retrieves a list of lists comprised of multiple items with a few details about the weather for each location
+            EForecastType.HOURLY -> weatherService?.getHourlyForecast(
+                FORECAST_HOUR,
+                coords,
+                onCompleted = listener,
+            )
         }
     }
-    // ---------------------------------------------------------------------------------------------
 
     private fun getUTCOffsetInMilliSeconds(coordinates: Coordinates): Int? = SdkCall.execute {
         val timezoneResult = TimezoneResult()
@@ -213,11 +255,12 @@ class ForecastActivityViewModel : ViewModel()
         time.setUniversalTime()
 
         TimezoneService.getTimezoneInfoWithCoordinates(
-            timezoneResult, coordinates, time,
-            ProgressListener()
+            timezoneResult,
+            coordinates,
+            time,
+            ProgressListener(),
         )
 
         timezoneResult.offset * 1000
     }
 }
-// -------------------------------------------------------------------------------------------------

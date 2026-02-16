@@ -5,6 +5,9 @@ val gemSdkLocalMavenPath: String? by settings
 
 includeBuild("../build-support")
 
+include(":build-testing")
+project(":build-testing").projectDir = file("../build-testing")
+
 pluginManagement {
     repositories {
         google {
@@ -43,3 +46,4 @@ dependencyResolutionManagement {
 
 rootProject.name = "GPXThumbnailImageWithRouting"
 include(":app")
+

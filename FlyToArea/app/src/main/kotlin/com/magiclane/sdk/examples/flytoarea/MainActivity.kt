@@ -1,34 +1,28 @@
-// -------------------------------------------------------------------------------------------------------------------------------
-
 /*
- * SPDX-FileCopyrightText: 1995-2025 Magic Lane International B.V. <info@magiclane.com>
+ * SPDX-FileCopyrightText: 2021-2026 Magic Lane International B.V. <info@magiclane.com>
  * SPDX-License-Identifier: Apache-2.0
  *
  * Contact Magic Lane at <info@magiclane.com> for SDK licensing options.
  */
 
-// -------------------------------------------------------------------------------------------------------------------------------
-
 package com.magiclane.sdk.examples.flytoarea
-
-// -------------------------------------------------------------------------------------------------------------------------------
 
 import android.annotation.SuppressLint
 import android.os.Bundle
 import android.view.View
 import android.widget.Button
-import android.widget.ProgressBar
 import android.widget.TextView
 import androidx.activity.addCallback
+import androidx.activity.enableEdgeToEdge
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.view.isVisible
 import com.google.android.material.bottomsheet.BottomSheetDialog
 import com.magiclane.sdk.core.GemError
 import com.magiclane.sdk.core.GemSdk
-import com.magiclane.sdk.core.GemSurfaceView
 import com.magiclane.sdk.core.SdkSettings
 import com.magiclane.sdk.d3scene.EHighlightOptions
 import com.magiclane.sdk.d3scene.HighlightRenderSettings
+import com.magiclane.sdk.examples.flytoarea.databinding.ActivityMainBinding
 import com.magiclane.sdk.places.Coordinates
 import com.magiclane.sdk.places.Landmark
 import com.magiclane.sdk.places.SearchService
@@ -36,68 +30,51 @@ import com.magiclane.sdk.util.SdkCall
 import com.magiclane.sdk.util.Util
 import kotlin.system.exitProcess
 
-// -------------------------------------------------------------------------------------------------------------------------------
-
-class MainActivity : AppCompatActivity()
-{
-    // ---------------------------------------------------------------------------------------------------------------------------
-    
-    private lateinit var progressBar: ProgressBar
-    private lateinit var gemSurfaceView: GemSurfaceView
-    private lateinit var statusText: TextView
+class MainActivity : AppCompatActivity() {
+    private lateinit var binding: ActivityMainBinding
 
     private val searchService = SearchService(
         onStarted = {
-            progressBar.visibility = View.VISIBLE
+            binding.progressBar.visibility = View.VISIBLE
             showStatusMessage("Search service has started!")
         },
 
         onCompleted = { results, errorCode, _ ->
-            progressBar.visibility = View.GONE
+            binding.progressBar.visibility = View.GONE
             showStatusMessage("Search service completed with error code: $errorCode")
 
-            when (errorCode)
-            {
-                GemError.NoError ->
-                {
-                    if (results.isNotEmpty())
-                    {
+            when (errorCode) {
+                GemError.NoError -> {
+                    if (results.isNotEmpty()) {
                         showStatusMessage("Fly to area started")
                         val landmark = results[0]
                         flyTo(landmark)
                         showStatusMessage("Fly to area completed")
-                    }
-                    else
-                    {
+                    } else {
                         // The search completed without errors, but there were no results found.
-                        showStatusMessage("The search completed without errors, but there were no results found.")
+                        showStatusMessage(
+                            "The search completed without errors, but there were no results found.",
+                        )
                     }
                 }
 
-                GemError.Cancel ->
-                {
+                GemError.Cancel -> {
                     // The search action was cancelled.
                 }
 
-                else ->
-                {
+                else -> {
                     // There was a problem at computing the search operation.
                     showDialog("Search service error: ${GemError.getMessage(errorCode)}")
                 }
             }
-        }
+        },
     )
 
-    // ---------------------------------------------------------------------------------------------------------------------------
-
-    override fun onCreate(savedInstanceState: Bundle?)
-    {
+    override fun onCreate(savedInstanceState: Bundle?) {
+        enableEdgeToEdge()
         super.onCreate(savedInstanceState)
-        setContentView(R.layout.activity_main)
-
-        progressBar = findViewById(R.id.progressBar)
-        gemSurfaceView = findViewById(R.id.gem_surface)
-        statusText = findViewById(R.id.status_text)
+        binding = ActivityMainBinding.inflate(layoutInflater)
+        setContentView(binding.root)
 
         SdkSettings.onMapDataReady = onMapDataReady@{ isReady ->
             if (!isReady) return@onMapDataReady
@@ -112,41 +89,35 @@ class MainActivity : AppCompatActivity()
         }
 
         SdkSettings.onApiTokenRejected = {
-            /* 
-            The TOKEN you provided in the AndroidManifest.xml file was rejected.
-            Make sure you provide the correct value, or if you don't have a TOKEN,
-            check the magiclane.com website, sign up/sign in and generate one. 
+            /**
+             * The TOKEN you provided in the AndroidManifest.xml file was rejected.
+             * Make sure you provide the correct value, or if you don't have a TOKEN,
+             * check the magiclane.com website, sign up/sign in and generate one.
              */
             showDialog("TOKEN REJECTED")
         }
 
-        if (!Util.isInternetConnected(this))
-        {
+        if (!Util.isInternetConnected(this)) {
             showDialog("You must be connected to the internet!")
         }
 
-        onBackPressedDispatcher.addCallback(this){
+        onBackPressedDispatcher.addCallback(this) {
             finish()
             exitProcess(0)
         }
     }
 
-    // ---------------------------------------------------------------------------------------------------------------------------
-
-    override fun onDestroy()
-    {
+    override fun onDestroy() {
         super.onDestroy()
 
         // Release the SDK.
         GemSdk.release()
     }
 
-    // ---------------------------------------------------------------------------------------------------------------------------
-
     private fun flyTo(landmark: Landmark) = SdkCall.execute {
         landmark.geographicArea?.let { area ->
-            gemSurfaceView.mapView?.let { mainMapView ->
-                // Define highlight settings for displaying the area contour on map. 
+            binding.gemSurfaceView.mapView?.let { mainMapView ->
+                // Define highlight settings for displaying the area contour on map.
                 val settings = HighlightRenderSettings(EHighlightOptions.ShowContour)
 
                 // Center the map on a specific area using the provided animation.
@@ -158,11 +129,8 @@ class MainActivity : AppCompatActivity()
         }
     }
 
-    // ---------------------------------------------------------------------------------------------------------------------------
-
     @SuppressLint("InflateParams")
-    private fun showDialog(text: String)
-    {
+    private fun showDialog(text: String) {
         val dialog = BottomSheetDialog(this)
         val view = layoutInflater.inflate(R.layout.dialog_layout, null).apply {
             findViewById<TextView>(R.id.title).text = getString(R.string.error)
@@ -177,19 +145,13 @@ class MainActivity : AppCompatActivity()
             show()
         }
     }
-    
-    // ---------------------------------------------------------------------------------------------------------------------------
 
-    private fun showStatusMessage(text: String)
-    {
-        if (!statusText.isVisible)
-        {
-            statusText.visibility = View.VISIBLE
+    private fun showStatusMessage(text: String) {
+        binding.apply {
+            if (!statusText.isVisible) {
+                statusText.visibility = View.VISIBLE
+            }
+            statusText.text = text
         }
-        statusText.text = text
     }
-
-    // ---------------------------------------------------------------------------------------------------------------------------
 }
-
-// -------------------------------------------------------------------------------------------------------------------------------

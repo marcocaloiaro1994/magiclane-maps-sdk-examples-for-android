@@ -1,17 +1,12 @@
-// -------------------------------------------------------------------------------------------------
-
 /*
- * SPDX-FileCopyrightText: 1995-2025 Magic Lane International B.V. <info@magiclane.com>
+ * SPDX-FileCopyrightText: 2021-2026 Magic Lane International B.V. <info@magiclane.com>
  * SPDX-License-Identifier: Apache-2.0
  *
  * Contact Magic Lane at <info@magiclane.com> for SDK licensing options.
  */
 
-// -------------------------------------------------------------------------------------------------
-
 package com.magiclane.sdk.examples.bikesimulation
 
-// -------------------------------------------------------------------------------------------------
 import android.annotation.SuppressLint
 import android.view.LayoutInflater
 import android.view.View
@@ -22,31 +17,23 @@ import androidx.recyclerview.widget.RecyclerView
 import com.google.android.material.materialswitch.MaterialSwitch
 import com.google.android.material.slider.Slider
 import com.google.android.material.textview.MaterialTextView
-import com.magiclane.sdk.examples.bikesimulation.R
-
-// -------------------------------------------------------------------------------------------------
 
 class SettingsAdapter : ListAdapter<SettingsItem, RecyclerView.ViewHolder>(settingsDiffUtil) {
-    
-    // -------------------------------------------------------------------------------------------------
-    
+
     companion object {
         val settingsDiffUtil = object : DiffUtil.ItemCallback<SettingsItem>() {
-            override fun areItemsTheSame(oldItem: SettingsItem, newItem: SettingsItem): Boolean = oldItem.title == newItem.title
+            override fun areItemsTheSame(oldItem: SettingsItem, newItem: SettingsItem): Boolean =
+                oldItem.title == newItem.title
 
             override fun areContentsTheSame(oldItem: SettingsItem, newItem: SettingsItem): Boolean = false
         }
     }
-    
-    // -------------------------------------------------------------------------------------------------
 
     enum class ESettingsItemType {
         SWITCH,
-        SLIDER
+        SLIDER,
     }
-    
-    // -------------------------------------------------------------------------------------------------
-    
+
     class SwitchItemView(view: View) : RecyclerView.ViewHolder(view) {
         private val titleTxt = view.findViewById<MaterialTextView>(R.id.setting_item_text)
         private val switch = view.findViewById<MaterialSwitch>(R.id.setting_item_switch)
@@ -65,8 +52,6 @@ class SettingsAdapter : ListAdapter<SettingsItem, RecyclerView.ViewHolder>(setti
         }
     }
 
-    // -------------------------------------------------------------------------------------------------
-    
     @SuppressLint("DefaultLocale")
     class SliderItemView(view: View) : RecyclerView.ViewHolder(view) {
         private val titleTxt = view.findViewById<MaterialTextView>(R.id.setting_item_text)
@@ -76,9 +61,7 @@ class SettingsAdapter : ListAdapter<SettingsItem, RecyclerView.ViewHolder>(setti
         private val slider = view.findViewById<Slider>(R.id.item_slider)
         private var mUnit = ""
         private var mCallback: ((Float) -> Unit)? = null
-        
-        // -------------------------------------------------------------------------------------------------
-        
+
         init {
             slider.addOnChangeListener { _, value, fromUser ->
                 if (!fromUser) return@addOnChangeListener
@@ -88,8 +71,6 @@ class SettingsAdapter : ListAdapter<SettingsItem, RecyclerView.ViewHolder>(setti
             }
         }
 
-        // -------------------------------------------------------------------------------------------------
-        
         fun bind(item: SettingsSliderItem) {
             item.run {
                 mCallback = callback
@@ -103,38 +84,41 @@ class SettingsAdapter : ListAdapter<SettingsItem, RecyclerView.ViewHolder>(setti
                 slider.valueTo = valueTo
             }
         }
-        // -------------------------------------------------------------------------------------------------
     }
-    
-    // -------------------------------------------------------------------------------------------------
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): RecyclerView.ViewHolder {
-        if (viewType < 0) return object: RecyclerView.ViewHolder(View(parent.context)){}
+        if (viewType < 0) return object : RecyclerView.ViewHolder(View(parent.context)) {}
         val type = ESettingsItemType.entries[viewType]
         return when (type) {
-            ESettingsItemType.SWITCH -> SwitchItemView(LayoutInflater.from(parent.context).inflate(R.layout.switch_settings_item, parent, false))
-            ESettingsItemType.SLIDER -> SliderItemView(LayoutInflater.from(parent.context).inflate(R.layout.slider_settings_item, parent, false))
+            ESettingsItemType.SWITCH -> SwitchItemView(
+                LayoutInflater.from(
+                    parent.context,
+                ).inflate(R.layout.switch_settings_item, parent, false),
+            )
+            ESettingsItemType.SLIDER -> SliderItemView(
+                LayoutInflater.from(
+                    parent.context,
+                ).inflate(R.layout.slider_settings_item, parent, false),
+            )
         }
     }
 
-    // -------------------------------------------------------------------------------------------------
-    
     override fun onBindViewHolder(holder: RecyclerView.ViewHolder, position: Int) {
         val type = ESettingsItemType.entries[getItemViewType(position)]
         when (type) {
-            ESettingsItemType.SWITCH -> (holder as SwitchItemView).bind(getItem(position) as SettingsSwitchItem)
-            ESettingsItemType.SLIDER -> (holder as SliderItemView).bind(getItem(position) as SettingsSliderItem)
+            ESettingsItemType.SWITCH -> (holder as SwitchItemView).bind(
+                getItem(position) as SettingsSwitchItem,
+            )
+            ESettingsItemType.SLIDER -> (holder as SliderItemView).bind(
+                getItem(position) as SettingsSliderItem,
+            )
         }
     }
 
-    // -------------------------------------------------------------------------------------------------
-    
     override fun getItemViewType(position: Int): Int {
         val item = getItem(position)
         if (item is SettingsSwitchItem) return ESettingsItemType.SWITCH.ordinal
         if (item is SettingsSliderItem) return ESettingsItemType.SLIDER.ordinal
         return -1
     }
-    // -------------------------------------------------------------------------------------------------
 }
-// -------------------------------------------------------------------------------------------------

@@ -1,17 +1,11 @@
-// -------------------------------------------------------------------------------------------------------------------------------
-
 /*
- * SPDX-FileCopyrightText: 1995-2025 Magic Lane International B.V. <info@magiclane.com>
+ * SPDX-FileCopyrightText: 2021-2026 Magic Lane International B.V. <info@magiclane.com>
  * SPDX-License-Identifier: Apache-2.0
  *
  * Contact Magic Lane at <info@magiclane.com> for SDK licensing options.
  */
 
-// -------------------------------------------------------------------------------------------------------------------------------
-
 package com.magiclane.sdk.examples.mapgestures
-
-// -------------------------------------------------------------------------------------------------------------------------------
 
 import android.annotation.SuppressLint
 import android.os.Bundle
@@ -19,6 +13,7 @@ import android.util.Log
 import android.widget.Button
 import android.widget.TextView
 import androidx.activity.addCallback
+import androidx.activity.enableEdgeToEdge
 import androidx.annotation.VisibleForTesting
 import androidx.appcompat.app.AppCompatActivity
 import androidx.test.espresso.idling.CountingIdlingResource
@@ -27,33 +22,25 @@ import com.magiclane.sdk.core.GemSdk
 import com.magiclane.sdk.core.GemSurfaceView
 import com.magiclane.sdk.core.SdkSettings
 import com.magiclane.sdk.core.Xy
+import com.magiclane.sdk.examples.mapgestures.databinding.ActivityMainBinding
 import com.magiclane.sdk.util.SdkCall
 import com.magiclane.sdk.util.Util
 import kotlin.system.exitProcess
 
-// -------------------------------------------------------------------------------------------------------------------------------
+class MainActivity : AppCompatActivity() {
 
-class MainActivity : AppCompatActivity()
-{
     @VisibleForTesting
     lateinit var gemSurfaceView: GemSurfaceView
-
-    // ---------------------------------------------------------------------------------------------------------------------------
-
-    override fun onCreate(savedInstanceState: Bundle?)
-    {
+    private lateinit var binding: ActivityMainBinding
+    override fun onCreate(savedInstanceState: Bundle?) {
+        enableEdgeToEdge()
         super.onCreate(savedInstanceState)
-        setContentView(R.layout.activity_main)
+        binding = ActivityMainBinding.inflate(layoutInflater)
+        setContentView(binding.root)
         EspressoIdlingResource.increment()
-        gemSurfaceView = findViewById(R.id.gem_surface)
-        SdkSettings.onMapDataReady = onMapDataReady@{ isReady ->
-            if (!isReady) return@onMapDataReady
-
-            /**
-             * For all the map gestures callbacks please check the SDK documentation
-             * available at https://magiclane.com/documentation/
-             */
-            gemSurfaceView.mapView?.let { mapView ->
+        gemSurfaceView = binding.gemSurface
+        val onReady = {
+            binding.gemSurface.mapView?.let { mapView ->
                 mapView.onDoubleTouch = {
                     SdkCall.execute {
                         Log.i("Gesture", "onDoubleTouch at (${it.x}, ${it.y}).")
@@ -70,7 +57,7 @@ class MainActivity : AppCompatActivity()
                     SdkCall.execute {
                         Log.i(
                             "Gesture",
-                            "onMove from (${start.x}, ${start.y}) to (${end.x}, ${end.y})."
+                            "onMove from (${start.x}, ${start.y}) to (${end.x}, ${end.y}).",
                         )
                     }
                 }
@@ -84,7 +71,7 @@ class MainActivity : AppCompatActivity()
                                 "to " +
                                 "(${end1.x}, ${end1.y}) and (${end2.x}, ${end2.y})" +
                                 "center " +
-                                "(${center.x}, ${center.y})."
+                                "(${center.x}, ${center.y}).",
                         )
                     }
                 }
@@ -92,10 +79,11 @@ class MainActivity : AppCompatActivity()
                 mapView.onSwipe = { distX: Int, distY: Int, speedMMPerSec: Double ->
                     SdkCall.execute {
                         Log.i(
-                            "Gesture", "onSwipe with " +
+                            "Gesture",
+                            "onSwipe with " +
                                 "$distX pixels on X and " +
                                 "$distY pixels on Y and " +
-                                "the speed of $speedMMPerSec mm/s."
+                                "the speed of $speedMMPerSec mm/s.",
                         )
                     }
                 }
@@ -114,18 +102,25 @@ class MainActivity : AppCompatActivity()
             }
             EspressoIdlingResource.decrement()
         }
+        if (SdkSettings.isMapDataReady) {
+            onReady()
+        } else {
+            SdkSettings.onMapDataReady = onMapDataReady@{ isReady ->
+                if (!isReady) return@onMapDataReady
+                onReady()
+            }
+        }
 
         SdkSettings.onApiTokenRejected = {
-            /*
-            The TOKEN you provided in the AndroidManifest.xml file was rejected.
-            Make sure you provide the correct value, or if you don't have a TOKEN,
-            check the magiclane.com website, sign up/sign in and generate one.
+            /**
+             * The TOKEN you provided in the AndroidManifest.xml file was rejected.
+             * Make sure you provide the correct value, or if you don't have a TOKEN,
+             * check the magiclane.com website, sign up/sign in and generate one.
              */
             showDialog("TOKEN REJECTED")
         }
 
-        if (!Util.isInternetConnected(this))
-        {
+        if (!Util.isInternetConnected(this)) {
             showDialog("You must be connected to the internet!")
         }
 
@@ -135,21 +130,15 @@ class MainActivity : AppCompatActivity()
         }
     }
 
-    // -------------------------------------------------------------------------------------------------------------------------------
-
-    override fun onDestroy()
-    {
+    override fun onDestroy() {
         super.onDestroy()
 
         // Release the SDK.
         GemSdk.release()
     }
 
-    // -------------------------------------------------------------------------------------------------------------------------------
-
     @SuppressLint("InflateParams")
-    private fun showDialog(text: String)
-    {
+    private fun showDialog(text: String) {
         val dialog = BottomSheetDialog(this)
         val view = layoutInflater.inflate(R.layout.dialog_layout, null).apply {
             findViewById<TextView>(R.id.title).text = getString(R.string.error)
@@ -166,14 +155,10 @@ class MainActivity : AppCompatActivity()
     }
 }
 
-// -----------------------------------------------------------------------------------------------------------------------------------
-//region --------------------------------------------------FOR TESTING--------------------------------------------------------------
-// ---------------------------------------------------------------------------------------------------------------------------
-object EspressoIdlingResource
-{
+//region TESTING
+object EspressoIdlingResource {
     val espressoIdlingResource = CountingIdlingResource("MapGesturesIdlingResource")
     fun increment() = espressoIdlingResource.increment()
     fun decrement() = if (!espressoIdlingResource.isIdleNow) espressoIdlingResource.decrement() else Unit
 }
-//endregion  -------------------------------------------------------------------------------------------------------------------------------
-// -----------------------------------------------------------------------------------------------------------------------------------
+//endregion

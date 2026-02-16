@@ -9,6 +9,7 @@
 /*/captures/
 /*/.externalNativeBuild/
 /*/.cxx/
+/*/.kotlin/
 _APK/
 _REPORTS/
 .gradle/
@@ -16,3 +17,4 @@ _REPORTS/
 /*/local.properties
 local.properties
 /*/app/libs/*.aar
+/*/*/build

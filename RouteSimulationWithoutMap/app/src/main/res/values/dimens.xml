@@ -51,4 +51,5 @@
     <dimen name="nav_lane_panel_height">30dp</dimen>
     <dimen name="navigation_image_size">46dp</dimen>
     <dimen name="current_road_code_height">35dp</dimen>
+    <dimen name="no_extra_inset">0dp</dimen>
 </resources>

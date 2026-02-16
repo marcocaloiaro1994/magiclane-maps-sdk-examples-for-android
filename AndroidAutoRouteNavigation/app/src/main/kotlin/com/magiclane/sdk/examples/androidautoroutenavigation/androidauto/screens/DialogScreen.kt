@@ -1,0 +1,67 @@
+/*
+ * SPDX-FileCopyrightText: 2021-2026 Magic Lane International B.V. <info@magiclane.com>
+ * SPDX-License-Identifier: Apache-2.0
+ *
+ * Contact Magic Lane at <info@magiclane.com> for SDK licensing options.
+ */
+
+@file:Suppress("MemberVisibilityCanBePrivate")
+
+package com.magiclane.sdk.examples.androidautoroutenavigation.androidauto.screens
+
+import androidx.car.app.CarContext
+import androidx.car.app.model.CarIcon
+import androidx.car.app.model.LongMessageTemplate
+import androidx.car.app.model.MessageTemplate
+import androidx.car.app.model.Template
+import com.magiclane.sdk.examples.androidautoroutenavigation.androidauto.model.UIActionModel
+import com.magiclane.sdk.examples.androidautoroutenavigation.androidauto.util.Util
+
+abstract class DialogScreen(context: CarContext) : GemScreen(context) {
+    var isLongTemplate: Boolean = false
+    var title: String = ""
+    var message: String = ""
+    var icon: CarIcon? = null
+    var actionStripModelList: ArrayList<UIActionModel> = arrayListOf()
+    var actionsList: ArrayList<UIActionModel> = arrayListOf()
+    var headerAction: UIActionModel = UIActionModel()
+
+    override fun onGetTemplate(): Template {
+        updateData()
+
+        val headerAction = UIActionModel.createAction(context, headerAction)
+
+        val actionStrip = Util.getActionStrip(context, actionStripModelList)
+
+        if (isLongTemplate) {
+            val builder = LongMessageTemplate.Builder(message)
+
+            builder.setTitle(title)
+            headerAction?.let { builder.setHeaderAction(it) }
+
+            actionStrip?.let { builder.setActionStrip(it) }
+            actionsList.forEach { model ->
+                UIActionModel.createAction(context, model)?.let { builder.addAction(it) }
+            }
+
+            return builder.build()
+        } else {
+            val builder = MessageTemplate.Builder(message)
+
+            builder.setTitle(title)
+            headerAction?.let { builder.setHeaderAction(it) }
+
+            if (!isLoading) {
+                icon?.let { builder.setIcon(it) }
+            }
+            builder.setLoading(isLoading)
+
+            actionStrip?.let { builder.setActionStrip(it) }
+            actionsList.forEach { model ->
+                UIActionModel.createAction(context, model)?.let { builder.addAction(it) }
+            }
+
+            return builder.build()
+        }
+    }
+}

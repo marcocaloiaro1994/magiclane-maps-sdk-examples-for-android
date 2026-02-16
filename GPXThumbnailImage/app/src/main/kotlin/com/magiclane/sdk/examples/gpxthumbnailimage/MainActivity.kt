@@ -1,29 +1,21 @@
-// -------------------------------------------------------------------------------------------------------------------------------
-
 /*
- * SPDX-FileCopyrightText: 1995-2025 Magic Lane International B.V. <info@magiclane.com>
+ * SPDX-FileCopyrightText: 2021-2026 Magic Lane International B.V. <info@magiclane.com>
  * SPDX-License-Identifier: Apache-2.0
  *
  * Contact Magic Lane at <info@magiclane.com> for SDK licensing options.
  */
 
-// -------------------------------------------------------------------------------------------------------------------------------
-
 package com.magiclane.sdk.examples.gpxthumbnailimage
-
-// -------------------------------------------------------------------------------------------------------------------------------
 
 import android.annotation.SuppressLint
 import android.os.Bundle
 import android.widget.Button
-import android.widget.ProgressBar
 import android.widget.TextView
 import androidx.activity.OnBackPressedCallback
+import androidx.activity.enableEdgeToEdge
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.view.isVisible
 import com.google.android.material.bottomsheet.BottomSheetDialog
-import com.google.android.material.imageview.ShapeableImageView
-import com.google.android.material.textview.MaterialTextView
 import com.magiclane.sdk.core.GemError
 import com.magiclane.sdk.core.GemOffscreenSurfaceView
 import com.magiclane.sdk.core.GemSdk
@@ -40,26 +32,20 @@ import com.magiclane.sdk.d3scene.EViewCameraTransitionStatus
 import com.magiclane.sdk.d3scene.EViewDataTransitionStatus
 import com.magiclane.sdk.d3scene.HighlightRenderSettings
 import com.magiclane.sdk.d3scene.OverlayService
+import com.magiclane.sdk.examples.gpxthumbnailimage.databinding.ActivityMainBinding
 import com.magiclane.sdk.places.Landmark
 import com.magiclane.sdk.util.SdkCall
 import com.magiclane.sdk.util.SdkImages
 import com.magiclane.sdk.util.Util
 import kotlin.system.exitProcess
 
-// -------------------------------------------------------------------------------------------------------------------------------
-
-class MainActivity : AppCompatActivity()
-{
-    // ---------------------------------------------------------------------------------------------------------------------------
-
-    private lateinit var mapThumbnailImageView: ShapeableImageView
-    private lateinit var progressBar: ProgressBar
-    private lateinit var statusText: MaterialTextView
+class MainActivity : AppCompatActivity() {
+    private lateinit var binding: ActivityMainBinding
     private lateinit var gemOffscreenSurfaceView: GemOffscreenSurfaceView
-    
+
     private var screenshotTaken = false
 
-    private val thumbnailWidth by lazy { 
+    private val thumbnailWidth by lazy {
         resources.getDimension(R.dimen.thumbnail_width).toInt()
     }
 
@@ -70,36 +56,29 @@ class MainActivity : AppCompatActivity()
     private val padding by lazy {
         resources.getDimension(R.dimen.padding).toInt()
     }
-    
-    // ---------------------------------------------------------------------------------------------------------------------------
-    
-    override fun onCreate(savedInstanceState: Bundle?)
-    {
+
+    override fun onCreate(savedInstanceState: Bundle?) {
+        enableEdgeToEdge()
         super.onCreate(savedInstanceState)
-        setContentView(R.layout.activity_main)
-        
-        mapThumbnailImageView = findViewById(R.id.map_thumbnail_image)
-        progressBar = findViewById(R.id.progress_bar)
-        statusText = findViewById(R.id.status_text)
+        binding = ActivityMainBinding.inflate(layoutInflater)
+        setContentView(binding.root)
 
         SdkSettings.onApiTokenRejected = {
-            /* 
-            The TOKEN you provided in the AndroidManifest.xml file was rejected.
-            Make sure you provide the correct value, or if you don't have a TOKEN,
-            check the magiclane.com website, sign up/sign in and generate one. 
+            /**
+             * The TOKEN you provided in the AndroidManifest.xml file was rejected.
+             * Make sure you provide the correct value, or if you don't have a TOKEN,
+             * check the magiclane.com website, sign up/sign in and generate one.
              */
             showDialog("TOKEN REJECTED")
         }
 
-        if (!Util.isInternetConnected(this))
-        {
+        if (!Util.isInternetConnected(this)) {
             showDialog("You must be connected to the internet!") {
                 exitProcess(0)
             }
         }
 
-        if (!GemSdk.initSdkWithDefaults(this))
-        {
+        if (GemSdk.initSdkWithDefaults(this) != GemError.NoError) {
             // The SDK initialization was not completed.
             finish()
         }
@@ -107,16 +86,16 @@ class MainActivity : AppCompatActivity()
         gemOffscreenSurfaceView = GemOffscreenSurfaceView(
             thumbnailWidth,
             thumbnailHeight,
-            resources.displayMetrics.densityDpi
+            resources.displayMetrics.densityDpi,
         )
-        
-        statusText.text = getString(R.string.waiting_for_data)
-        
+
+        binding.statusText.text = getString(R.string.waiting_for_data)
+
         SdkSettings.onMapDataReady = onMapDataReady@{ isReady ->
             if (!isReady) return@onMapDataReady
 
-            statusText.text = getString(R.string.map_data_ready)
-            
+            binding.statusText.text = getString(R.string.map_data_ready)
+
             SdkCall.execute {
                 val gpxAssetsFileName = "gpx/test_route.gpx"
 
@@ -125,9 +104,9 @@ class MainActivity : AppCompatActivity()
 
                 // Produce a Path based on the data in the buffer.
                 val path = Path.produceWithGpx(input) ?: return@execute
-                
+
                 showPath(path)
-                
+
                 gemOffscreenSurfaceView.mapView?.let { mapView ->
                     mapView.preferences?.apply {
                         mapLabelsFading = false
@@ -137,44 +116,47 @@ class MainActivity : AppCompatActivity()
             }
         }
 
-        onBackPressedDispatcher.addCallback(this /* lifecycle owner */, object : OnBackPressedCallback(true) {
-            override fun handleOnBackPressed() {
-                // Back is pressed... Finishing the activity
-                finish()
-                exitProcess(0)
-            }
-        })
+        onBackPressedDispatcher.addCallback(
+            this,
+            object : OnBackPressedCallback(true) {
+                override fun handleOnBackPressed() {
+                    // Back is pressed... Finishing the activity
+                    finish()
+                    exitProcess(0)
+                }
+            },
+        )
     }
-
-    // ---------------------------------------------------------------------------------------------------------------------------
 
     override fun onStop() {
         super.onStop()
-        
-        if (isFinishing)
+
+        if (isFinishing) {
             gemOffscreenSurfaceView.destroy()
+        }
     }
-    
-    // ---------------------------------------------------------------------------------------------------------------------------
-    
-    private fun showPath(path: Path)
-    {
+
+    private fun showPath(path: Path) {
         gemOffscreenSurfaceView.mapView?.let { mapView ->
             val coordinatesList = path.coordinates
-            if (!coordinatesList.isNullOrEmpty())
-            {
-                val departureLmk = Landmark("", coordinatesList.first()).also { 
+            if (!coordinatesList.isNullOrEmpty()) {
+                val departureLmk = Landmark("", coordinatesList.first()).also {
                     it.image = ImageDatabase().getImageById(SdkImages.Core.Waypoint_Start.value)
                 }
                 val destinationLmk = Landmark("", coordinatesList.last()).also {
                     it.image = ImageDatabase().getImageById(SdkImages.Core.Waypoint_Finish.value)
                 }
-                
-                val highlightSettings = HighlightRenderSettings(EHighlightOptions.ShowLandmark).also {
+
+                val highlightSettings = HighlightRenderSettings(
+                    EHighlightOptions.ShowLandmark,
+                ).also {
                     it.imageSize = 4.0
                 }
-                
-                mapView.activateHighlightLandmarks(arrayListOf(departureLmk, destinationLmk), highlightSettings)
+
+                mapView.activateHighlightLandmarks(
+                    arrayListOf(departureLmk, destinationLmk),
+                    highlightSettings,
+                )
             }
 
             val pathCollection = mapView.preferences?.paths
@@ -183,53 +165,63 @@ class MainActivity : AppCompatActivity()
                 colorBorder = Rgba.black(),
                 colorInner = Rgba.orange(),
                 szBorder = 0.5,
-                szInner = 1.0
+                szInner = 1.0,
             )
-            
-            path.area?.let { area -> 
+
+            path.area?.let { area ->
                 val margin = 2 * padding
                 mapView.centerOnRectArea(
                     area = area,
-                    viewRc = Rect(margin, margin, thumbnailWidth - margin, thumbnailHeight - margin),
-                    animation = Animation(EAnimation.Linear, 10, onCompleted = onCompleted@{ errorCode, _ ->
-                        if (errorCode != GemError.NoError) return@onCompleted
+                    viewRc = Rect(
+                        margin,
+                        margin,
+                        thumbnailWidth - margin,
+                        thumbnailHeight - margin,
+                    ),
+                    animation = Animation(
+                        EAnimation.Linear,
+                        10,
+                        onCompleted = onCompleted@{ errorCode, _ ->
+                            if (errorCode != GemError.NoError) return@onCompleted
 
-                        SdkCall.execute {
-                            OverlayService().apply {
-                                disableOverlay(ECommonOverlayId.SocialReports.value)
-                                disableOverlay(ECommonOverlayId.Safety.value)
-                            }
+                            SdkCall.execute {
+                                OverlayService().apply {
+                                    disableOverlay(ECommonOverlayId.SocialReports.value)
+                                    disableOverlay(ECommonOverlayId.Safety.value)
+                                }
 
-                            mapView.onViewRendered = onViewRendered@{ tivStatus, camStatus ->
-                                if (screenshotTaken) return@onViewRendered
+                                mapView.onViewRendered = onViewRendered@{ tivStatus, camStatus ->
+                                    if (screenshotTaken) return@onViewRendered
 
-                                if (tivStatus == EViewDataTransitionStatus.Complete && camStatus == EViewCameraTransitionStatus.Stationary)
-                                {
-                                    Util.postOnMain { statusText.text = getString(R.string.taking_screenshot) }
-                                    gemOffscreenSurfaceView.takeScreenshot { bitmap ->
+                                    if (tivStatus == EViewDataTransitionStatus.Complete &&
+                                        camStatus == EViewCameraTransitionStatus.Stationary
+                                    ) {
                                         Util.postOnMain {
-                                            mapThumbnailImageView.setImageBitmap(bitmap)
-                                            progressBar.isVisible = false
-                                            statusText.text = getString(R.string.screenshot_taken)
+                                            binding.statusText.text = getString(R.string.taking_screenshot)
                                         }
-                                        screenshotTaken = true
+                                        gemOffscreenSurfaceView.takeScreenshot { bitmap ->
+                                            Util.postOnMain {
+                                                binding.apply {
+                                                    mapThumbnailImage.setImageBitmap(bitmap)
+                                                    progressBar.isVisible = false
+                                                    statusText.text = getString(R.string.screenshot_taken)
+                                                }
+                                            }
+                                            screenshotTaken = true
+                                        }
+                                        gemOffscreenSurfaceView.mapView?.onViewRendered = null
                                     }
-
-                                    gemOffscreenSurfaceView.mapView?.onViewRendered = null
                                 }
                             }
-                        }
-                    })
+                        },
+                    ),
                 )
             }
         }
     }
-    
-    // ---------------------------------------------------------------------------------------------------------------------------
 
     @SuppressLint("InflateParams")
-    private fun showDialog(text: String, dialogButtonCallback : () -> Unit = {})
-    {
+    private fun showDialog(text: String, dialogButtonCallback: () -> Unit = {}) {
         val dialog = BottomSheetDialog(this)
         val view = layoutInflater.inflate(R.layout.dialog_layout, null).apply {
             findViewById<TextView>(R.id.title).text = getString(R.string.error)
@@ -245,8 +237,4 @@ class MainActivity : AppCompatActivity()
             show()
         }
     }
-    
-    // ---------------------------------------------------------------------------------------------------------------------------
 }
-
-// -------------------------------------------------------------------------------------------------------------------------------

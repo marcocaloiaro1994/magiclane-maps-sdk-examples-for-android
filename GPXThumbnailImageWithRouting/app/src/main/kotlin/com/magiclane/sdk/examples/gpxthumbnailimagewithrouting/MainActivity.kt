@@ -1,30 +1,23 @@
-// -------------------------------------------------------------------------------------------------------------------------------
-
 /*
- * SPDX-FileCopyrightText: 1995-2025 Magic Lane International B.V. <info@magiclane.com>
+ * SPDX-FileCopyrightText: 2021-2026 Magic Lane International B.V. <info@magiclane.com>
  * SPDX-License-Identifier: Apache-2.0
  *
  * Contact Magic Lane at <info@magiclane.com> for SDK licensing options.
  */
 
-// -------------------------------------------------------------------------------------------------------------------------------
-
 package com.magiclane.sdk.examples.gpxthumbnailimagewithrouting
-
-// -------------------------------------------------------------------------------------------------------------------------------
 
 import android.annotation.SuppressLint
 import android.os.Bundle
 import android.view.View
 import android.widget.Button
-import android.widget.ProgressBar
 import android.widget.TextView
 import androidx.activity.OnBackPressedCallback
+import androidx.activity.enableEdgeToEdge
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.view.isVisible
+import androidx.databinding.DataBindingUtil
 import com.google.android.material.bottomsheet.BottomSheetDialog
-import com.google.android.material.imageview.ShapeableImageView
-import com.google.android.material.textview.MaterialTextView
 import com.magiclane.sdk.core.GemError
 import com.magiclane.sdk.core.GemOffscreenSurfaceView
 import com.magiclane.sdk.core.GemSdk
@@ -36,6 +29,7 @@ import com.magiclane.sdk.d3scene.Animation
 import com.magiclane.sdk.d3scene.EAnimation
 import com.magiclane.sdk.d3scene.EViewCameraTransitionStatus
 import com.magiclane.sdk.d3scene.EViewDataTransitionStatus
+import com.magiclane.sdk.examples.gpxthumbnailimagewithrouting.databinding.ActivityMainBinding
 import com.magiclane.sdk.routesandnavigation.ELineType
 import com.magiclane.sdk.routesandnavigation.ERouteTransportMode
 import com.magiclane.sdk.routesandnavigation.RouteRenderSettings
@@ -44,16 +38,10 @@ import com.magiclane.sdk.util.SdkCall
 import com.magiclane.sdk.util.Util
 import kotlin.system.exitProcess
 
-// -------------------------------------------------------------------------------------------------------------------------------
-
-class MainActivity : AppCompatActivity()
-{
-    // ---------------------------------------------------------------------------------------------------------------------------
+class MainActivity : AppCompatActivity() {
+    private lateinit var binding: ActivityMainBinding
 
     private lateinit var gemOffscreenSurfaceView: GemOffscreenSurfaceView
-    private lateinit var progressBar: ProgressBar
-    private lateinit var statusText: MaterialTextView
-    private lateinit var mapThumbnailImageView: ShapeableImageView
 
     private var screenshotTaken = false
 
@@ -71,18 +59,16 @@ class MainActivity : AppCompatActivity()
 
     private val routingService = RoutingService(
         onStarted = {
-            progressBar.visibility = View.VISIBLE
-            statusText.text = getString(R.string.calculating_route)
+            binding.progressBar.visibility = View.VISIBLE
+            binding.statusText.text = getString(R.string.calculating_route)
         },
 
         onCompleted = onCompleted@{ routes, errorCode, _ ->
-            when (errorCode)
-            {
-                GemError.NoError ->
-                {
+            when (errorCode) {
+                GemError.NoError -> {
                     if (routes.isEmpty()) return@onCompleted
-                    
-                    statusText.text = getString(R.string.route_calculation_completed)
+
+                    binding.statusText.text = getString(R.string.route_calculation_completed)
 
                     SdkCall.execute {
                         gemOffscreenSurfaceView.mapView?.let { mapView ->
@@ -90,14 +76,21 @@ class MainActivity : AppCompatActivity()
                             mapView.onViewRendered = onViewRendered@{ tivStatus, camStatus ->
                                 if (screenshotTaken) return@onViewRendered
 
-                                if (tivStatus == EViewDataTransitionStatus.Complete && camStatus == EViewCameraTransitionStatus.Stationary)
-                                {
-                                    Util.postOnMain { statusText.text = getString(R.string.taking_screenshot) } 
+                                if (tivStatus == EViewDataTransitionStatus.Complete && camStatus == EViewCameraTransitionStatus.Stationary) {
+                                    Util.postOnMain {
+                                        binding.statusText.text = getString(
+                                            R.string.taking_screenshot,
+                                        )
+                                    }
                                     gemOffscreenSurfaceView.takeScreenshot { bitmap ->
                                         Util.postOnMain {
-                                            mapThumbnailImageView.setImageBitmap(bitmap)
-                                            progressBar.isVisible = false
-                                            statusText.text = getString(R.string.screenshot_taken)
+                                            binding.apply {
+                                                mapThumbnailImageView.setImageBitmap(bitmap)
+                                                progressBar.isVisible = false
+                                                statusText.text = getString(
+                                                    R.string.screenshot_taken,
+                                                )
+                                            }
                                         }
                                         screenshotTaken = true
                                     }
@@ -116,92 +109,85 @@ class MainActivity : AppCompatActivity()
                             }
                             mapView.presentRoute(
                                 routes[0],
-                                animation = Animation(animation = EAnimation.Linear, duration = 10),
+                                animation = Animation(
+                                    animation = EAnimation.Linear,
+                                    duration = 10,
+                                ),
                                 edgeAreaInsets = Rect(margin, margin, margin, margin),
-                                routeRenderSettings = routeRenderSettings
+                                routeRenderSettings = routeRenderSettings,
                             )
                         }
                     }
                 }
 
-                GemError.Cancel ->
-                {
-                    progressBar.isVisible = false
+                GemError.Cancel -> {
+                    binding.progressBar.isVisible = false
                     // No action.
                 }
 
-                else ->
-                {
-                    progressBar.isVisible = false
+                else -> {
+                    binding.progressBar.isVisible = false
                     // There was a problem at computing the routing operation.
                     showDialog("Routing service error: ${GemError.getMessage(errorCode)}")
                 }
             }
-        }
+        },
     )
 
-    // ---------------------------------------------------------------------------------------------------------------------------
-
-    override fun onCreate(savedInstanceState: Bundle?)
-    {
+    override fun onCreate(savedInstanceState: Bundle?) {
+        enableEdgeToEdge()
         super.onCreate(savedInstanceState)
-        setContentView(R.layout.activity_main)
-
-        mapThumbnailImageView = findViewById(R.id.map_thumbnail_image)
-        progressBar = findViewById(R.id.progress_bar)
-        statusText = findViewById(R.id.status_text)
+        binding = DataBindingUtil.setContentView(this, R.layout.activity_main)
 
         SdkSettings.onApiTokenRejected = {
-            /* 
-            The TOKEN you provided in the AndroidManifest.xml file was rejected.
-            Make sure you provide the correct value, or if you don't have a TOKEN,
-            check the magiclane.com website, sign up/sign in and generate one. 
+            /**
+             * The TOKEN you provided in the AndroidManifest.xml file was rejected.
+             * Make sure you provide the correct value, or if you don't have a TOKEN,
+             * check the magiclane.com website, sign up/sign in and generate one.
              */
             showDialog("TOKEN REJECTED")
         }
 
-        if (!Util.isInternetConnected(this))
-        {
+        if (!Util.isInternetConnected(this)) {
             showDialog("You must be connected to the internet!") {
                 exitProcess(0)
             }
         }
 
-        if (!GemSdk.initSdkWithDefaults(this))
-        {
+        if (GemSdk.initSdkWithDefaults(this) != GemError.NoError) {
             // The SDK initialization was not completed.
             finish()
         }
 
         gemOffscreenSurfaceView = GemOffscreenSurfaceView(
-            thumbnailWidth, 
-            thumbnailHeight, 
-            resources.displayMetrics.densityDpi
+            thumbnailWidth,
+            thumbnailHeight,
+            resources.displayMetrics.densityDpi,
         )
 
-        statusText.text = getString(R.string.waiting_for_data)
-        
-        SdkSettings.onMapDataReady = onMapDataReady@{ isReady ->  
+        binding.statusText.text = getString(R.string.waiting_for_data)
+
+        SdkSettings.onMapDataReady = onMapDataReady@{ isReady ->
             if (!isReady) return@onMapDataReady
 
-            statusText.text = getString(R.string.map_data_ready)
-            
+            binding.statusText.text = getString(R.string.map_data_ready)
+
             calculateRouteFromGPX()
         }
 
-        onBackPressedDispatcher.addCallback(this /* lifecycle owner */, object : OnBackPressedCallback(true) {
-            override fun handleOnBackPressed() {
-                // Back is pressed... Finishing the activity
-                finish()
-                exitProcess(0)
-            }
-        })
+        onBackPressedDispatcher.addCallback(
+            this, /* lifecycle owner */
+            object : OnBackPressedCallback(true) {
+                override fun handleOnBackPressed() {
+                    // Back is pressed... Finishing the activity
+                    finish()
+                    exitProcess(0)
+                }
+            },
+        )
     }
 
-    // ---------------------------------------------------------------------------------------------------------------------------
-
-    override fun onDestroy()
-    {
+    override fun onDestroy() {
         super.onDestroy()
 
         gemOffscreenSurfaceView.destroy()
@@ -209,8 +195,6 @@ class MainActivity : AppCompatActivity()
         // Deinitialize the SDK.
         GemSdk.release()
     }
-
-    // ---------------------------------------------------------------------------------------------------------------------------
 
     private fun calculateRouteFromGPX() = SdkCall.execute {
         val gpxAssetsFilename = "gpx/test_route.gpx"
@@ -225,11 +209,8 @@ class MainActivity : AppCompatActivity()
         routingService.calculateRoute(track, ERouteTransportMode.Car)
     }
 
-    // ---------------------------------------------------------------------------------------------------------------------------
-
     @SuppressLint("InflateParams")
-    private fun showDialog(text: String, dialogButtonCallback : () -> Unit = {})
-    {
+    private fun showDialog(text: String, dialogButtonCallback: () -> Unit = {}) {
         val dialog = BottomSheetDialog(this)
         val view = layoutInflater.inflate(R.layout.dialog_layout, null).apply {
             findViewById<TextView>(R.id.title).text = getString(R.string.error)
@@ -245,8 +226,4 @@ class MainActivity : AppCompatActivity()
             show()
         }
     }
-
-    // ---------------------------------------------------------------------------------------------------------------------------
 }
-
-// -------------------------------------------------------------------------------------------------------------------------------

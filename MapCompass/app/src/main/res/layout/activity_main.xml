@@ -1,45 +1,67 @@
 <?xml version="1.0" encoding="utf-8"?>
-<androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<layout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
-    xmlns:tools="http://schemas.android.com/tools"
-    android:layout_width="match_parent"
-    android:layout_height="match_parent"
-    tools:context=".MainActivity">
+    xmlns:tools="http://schemas.android.com/tools">
 
-    <com.magiclane.sdk.core.GemSurfaceView
-        android:id="@+id/gem_surface"
+    <androidx.constraintlayout.widget.ConstraintLayout
         android:layout_width="match_parent"
-        android:layout_height="match_parent" />
+        android:layout_height="match_parent"
+        tools:context=".MainActivity">
 
-    <ImageView
-        android:id="@+id/compass"
-        android:layout_width="@dimen/compass_height"
-        android:layout_height="@dimen/compass_height"
-        android:layout_margin="@dimen/big_padding"
-        android:background="@drawable/round_shadow"
-        android:src="@drawable/ic_north_up_foreground"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintTop_toTopOf="parent"
-        tools:ignore="ContentDescription" />
+        <com.magiclane.sdk.core.GemSurfaceView
+            android:id="@+id/surface_view"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent" />
 
-    <com.google.android.material.floatingactionbutton.FloatingActionButton
-        android:id="@+id/btn_enable_live_heading"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_margin="@dimen/big_padding"
-        android:focusable="true"
-        app:borderWidth="0dp"
-        app:layout_constraintBottom_toTopOf="@id/status_text"
-        app:layout_constraintEnd_toEndOf="parent" />
-    
-    <TextView
-        android:id="@+id/status_text"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:background="@color/colorOnPrimary"
-        android:text="@string/live_heading_disabled"
-        android:textColor="@color/text_color"
-        android:textSize="@dimen/big_text_size"
-        app:layout_constraintBottom_toBottomOf="parent" />
+        <com.google.android.material.appbar.MaterialToolbar
+            android:id="@+id/toolbar"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:background="@color/primary"
+            app:layout_constraintTop_toTopOf="parent"
+            app:title="@string/app_name"
+            app:titleTextColor="@color/on_primary"
+            app:paddingTopWithSystemWindowInsets='@{"8dp"}'
+            app:paddingLeftWithSystemWindowInsets='@{@dimen/small_padding}'
+            app:paddingRightWithSystemWindowInsets='@{@dimen/small_padding}'
+            android:paddingBottom="12dp"
+            />
 
-</androidx.constraintlayout.widget.ConstraintLayout>
+
+        <com.google.android.material.imageview.ShapeableImageView
+            android:id="@+id/compass"
+            android:layout_width="@dimen/compass_height"
+            android:layout_height="@dimen/compass_height"
+            android:layout_margin="@dimen/big_padding"
+            android:background="@drawable/round_shadow"
+            android:src="@drawable/ic_north_up_foreground"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintTop_toBottomOf="@id/toolbar"
+            tools:ignore="ContentDescription" />
+
+        <com.google.android.material.floatingactionbutton.FloatingActionButton
+            android:id="@+id/btn_enable_live_heading"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_margin="@dimen/big_padding"
+            android:focusable="true"
+            app:borderWidth="0dp"
+            app:layout_constraintBottom_toTopOf="@id/status_text"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:marginRightWithSystemWindowInsets="@{@dimen/no_extra_inset}" />
+
+        <com.google.android.material.textview.MaterialTextView
+            android:id="@+id/status_text"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:background="@color/surface"
+            android:text="@string/live_heading_disabled"
+            android:textColor="@color/on_surface"
+            android:textSize="@dimen/big_text_size"
+            app:layout_constraintBottom_toBottomOf="parent"
+            app:paddingBottomWithSystemWindowInsets="@{@dimen/no_extra_inset}"
+            app:paddingLeftWithSystemWindowInsets="@{@dimen/no_extra_inset}"
+            app:paddingRightWithSystemWindowInsets="@{@dimen/no_extra_inset}" />
+
+    </androidx.constraintlayout.widget.ConstraintLayout>
+</layout>

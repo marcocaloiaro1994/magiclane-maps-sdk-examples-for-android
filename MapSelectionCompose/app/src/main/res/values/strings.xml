@@ -5,6 +5,7 @@
     <string name="road">Route</string>
     <string name="traffic_event">Traffic event</string>
     <string name="social_report">Social report</string>
-    <string name="location_details">Location Details</string>
+    <string name="location_details">Location details</string>
+    <string name="route_info">Route info</string>
     <string name="added_on">Added on: </string>
 </resources>

@@ -1,17 +1,11 @@
-// -------------------------------------------------------------------------------------------------------------------------------
-
 /*
- * SPDX-FileCopyrightText: 1995-2025 Magic Lane International B.V. <info@magiclane.com>
+ * SPDX-FileCopyrightText: 2021-2026 Magic Lane International B.V. <info@magiclane.com>
  * SPDX-License-Identifier: Apache-2.0
  *
  * Contact Magic Lane at <info@magiclane.com> for SDK licensing options.
  */
 
-// -------------------------------------------------------------------------------------------------------------------------------
-
 package com.magiclane.sdk.examples.setttslanguage
-
-// -------------------------------------------------------------------------------------------------------------------------------
 
 import android.annotation.SuppressLint
 import android.app.AlertDialog
@@ -20,11 +14,10 @@ import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.widget.Button
-import android.widget.LinearLayout
-import android.widget.ProgressBar
 import android.widget.RadioButton
 import android.widget.TextView
 import androidx.activity.addCallback
+import androidx.activity.enableEdgeToEdge
 import androidx.annotation.VisibleForTesting
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.view.isVisible
@@ -33,12 +26,14 @@ import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import androidx.test.espresso.idling.CountingIdlingResource
 import com.google.android.material.bottomsheet.BottomSheetDialog
+import com.magiclane.sdk.core.GemError
 import com.magiclane.sdk.core.GemSdk
 import com.magiclane.sdk.core.SdkSettings
 import com.magiclane.sdk.core.SoundPlayingListener
 import com.magiclane.sdk.core.SoundPlayingPreferences
 import com.magiclane.sdk.core.SoundPlayingService
 import com.magiclane.sdk.core.TTSLanguage
+import com.magiclane.sdk.examples.setttslanguage.databinding.ActivityMainBinding
 import com.magiclane.sdk.util.EStringIds
 import com.magiclane.sdk.util.GemUtil
 import com.magiclane.sdk.util.SdkCall
@@ -46,93 +41,75 @@ import com.magiclane.sdk.util.Util
 import com.magiclane.sound.SoundUtils
 import kotlin.system.exitProcess
 
-// -------------------------------------------------------------------------------------------------------------------------------
+class MainActivity : AppCompatActivity(), SoundUtils.ITTSPlayerInitializationListener {
 
-class MainActivity : AppCompatActivity(), SoundUtils.ITTSPlayerInitializationListener
-{
-    // ---------------------------------------------------------------------------------------------------------------------------
-
-    // ---------------------------------------------------------------------------------------------
-    private lateinit var progressBar: ProgressBar
-    private lateinit var selectedLanguageTextView: TextView
-    private lateinit var languageButton: Button
-    private lateinit var playButton: Button
-    private lateinit var languageContainer: LinearLayout
-
+    private lateinit var binding: ActivityMainBinding
     private var selectedLanguageIndex = 0
     private var ttsLanguages = ArrayList<TTSLanguage>()
 
-    // ---------------------------------------------------------------------------------------------------------------------------
-
-    override fun onCreate(savedInstanceState: Bundle?)
-    {
+    override fun onCreate(savedInstanceState: Bundle?) {
+        enableEdgeToEdge()
         super.onCreate(savedInstanceState)
-        setContentView(R.layout.activity_main)
-
-        progressBar = findViewById(R.id.progressBar)
-        selectedLanguageTextView = findViewById(R.id.language_value)
-        languageButton = findViewById(R.id.choose_language_button)
-        playButton = findViewById(R.id.play_button)
-        languageContainer = findViewById(R.id.language_container)
+        binding = ActivityMainBinding.inflate(layoutInflater)
+        setContentView(binding.root)
 
         EspressoIdlingResource.increment()
-        languageButton.setOnClickListener {
+        binding.languageButton.setOnClickListener {
             onLanguageButtonClicked()
         }
 
-        playButton.setOnClickListener {
+        binding.playButton.setOnClickListener {
             SdkCall.execute {
                 SoundPlayingService.playText(
                     GemUtil.getTTSString(EStringIds.eStrMindYourSpeed),
                     /* SoundPlayingListener()*/
-                    object : SoundPlayingListener()
-                    {
-                        override fun notifyComplete(errorCode: Int, hint: String)
-                        {
+                    object : SoundPlayingListener() {
+                        override fun notifyComplete(errorCode: Int, hint: String) {
                             EspressoIdlingResource.increment()
                             super.notifyComplete(errorCode, hint)
                         }
                     },
-                    SoundPlayingPreferences()
+                    SoundPlayingPreferences(),
                 )
             }
         }
 
-        /// MAGIC LANE
-        SdkSettings.onMapDataReady = onMapDataReady@{ isReady ->
-            if (!isReady) return@onMapDataReady
-
+        val onReady = {
             val ttsPlayerIsInitialized =
                 SdkCall.execute { SoundPlayingService.ttsPlayerIsInitialized } ?: false
 
-            if (!ttsPlayerIsInitialized)
-            {
+            if (!ttsPlayerIsInitialized) {
                 SoundUtils.addTTSPlayerInitializationListener(this)
-            } else
-            {
+            } else {
                 loadTTSLanguages()
             }
             EspressoIdlingResource.decrement()
         }
+        if (SdkSettings.isMapDataReady) {
+            onReady()
+        } else {
+            SdkSettings.onMapDataReady = onMapDataReady@{ isReady ->
+                if (!isReady) return@onMapDataReady
+                onReady()
+            }
+        }
 
         SdkSettings.onApiTokenRejected = {
-            /* 
-            The TOKEN you provided in the AndroidManifest.xml file was rejected.
-            Make sure you provide the correct value, or if you don't have a TOKEN,
-            check the magiclane.com website, sign up/sign in and generate one. 
+            /**
+             * The TOKEN you provided in the AndroidManifest.xml file was rejected.
+             * Make sure you provide the correct value, or if you don't have a TOKEN,
+             * check the magiclane.com website, sign up/sign in and generate one.
              */
             showDialog("TOKEN REJECTED")
         }
 
         // This step of initialization is mandatory if you want to use the SDK without a map.
-        if (!GemSdk.initSdkWithDefaults(this))
-        {
+        if (GemSdk.initSdkWithDefaults(this) != GemError.NoError) {
             // The SDK initialization was not completed.
             finish()
         }
 
-        if (!Util.isInternetConnected(this))
-        {
+        if (!Util.isInternetConnected(this)) {
             showDialog("You must be connected to the internet!")
         }
 
@@ -142,10 +119,7 @@ class MainActivity : AppCompatActivity(), SoundUtils.ITTSPlayerInitializationLis
         }
     }
 
-    // ---------------------------------------------------------------------------------------------------------------------------
-
-    override fun onDestroy()
-    {
+    override fun onDestroy() {
         super.onDestroy()
 
         SoundUtils.removeTTSPlayerInitializationListener(this)
@@ -154,11 +128,8 @@ class MainActivity : AppCompatActivity(), SoundUtils.ITTSPlayerInitializationLis
         GemSdk.release()
     }
 
-    // ---------------------------------------------------------------------------------------------------------------------------
-
     @SuppressLint("InflateParams")
-    private fun showDialog(text: String)
-    {
+    private fun showDialog(text: String) {
         val dialog = BottomSheetDialog(this)
         val view = layoutInflater.inflate(R.layout.dialog_layout, null).apply {
             findViewById<TextView>(R.id.title).text = getString(R.string.error)
@@ -174,52 +145,60 @@ class MainActivity : AppCompatActivity(), SoundUtils.ITTSPlayerInitializationLis
         }
     }
 
-    // ---------------------------------------------------------------------------------------------------------------------------
-
-    override fun onTTSPlayerInitialized()
-    {
+    override fun onTTSPlayerInitialized() {
         loadTTSLanguages()
     }
 
-    // ---------------------------------------------------------------------------------------------------------------------------
-    
-    override fun onTTSPlayerInitializationFailed()
-    {
+    override fun onTTSPlayerInitializationFailed() {
         Util.postOnMain {
-            showDialog("TTS player initialization failed!")   
+            showDialog("TTS player initialization failed!")
         }
     }
 
-    // ---------------------------------------------------------------------------------------------------------------------------
-
-    private fun loadTTSLanguages()
-    {
+    private fun loadTTSLanguages() {
         EspressoIdlingResource.increment()
         SdkCall.execute {
             ttsLanguages = SoundPlayingService.getTTSLanguages()
         }
 
-        runOnUiThread {
-            onTTSLanguagesLoaded()
+        if (ttsLanguages.isEmpty()) {
+            // TTS languages may not be available immediately after initialization;
+            // retry with a delay to allow the TTS engine to fully load.
+            Thread {
+                repeat(15) {
+                    Thread.sleep(2000)
+                    SdkCall.execute {
+                        ttsLanguages = SoundPlayingService.getTTSLanguages()
+                    }
+                    if (ttsLanguages.isNotEmpty()) return@repeat
+                }
+                runOnUiThread {
+                    onTTSLanguagesLoaded()
+                }
+            }.start()
+        } else {
+            runOnUiThread {
+                onTTSLanguagesLoaded()
+            }
         }
     }
 
-    // ---------------------------------------------------------------------------------------------------------------------------
-
-    private fun onTTSLanguagesLoaded()
-    {
-        selectedLanguageTextView.text = ttsLanguages[selectedLanguageIndex].name
-        SoundPlayingService.setTTSLanguage(ttsLanguages[selectedLanguageIndex].code)
-        progressBar.isVisible = false
-        languageContainer.isVisible = true
-        playButton.isVisible = true
-        EspressoIdlingResource.decrement()
+    private fun onTTSLanguagesLoaded() {
+        binding.apply {
+            if (ttsLanguages.isNotEmpty()) {
+                languageValue.text = ttsLanguages[selectedLanguageIndex].name
+                SoundPlayingService.setTTSLanguage(ttsLanguages[selectedLanguageIndex].code)
+                languageContainer.isVisible = true
+                playButton.isVisible = true
+            } else {
+                showDialog("No TTS languages available")
+            }
+            progressBar.isVisible = false
+            EspressoIdlingResource.decrement()
+        }
     }
 
-    // ---------------------------------------------------------------------------------------------------------------------------
-
-    private fun onLanguageButtonClicked()
-    {
+    private fun onLanguageButtonClicked() {
         EspressoIdlingResource.increment()
         val builder = AlertDialog.Builder(this)
 
@@ -230,11 +209,11 @@ class MainActivity : AppCompatActivity(), SoundUtils.ITTSPlayerInitializationLis
             addItemDecoration(
                 DividerItemDecoration(
                     applicationContext,
-                    (layoutManager as LinearLayoutManager).orientation
-                )
+                    (layoutManager as LinearLayoutManager).orientation,
+                ),
             )
 
-            setBackgroundResource(R.color.background_color)
+            setBackgroundResource(R.color.background)
 
             val lateralPadding = resources.getDimension(R.dimen.big_padding).toInt()
             setPadding(lateralPadding, 0, lateralPadding, 0)
@@ -253,31 +232,23 @@ class MainActivity : AppCompatActivity(), SoundUtils.ITTSPlayerInitializationLis
         adapter.dialog = dialog
     }
 
-    // ---------------------------------------------------------------------------------------------------------------------------
-
     /**
      * This custom adapter is made to facilitate the displaying of the data from the model
      * and to decide how it is displayed.
      */
     inner class CustomAdapter(
         private val selectedIndex: Int,
-        private val dataSet: ArrayList<TTSLanguage>
-    ) : RecyclerView.Adapter<CustomAdapter.ViewHolder>()
-    {
-        // -----------------------------------------------------------------------------------------------------------------------
+        private val dataSet: ArrayList<TTSLanguage>,
+    ) : RecyclerView.Adapter<CustomAdapter.ViewHolder>() {
 
         var dialog: AlertDialog? = null
 
-        // -----------------------------------------------------------------------------------------------------------------------
-
-        inner class ViewHolder(view: View) : RecyclerView.ViewHolder(view)
-        {
+        inner class ViewHolder(view: View) : RecyclerView.ViewHolder(view) {
             private val text: TextView = view.findViewById(R.id.text)
             private val status: TextView = view.findViewById(R.id.status_text)
             private val radioButton: RadioButton = view.findViewById(R.id.radioButton)
 
-            fun bind(position: Int)
-            {
+            fun bind(position: Int) {
                 radioButton.isChecked = position == selectedIndex
                 text.text = dataSet[position].name
                 status.text = dataSet[position].code
@@ -285,46 +256,34 @@ class MainActivity : AppCompatActivity(), SoundUtils.ITTSPlayerInitializationLis
                 itemView.setOnClickListener {
                     selectedLanguageIndex = position
                     SoundPlayingService.setTTSLanguage(dataSet[position].code)
-                    selectedLanguageTextView.text = dataSet[position].name
+                    binding.languageValue.text = dataSet[position].name
                     dialog?.dismiss()
                 }
             }
         }
 
-        // -----------------------------------------------------------------------------------------------------------------------
-
-        override fun onCreateViewHolder(viewGroup: ViewGroup, viewType: Int): ViewHolder
-        {
+        override fun onCreateViewHolder(viewGroup: ViewGroup, viewType: Int): ViewHolder {
             val view =
                 LayoutInflater.from(viewGroup.context).inflate(R.layout.list_item, viewGroup, false)
 
             return ViewHolder(view)
         }
 
-        // -----------------------------------------------------------------------------------------------------------------------
-
-        override fun onBindViewHolder(viewHolder: ViewHolder, position: Int)
-        {
+        override fun onBindViewHolder(viewHolder: ViewHolder, position: Int) {
             viewHolder.bind(position)
         }
 
-        // -----------------------------------------------------------------------------------------------------------------------
-
         override fun getItemCount() = dataSet.size
-
-        // -----------------------------------------------------------------------------------------------------------------------
     }
-    // ---------------------------------------------------------------------------------------------------------------------------
 }
 
 @VisibleForTesting
-object EspressoIdlingResource
-{
-    const val resourceName = "SetTTsLanguageIdlingResource"
-    val espressoIdlingResource = CountingIdlingResource(resourceName)
+object EspressoIdlingResource {
+    const val RESOURCE_NAME = "SetTTsLanguageIdlingResource"
+    val espressoIdlingResource = CountingIdlingResource(RESOURCE_NAME)
     fun increment() = espressoIdlingResource.increment()
-    fun decrement() = if (!espressoIdlingResource.isIdleNow) espressoIdlingResource.decrement() else
-    {
+    fun decrement() = if (!espressoIdlingResource.isIdleNow) {
+        espressoIdlingResource.decrement()
+    } else {
     }
 }
-// ---------------------------------------------------------------------------------------------------------------------------

@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: 1995-2025 Magic Lane International B.V. <info@magiclane.com>
+ * SPDX-FileCopyrightText: 2021-2026 Magic Lane International B.V. <info@magiclane.com>
  * SPDX-License-Identifier: Apache-2.0
  *
  * Contact Magic Lane at <info@magiclane.com> for SDK licensing options.
@@ -35,8 +35,8 @@ class ApplicationModulePlugin : Plugin<Project> {
                 apply("com.android.application")
                 apply("org.jetbrains.kotlin.android")
                 apply("kotlin-kapt")
-                apply("com.magiclane.examples.sdk.gradle.detekt")
-                apply("com.magiclane.examples.sdk.gradle.ktlint")
+                apply("com.magiclane.sdk.examples.gradle.detekt")
+                apply("com.magiclane.sdk.examples.gradle.ktlint")
             }
 
             project.extensions.extraProperties["kapt.incremental.apt"] = "false"
@@ -48,18 +48,36 @@ class ApplicationModulePlugin : Plugin<Project> {
                     versionCode = 1
                     versionName = "1.0"
 
-                    val token = System.getenv("GEM_TOKEN").takeIf { !it.isNullOrBlank() } ?: ""
-                    if(token.isEmpty()) {
-                        logger.warn(
-                            """
-                               ------------------------------------------------------------------
-                               No token set. 
-                               You can still test your apps, but a watermark will be displayed, 
-                               and all the online services including mapping, searching, 
-                               routing, etc. will slow down after a few minutes.
-                               ------------------------------------------------------------------
-                            """.trimIndent())
+                    val token = project.findProperty("GEM_TOKEN") as String?
+                        ?: System.getenv("GEM_TOKEN")?.takeIf { it.isNotBlank() }
+                        ?: ""
+
+                    if (token.isEmpty()) {
+                        tasks.matching { it.name.startsWith("assemble") || it.name.startsWith("install") }.configureEach {
+                            doFirst {
+                                logger.warn(
+                                    """
+                                    |
+                                    |------------------------------------------------------------------
+                                    |No token set.
+                                    |You can still test your apps, but a watermark will be displayed,
+                                    |and all the online services including mapping, searching,
+                                    |routing, etc. will slow down after a few minutes.
+                                    |
+                                    |Set it in one of these locations:
+                                    |- Environment variable: GEM_TOKEN=your_token
+                                    |- Global gradle.properties:
+                                    |  * Linux/Mac: ~/.gradle/gradle.properties
+                                    |  * Windows: %USERPROFILE%\.gradle\gradle.properties
+                                    |- Project gradle.properties
+                                    |------------------------------------------------------------------
+                                    |
+                                    """.trimMargin()
+                                )
+                            }
+                        }
                     }
+
                     manifestPlaceholders["GEM_TOKEN"] = token
 
                     testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
@@ -67,6 +85,48 @@ class ApplicationModulePlugin : Plugin<Project> {
 
                 buildFeatures {
                     dataBinding = true
+                }
+
+                val generatedKotlinDir = File(project.layout.buildDirectory.asFile.get(), "generated/source/bindingAdapters/kotlin")
+                val generatedResDir = File(project.layout.buildDirectory.asFile.get(), "generated/res/bindingAdapters")
+                sourceSets.getByName("main").kotlin.srcDir(generatedKotlinDir)
+                sourceSets.getByName("main").res.srcDir(generatedResDir)
+
+                project.tasks.register("generateBindingAdapters") {
+                    val kotlinOutputDir = generatedKotlinDir
+                    val resOutputDir = generatedResDir
+                    val namespace = project.extensions.getByType(ApplicationExtension::class.java).namespace
+                        ?: "com.magiclane.sdk.examples"
+
+                    outputs.dir(kotlinOutputDir)
+                    outputs.dir(resOutputDir)
+                    doLast {
+                        val packageDir = File(kotlinOutputDir, namespace.replace('.', '/'))
+                        packageDir.mkdirs()
+                        File(packageDir, "BindingAdapters.kt").writeText(generateBindingAdaptersSource(namespace))
+
+                        val valuesDir = File(resOutputDir, "values")
+                        valuesDir.mkdirs()
+                        File(valuesDir, "binding_adapters_attrs.xml").writeText(generateAttrsXml())
+                    }
+                }
+
+                project.afterEvaluate {
+                    tasks.matching {
+                        it.name.startsWith("compile") ||
+                        it.name.startsWith("kapt") ||
+                        it.name.startsWith("generate") ||
+                        it.name.startsWith("merge") ||
+                        it.name.startsWith("process") ||
+                        it.name.startsWith("map") ||
+                        it.name.startsWith("extract") ||
+                        it.name.startsWith("parse") ||
+                        it.name.startsWith("dataBinding")
+                    }.configureEach {
+                        if (name != "generateBindingAdapters") {
+                            dependsOn("generateBindingAdapters")
+                        }
+                    }
                 }
 
                 buildTypes {
@@ -113,10 +173,6 @@ class ApplicationModulePlugin : Plugin<Project> {
                     htmlReport = true
                     sarifReport = false
                 }
-            }
-
-            dependencies {
-                add("implementation", "buildSupport:utils")
             }
 
             val localPropFile = File(rootProject.projectDir, "../local.properties")
@@ -178,7 +234,6 @@ class ApplicationModulePlugin : Plugin<Project> {
                             apiLevel = deviceConfig.apiLevel
                             systemImageSource = deviceConfig.systemImageSource
                             pageAlignment = ManagedVirtualDevice.PageAlignment.FORCE_16KB_PAGES
-                            testedAbi = "x86_64"
                             require64Bit = true
                         }
                     }
@@ -192,7 +247,196 @@ class ApplicationModulePlugin : Plugin<Project> {
                 }
             }
         }
-    }   
+    }
+
+    private fun generateBindingAdaptersSource(packageName: String): String = """
+/*
+ * SPDX-FileCopyrightText: 2021-2026 Magic Lane International B.V. <info@magiclane.com>
+ * SPDX-License-Identifier: Apache-2.0
+ *
+ * Contact Magic Lane at <info@magiclane.com> for SDK licensing options.
+ */
+
+package $packageName
+
+import android.view.View
+import android.view.ViewGroup.MarginLayoutParams
+import androidx.core.view.ViewCompat
+import androidx.core.view.WindowInsetsCompat
+import androidx.core.view.updateLayoutParams
+import androidx.core.view.updateMarginsRelative
+import androidx.core.view.updatePadding
+import androidx.databinding.BindingAdapter
+
+private data class InitialPadding(val left: Int, val top: Int, val right: Int, val bottom: Int)
+private data class InitialMargins(val start: Int, val top: Int, val end: Int, val bottom: Int)
+
+private fun View.initialPadding() = InitialPadding(paddingLeft, paddingTop, paddingRight, paddingBottom)
+
+private fun View.initialMargins(): InitialMargins {
+    val lp = layoutParams as? MarginLayoutParams
+    return InitialMargins(
+        start = lp?.marginStart ?: 0,
+        top = lp?.topMargin ?: 0,
+        end = lp?.marginEnd ?: 0,
+        bottom = lp?.bottomMargin ?: 0
+    )
+}
+
+private fun View.parseDimension(value: String): Float {
+    if (value.isBlank()) return 0f
+    return try {
+        when {
+            value.startsWith("@dimen/") -> {
+                val resName = value.substringAfter("@dimen/")
+                val resId = resources.getIdentifier(resName, "dimen", context.packageName)
+                if (resId != 0) resources.getDimensionPixelSize(resId).toFloat() else 0f
+            }
+            value.endsWith("dp") -> {
+                val num = value.removeSuffix("dp").toFloat()
+                num * resources.displayMetrics.density
+            }
+            value.endsWith("px") -> value.removeSuffix("px").toFloat()
+            else -> value.toFloat()
+        }
+    } catch (_: Exception) {
+        0f
+    }
+}
+
+/**
+ * Applies system window insets (navigation bar, status bar, display cutout) as padding.
+ */
+@BindingAdapter(
+    value = [
+        "paddingLeftWithSystemWindowInsets",
+        "paddingTopWithSystemWindowInsets",
+        "paddingRightWithSystemWindowInsets",
+        "paddingBottomWithSystemWindowInsets",
+    ],
+    requireAll = false
+)
+fun addSystemWindowInsetToPadding(
+    view: View,
+    leftPadding: Any?,
+    topPadding: Any?,
+    rightPadding: Any?,
+    bottomPadding: Any?
+) {
+    fun Any.toPixels(): Float? = when (this) {
+        is Number -> toFloat()
+        is String -> view.parseDimension(this)
+        else -> null
+    }
+
+    val leftPx = leftPadding?.toPixels()
+    val topPx = topPadding?.toPixels()
+    val rightPx = rightPadding?.toPixels()
+    val bottomPx = bottomPadding?.toPixels()
+
+    val initial = view.initialPadding()
+
+    ViewCompat.setOnApplyWindowInsetsListener(view) { v, insets ->
+        val sys = insets.getInsets(
+            WindowInsetsCompat.Type.systemBars() or WindowInsetsCompat.Type.displayCutout()
+        )
+
+        v.updatePadding(
+            left = initial.left + (leftPx?.toInt() ?: 0) + if (leftPx != null) sys.left else 0,
+            top = initial.top + (topPx?.toInt() ?: 0) + if (topPx != null) sys.top else 0,
+            right = initial.right + (rightPx?.toInt() ?: 0) + if (rightPx != null) sys.right else 0,
+            bottom = initial.bottom + (bottomPx?.toInt() ?: 0) + if (bottomPx != null) sys.bottom else 0
+        )
+
+        insets
+    }
+
+    view.requestApplyInsetsWhenAttached()
+}
+
+/**
+ * Applies system window insets (navigation bar, status bar, display cutout) as margin.
+ */
+@BindingAdapter(
+    value = [
+        "marginLeftWithSystemWindowInsets",
+        "marginTopWithSystemWindowInsets",
+        "marginRightWithSystemWindowInsets",
+        "marginBottomWithSystemWindowInsets",
+    ],
+    requireAll = false,
+)
+fun addSystemWindowInsetToMargin(
+    view: View,
+    leftMargin: Any?,
+    topMargin: Any?,
+    rightMargin: Any?,
+    bottomMargin: Any?
+) {
+    fun Any.toPixels(): Float? = when (this) {
+        is Number -> toFloat()
+        is String -> view.parseDimension(this)
+        else -> null
+    }
+
+    val leftPx = leftMargin?.toPixels()
+    val topPx = topMargin?.toPixels()
+    val rightPx = rightMargin?.toPixels()
+    val bottomPx = bottomMargin?.toPixels()
+
+    val initial = view.initialMargins()
+
+    ViewCompat.setOnApplyWindowInsetsListener(view) { v, insets ->
+        val sys = insets.getInsets(
+            WindowInsetsCompat.Type.systemBars() or WindowInsetsCompat.Type.displayCutout()
+        )
+
+        v.updateLayoutParams<MarginLayoutParams> {
+            updateMarginsRelative(
+                start = initial.start + (leftPx?.toInt() ?: 0) + if (leftPx != null) sys.left else 0,
+                top = initial.top + (topPx?.toInt() ?: 0) + if (topPx != null) sys.top else 0,
+                end = initial.end + (rightPx?.toInt() ?: 0) + if (rightPx != null) sys.right else 0,
+                bottom = initial.bottom + (bottomPx?.toInt() ?: 0) + if (bottomPx != null) sys.bottom else 0
+            )
+        }
+
+        insets
+    }
+
+    view.requestApplyInsetsWhenAttached()
+}
+
+fun View.requestApplyInsetsWhenAttached() {
+    if (isAttachedToWindow) {
+        requestApplyInsets()
+    } else {
+        addOnAttachStateChangeListener(object : View.OnAttachStateChangeListener {
+            override fun onViewAttachedToWindow(v: View) {
+                v.removeOnAttachStateChangeListener(this)
+                v.requestApplyInsets()
+            }
+
+            override fun onViewDetachedFromWindow(v: View) = Unit
+        })
+    }
+}
+""".trimIndent()
+
+    private fun generateAttrsXml(): String = """
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <declare-styleable name="SystemWindowInsetsBindingAdapters">
+        <attr name="paddingLeftWithSystemWindowInsets" format="string" />
+        <attr name="paddingTopWithSystemWindowInsets" format="string" />
+        <attr name="paddingRightWithSystemWindowInsets" format="string" />
+        <attr name="paddingBottomWithSystemWindowInsets" format="string" />
+        <attr name="marginLeftWithSystemWindowInsets" format="string" />
+        <attr name="marginTopWithSystemWindowInsets" format="string" />
+        <attr name="marginRightWithSystemWindowInsets" format="string" />
+        <attr name="marginBottomWithSystemWindowInsets" format="string" />
+    </declare-styleable>
+</resources>
+""".trimIndent()
 }
 
 private data class DeviceConfig(

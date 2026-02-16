@@ -1,18 +1,12 @@
-// -------------------------------------------------------------------------------------------------
-
 /*
- * SPDX-FileCopyrightText: 1995-2025 Magic Lane International B.V. <info@magiclane.com>
+ * SPDX-FileCopyrightText: 2021-2026 Magic Lane International B.V. <info@magiclane.com>
  * SPDX-License-Identifier: Apache-2.0
  *
  * Contact Magic Lane at <info@magiclane.com> for SDK licensing options.
  */
 
-// -------------------------------------------------------------------------------------------------
-
-
 package com.magiclane.sdk.examples.mapgestures
 
-import android.net.ConnectivityManager
 import androidx.lifecycle.Lifecycle
 import androidx.test.espresso.Espresso.onView
 import androidx.test.espresso.IdlingRegistry
@@ -29,20 +23,25 @@ import androidx.test.internal.runner.junit4.AndroidJUnit4ClassRunner
 import androidx.test.platform.app.InstrumentationRegistry
 import androidx.test.uiautomator.UiDevice
 import androidx.test.uiautomator.UiSelector
-import com.magiclane.sdk.core.GemSdk
-import com.magiclane.sdk.util.SdkCall
+import com.magiclane.sdk.examples.testing.GemSdkTestRule
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.runBlocking
 import org.junit.After
 import org.junit.Before
+import org.junit.ClassRule
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 
 @LargeTest
 @RunWith(AndroidJUnit4ClassRunner::class)
-class MapGesturesInstrumentedTests
-{
+class MapGesturesInstrumentedTests {
+
+    companion object {
+        @get:ClassRule
+        @JvmStatic
+        val sdkRule = GemSdkTestRule()
+    }
 
     @Rule
     @JvmField
@@ -51,31 +50,23 @@ class MapGesturesInstrumentedTests
 
     private lateinit var activityRes: MainActivity
 
-    private val appContext = InstrumentationRegistry.getInstrumentation().targetContext
-
     @Before
-    fun registerIdlingResource()
-    {
+    fun setUp() {
         activityScenarioRule.scenario.moveToState(Lifecycle.State.RESUMED)
         IdlingRegistry.getInstance().register(EspressoIdlingResource.espressoIdlingResource)
         activityScenarioRule.scenario.onActivity { activity ->
             activityRes = activity
         }
-        //verify token and internet connection
-        SdkCall.execute { assert(GemSdk.getTokenFromManifest(appContext)?.isNotEmpty() == true) { "Invalid token." } }
-        assert(appContext.getSystemService(ConnectivityManager::class.java).activeNetwork != null) { " No internet connection." }
     }
 
     @After
-    fun closeActivity()
-    {
+    fun tearDown() {
         IdlingRegistry.getInstance().unregister(EspressoIdlingResource.espressoIdlingResource)
         activityScenarioRule.scenario.close()
     }
 
     @Test
-    fun touchEvent()
-    {
+    fun touchEvent() {
         onView(withId(R.id.gem_surface)).check(matches(isDisplayed()))
         var touched = false
         activityRes.gemSurfaceView.mapView?.onTouch = {
@@ -87,8 +78,7 @@ class MapGesturesInstrumentedTests
     }
 
     @Test
-    fun doubleTouchEvent()
-    {
+    fun doubleTouchEvent() {
         onView(withId(R.id.gem_surface)).check(matches(isDisplayed()))
         var touched = false
         activityRes.gemSurfaceView.mapView?.onDoubleTouch = {
@@ -101,8 +91,7 @@ class MapGesturesInstrumentedTests
     }
 
     @Test
-    fun onLongDownEvent()
-    {
+    fun onLongDownEvent() {
         onView(withId(R.id.gem_surface)).check(matches(isDisplayed()))
         var touched = false
         activityRes.gemSurfaceView.mapView?.onLongDown = {
@@ -114,21 +103,25 @@ class MapGesturesInstrumentedTests
     }
 
     @Test
-    fun onSwipeEvent()
-    {
+    fun onSwipeEvent() {
         onView(withId(R.id.gem_surface)).check(matches(isDisplayed()))
         var touched = false
         activityRes.gemSurfaceView.mapView?.onSwipe = { _, _, _ ->
             touched = true
         }
-        onView(withId(R.id.gem_surface)).perform(swipeDown())
-        runBlocking { delay(2000) }
+        // Perform multiple swipe attempts — a single swipeDown() may be
+        // interpreted as a "move" rather than a "swipe/fling" on some
+        // emulator configurations if the velocity threshold is not met.
+        repeat(3) {
+            if (touched) return@repeat
+            onView(withId(R.id.gem_surface)).perform(swipeDown())
+            runBlocking { delay(2000) }
+        }
         assert(touched)
     }
 
     @Test
-    fun onMoveEvent()
-    {
+    fun onMoveEvent() {
         onView(withId(R.id.gem_surface)).check(matches(isDisplayed()))
         var touched = false
         activityRes.gemSurfaceView.mapView?.onMove = { _, _ ->
@@ -140,8 +133,7 @@ class MapGesturesInstrumentedTests
     }
 
     @Test
-    fun onPinchEvent()
-    {
+    fun onPinchEvent() {
         onView(withId(R.id.gem_surface)).check(matches(isDisplayed()))
 
         var pinched = false
@@ -152,13 +144,16 @@ class MapGesturesInstrumentedTests
 
         UiDevice.getInstance(InstrumentationRegistry.getInstrumentation()).apply {
             result =
-                findObject(UiSelector().resourceId("com.magiclane.sdk.examples.mapgestures:id/gem_surface")).pinchIn(
+                findObject(
+                    UiSelector().resourceId(
+                        "com.magiclane.sdk.examples.mapgestures:id/gem_surface",
+                    ),
+                ).pinchIn(
                     80,
-                    200
+                    200,
                 )
         }
         runBlocking { delay(3000) }
         assert(pinched) { result }
     }
-
 }

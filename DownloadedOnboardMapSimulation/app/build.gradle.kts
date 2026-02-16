@@ -1,5 +1,5 @@
 plugins {
-    id("com.magiclane.examples.sdk.gradle.application")
+    id("com.magiclane.sdk.examples.gradle.application")
 }
 
 android {
@@ -21,6 +21,7 @@ android {
 }
 
 dependencies {
+
     implementation(shared.magiclane.maps.kotlin)
 
     implementation(shared.androidx.core.ktx)
@@ -30,6 +31,7 @@ dependencies {
     implementation(shared.material)
     implementation(shared.junit)
     implementation(shared.androidx.media)
+    androidTestImplementation(project(":build-testing"))
     androidTestImplementation(shared.androidx.junit)
     androidTestImplementation(shared.androidx.espresso.core)
 }

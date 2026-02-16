@@ -1,9 +1,9 @@
 plugins {
-    id("com.magiclane.examples.sdk.gradle.application")
+    id("com.magiclane.sdk.examples.gradle.application")
 }
 
 android {
-    namespace = "com.magiclane.sdk.examples.geofence"
+    namespace = "com.magiclane.sdk.examples.avoidgeofencearea"
 
     compileSdk = shared.versions.compileSdkVersion.get().toInt()
 
@@ -30,6 +30,7 @@ dependencies {
     implementation(shared.material)
 
     testImplementation(shared.junit)
+    androidTestImplementation(project(":build-testing"))
     androidTestImplementation(shared.androidx.junit)
     androidTestImplementation(shared.androidx.espresso.core)
     androidTestImplementation(shared.androidx.test.rules)

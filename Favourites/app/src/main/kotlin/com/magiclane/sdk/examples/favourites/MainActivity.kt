@@ -1,42 +1,35 @@
-// -------------------------------------------------------------------------------------------------------------------------------
-
 /*
- * SPDX-FileCopyrightText: 1995-2025 Magic Lane International B.V. <info@magiclane.com>
+ * SPDX-FileCopyrightText: 2021-2026 Magic Lane International B.V. <info@magiclane.com>
  * SPDX-License-Identifier: Apache-2.0
  *
  * Contact Magic Lane at <info@magiclane.com> for SDK licensing options.
  */
 
-// -------------------------------------------------------------------------------------------------------------------------------
-
 package com.magiclane.sdk.examples.favourites
-
-// -------------------------------------------------------------------------------------------------------------------------------
 
 import android.annotation.SuppressLint
 import android.os.Bundle
 import android.view.View
 import android.widget.Button
 import android.widget.ImageView
-import android.widget.ProgressBar
 import android.widget.TextView
 import androidx.activity.addCallback
+import androidx.activity.enableEdgeToEdge
 import androidx.annotation.VisibleForTesting
 import androidx.appcompat.app.AppCompatActivity
-import androidx.constraintlayout.widget.ConstraintLayout
 import androidx.core.content.ContextCompat
 import androidx.core.view.isVisible
 import androidx.test.espresso.idling.CountingIdlingResource
 import com.google.android.material.bottomsheet.BottomSheetDialog
 import com.magiclane.sdk.core.GemError
 import com.magiclane.sdk.core.GemSdk
-import com.magiclane.sdk.core.GemSurfaceView
 import com.magiclane.sdk.core.ImageDatabase
 import com.magiclane.sdk.core.RectangleGeographicArea
 import com.magiclane.sdk.core.Rgba
 import com.magiclane.sdk.core.SdkSettings
 import com.magiclane.sdk.d3scene.EHighlightOptions
 import com.magiclane.sdk.d3scene.HighlightRenderSettings
+import com.magiclane.sdk.examples.favourites.databinding.ActivityMainBinding
 import com.magiclane.sdk.places.Coordinates
 import com.magiclane.sdk.places.Landmark
 import com.magiclane.sdk.places.LandmarkStore
@@ -47,83 +40,70 @@ import com.magiclane.sdk.util.SdkImages
 import com.magiclane.sdk.util.Util
 import kotlin.system.exitProcess
 
-// -------------------------------------------------------------------------------------------------------------------------------
+class MainActivity : AppCompatActivity() {
+    private lateinit var binding: ActivityMainBinding
 
-class MainActivity : AppCompatActivity()
-{
-    // ---------------------------------------------------------------------------------------------------------------------------
-    //region members for testing
-    companion object
-    {
+    //region TESTING
+    companion object {
         const val RESOURCE = "GLOBAL"
     }
 
     private var mainActivityIdlingResource = CountingIdlingResource(RESOURCE, true)
     //endregion
 
-    private lateinit var progressBar: ProgressBar
-    private lateinit var gemSurfaceView: GemSurfaceView
-    private lateinit var locationDetails: ConstraintLayout
-    private lateinit var statusText: TextView
     private var imageSize: Int = 0
 
     // Define a Landmark Store so we can write the favourite landmarks in the data folder.
     private lateinit var store: LandmarkStore
 
-    private val searchService = SearchService(onStarted = {
-        progressBar.visibility = View.VISIBLE
-        showStatusMessage("Search service has started!")
-    },
+    private val searchService = SearchService(
+        onStarted = {
+            binding.progressBar.visibility = View.VISIBLE
+            showStatusMessage("Search service has started!")
+        },
 
         onCompleted = { results, errorCode, _ ->
-            progressBar.visibility = View.GONE
+            binding.progressBar.visibility = View.GONE
             showStatusMessage("Search service completed with error code: $errorCode")
 
-            when (errorCode)
-            {
+            when (errorCode) {
                 GemError.NoError ->
-                {
-                    if (results.isNotEmpty())
                     {
-                        val landmark = results[0]
-                        flyTo(landmark)
-                        displayLocationInfo(landmark)
-                        showStatusMessage("The search completed without errors.")
+                        if (results.isNotEmpty()) {
+                            val landmark = results[0]
+                            flyTo(landmark)
+                            displayLocationInfo(landmark)
+                            showStatusMessage("The search completed without errors.")
+                        } else { // The search completed without errors, but there were no results found.
+                            showStatusMessage(
+                                "The search completed without errors, but there were no results found.",
+                            )
+                        }
                     }
-                    else
-                    { // The search completed without errors, but there were no results found.
-                        showStatusMessage("The search completed without errors, but there were no results found.")
-                    }
-                }
                 GemError.Cancel ->
-                { // The search action was cancelled.
-                }
+                    { // The search action was cancelled.
+                    }
                 else ->
-                {
-                    // There was a problem at computing the search operation.
-                    showDialog("Search service error: ${GemError.getMessage(errorCode)}")
-                }
+                    {
+                        // There was a problem at computing the search operation.
+                        showDialog("Search service error: ${GemError.getMessage(errorCode)}")
+                    }
             }
             EspressoIdlingResource.decrement()
-        })
+        },
+    )
 
-    // ---------------------------------------------------------------------------------------------------------------------------
-
-    override fun onCreate(savedInstanceState: Bundle?)
-    {
+    override fun onCreate(savedInstanceState: Bundle?) {
+        enableEdgeToEdge()
         super.onCreate(savedInstanceState)
-        setContentView(R.layout.activity_main)
+
+        binding = ActivityMainBinding.inflate(layoutInflater)
+        setContentView(binding.root)
 
         imageSize = resources.getDimensionPixelSize(R.dimen.image_size)
 
-        progressBar = findViewById(R.id.progressBar)
-        gemSurfaceView = findViewById(R.id.gem_surface)
-        locationDetails = findViewById(R.id.location_details)
-        statusText = findViewById(R.id.status_text)
         EspressoIdlingResource.increment()
-        SdkSettings.onMapDataReady = onMapDataReady@{ isReady ->
-            if (!isReady) return@onMapDataReady
-
+        val onReady = {
             // Defines an action that should be done after the world map is ready.
             SdkCall.execute {
                 createStore()
@@ -134,43 +114,43 @@ class MainActivity : AppCompatActivity()
                 searchService.searchByFilter(text, coordinates)
             }
         }
+        if (SdkSettings.isMapDataReady) {
+            onReady()
+        } else {
+            SdkSettings.onMapDataReady = onMapDataReady@{ isReady ->
+                if (!isReady) return@onMapDataReady
+                onReady()
+            }
+        }
 
         SdkSettings.onApiTokenRejected = {
-            /*
-            The TOKEN you provided in the AndroidManifest.xml file was rejected.
-            Make sure you provide the correct value, or if you don't have a TOKEN,
-            check the magiclane.com website, sign up/sign in and generate one.
+            /**
+             * The TOKEN you provided in the AndroidManifest.xml file was rejected.
+             * Make sure you provide the correct value, or if you don't have a TOKEN,
+             * check the magiclane.com website, sign up/sign in and generate one.
              */
             showDialog("TOKEN REJECTED")
         }
 
-        if (!Util.isInternetConnected(this))
-        {
+        if (!Util.isInternetConnected(this)) {
             showDialog("You must be connected to the internet!")
         }
 
-        onBackPressedDispatcher.addCallback(this){
+        onBackPressedDispatcher.addCallback(this) {
             finish()
             exitProcess(0)
         }
-
     }
 
-    // ---------------------------------------------------------------------------------------------------------------------------
-
-    override fun onDestroy()
-    {
+    override fun onDestroy() {
         super.onDestroy()
 
         // Deinitialize the SDK.
         GemSdk.release()
     }
 
-    // ---------------------------------------------------------------------------------------------------------------------------
-
     @SuppressLint("InflateParams")
-    private fun showDialog(text: String)
-    {
+    private fun showDialog(text: String) {
         val dialog = BottomSheetDialog(this)
         val view = layoutInflater.inflate(R.layout.dialog_layout, null).apply {
             findViewById<TextView>(R.id.title).text = getString(R.string.error)
@@ -186,22 +166,18 @@ class MainActivity : AppCompatActivity()
         }
     }
 
-    // ---------------------------------------------------------------------------------------------------------------------------
-
-    private fun showStatusMessage(text: String)
-    {
-        if (!statusText.isVisible)
-        {
-            statusText.visibility = View.VISIBLE
+    private fun showStatusMessage(text: String) {
+        binding.apply {
+            if (!statusText.isVisible) {
+                statusText.visibility = View.VISIBLE
+            }
+            statusText.text = text
         }
-        statusText.text = text
     }
-
-    // ---------------------------------------------------------------------------------------------------------------------------
 
     private fun flyTo(landmark: Landmark) = SdkCall.execute {
         landmark.geographicArea?.let { area ->
-            gemSurfaceView.mapView?.let { mainMapView ->
+            binding.gemSurfaceView.mapView?.let { mainMapView ->
                 // Center the map on a specific area using the provided animation.
                 mainMapView.centerOnArea(area)
 
@@ -210,29 +186,23 @@ class MainActivity : AppCompatActivity()
                     EHighlightOptions.ShowContour,
                     Rgba(255, 98, 0, 255),
                     Rgba(255, 98, 0, 255),
-                    0.75
+                    0.75,
                 )
                 mainMapView.activateHighlightLandmarks(landmark, displaySettings)
             }
         }
     }
 
-    // ---------------------------------------------------------------------------------------------------------------------------
-
-    private fun createStore()
-    {
+    private fun createStore() {
         store = LandmarkStoreService().createLandmarkStore("Favourites")?.first!!
-        gemSurfaceView.mapView?.let { mainMapView ->
+        binding.gemSurfaceView.mapView?.let { mainMapView ->
             SdkCall.execute {
                 mainMapView.preferences?.landmarkStores?.addAllStoreCategories(store.id)
             }
         }
     }
 
-    // ---------------------------------------------------------------------------------------------------------------------------
-
-    private fun displayLocationInfo(landmark: Landmark)
-    {
+    private fun displayLocationInfo(landmark: Landmark) {
         // Display a view containing the necessary information about the landmark.
         var name = ""
         var coordinates = ""
@@ -244,7 +214,7 @@ class MainActivity : AppCompatActivity()
         }
 
         Util.postOnMain {
-            locationDetails.apply {
+            binding.locationDetails.apply {
                 val nameView = findViewById<TextView>(R.id.name)
                 val coordinatesView = findViewById<TextView>(R.id.coordinates)
                 val imageView = findViewById<ImageView>(R.id.favourites_icon)
@@ -259,15 +229,12 @@ class MainActivity : AppCompatActivity()
                 // Treat favourites icon click event (Add/ Remove from favourites)
                 imageView.setOnClickListener {
                     val landmarkId = getFavouriteId(landmark)
-                    if (landmarkId != -1)
-                    {
+                    if (landmarkId != -1) {
                         deleteFromFavourites(landmarkId)
                         updateFavouritesIcon(imageView, false)
 
                         showStatusMessage("The landmark was deleted from favourites.")
-                    }
-                    else
-                    {
+                    } else {
                         addToFavourites(landmark)
                         updateFavouritesIcon(imageView, true)
                         showStatusMessage("The landmark was added to favourites.")
@@ -280,12 +247,10 @@ class MainActivity : AppCompatActivity()
         }
     }
 
-    // ---------------------------------------------------------------------------------------------------------------------------
-
     private fun getFavouriteId(landmark: Landmark): Int = SdkCall.execute {
-        /*
-        Get the ID of the landmark saved in the store so we can use it to remove it
-        or to check if it's already a favourite.
+        /**
+         * Get the ID of the landmark saved in the store so we can use it to remove it
+         * or to check if it's already a favourite.
          */
         val radius = 5.0 // meters
         val area = landmark.coordinates?.let { RectangleGeographicArea(it, radius, radius) }
@@ -296,63 +261,54 @@ class MainActivity : AppCompatActivity()
             val itCoordinates = it.coordinates
             val landmarkCoordinates = landmark.coordinates
 
-            if (itCoordinates != null && landmarkCoordinates != null)
-            {
+            if (itCoordinates != null && landmarkCoordinates != null) {
                 if ((itCoordinates.latitude - landmarkCoordinates.latitude < threshold) && (itCoordinates.longitude - landmarkCoordinates.longitude < threshold)) return@execute it.id
+            } else {
+                return@execute -1
             }
-            else return@execute -1
         }
         -1
     } ?: -1
 
-    // ---------------------------------------------------------------------------------------------------------------------------
-
-    private fun addToFavourites(landmark: Landmark) = SdkCall.execute { // Add the landmark to the desired LandmarkStore.
+    private fun addToFavourites(landmark: Landmark) = SdkCall.execute {
         val lmk = Landmark()
         lmk.assign(landmark)
-        ImageDatabase().getImageById(SdkImages.Engine_Misc.LocationDetails_FavouritePushPin.value)?.let { lmk.image = it }
+        ImageDatabase().getImageById(
+            SdkImages.Engine_Misc.LocationDetails_FavouritePushPin.value,
+        )?.let {
+            lmk.image = it
+        }
 
+        // Add the landmark to the desired LandmarkStore
         store.addLandmark(lmk)
     }
 
-    // ---------------------------------------------------------------------------------------------------------------------------
+    private fun deleteFromFavourites(landmarkId: Int) = SdkCall.execute {
+        // Remove the landmark associated to this ID from the LandmarkStore.
+        store.removeLandmark(landmarkId)
+    }
 
-    private fun deleteFromFavourites(landmarkId: Int) =
-        SdkCall.execute {
-            // Remove the landmark associated to this ID from the LandmarkStore.
-            store.removeLandmark(landmarkId)
-        }
-
-    // ---------------------------------------------------------------------------------------------------------------------------
-
-    private fun updateFavouritesIcon(imageView: ImageView, isFavourite: Boolean)
-    {
+    private fun updateFavouritesIcon(imageView: ImageView, isFavourite: Boolean) {
         val bmp = SdkCall.execute {
-            if (isFavourite)
-            {
+            if (isFavourite) {
                 ContextCompat.getDrawable(this, R.drawable.baseline_star_24)
-            }
-            else
-            {
+            } else {
                 ContextCompat.getDrawable(this, R.drawable.baseline_star_border_24)
             }
         }
 
         bmp?.let {
-            //imageView.setImageBitmap(bmp)
+            // imageView.setImageBitmap(bmp)
             imageView.setImageDrawable(bmp)
         }
     }
-
-    // ---------------------------------------------------------------------------------------------------------------------------
 }
-//region --------------------------------------------------FOR TESTING--------------------------------------------------------------
-// ---------------------------------------------------------------------------------------------------------------------------
+
+//region TESTING
 @VisibleForTesting
-object EspressoIdlingResource
-{
+object EspressoIdlingResource {
     val espressoIdlingResource = CountingIdlingResource("FavouritesIdlingResource")
     fun increment() = espressoIdlingResource.increment()
     fun decrement() = if (!espressoIdlingResource.isIdleNow) espressoIdlingResource.decrement() else Unit
 }
-//endregion  -------------------------------------------------------------------------------------------------------------------------------
+//endregion

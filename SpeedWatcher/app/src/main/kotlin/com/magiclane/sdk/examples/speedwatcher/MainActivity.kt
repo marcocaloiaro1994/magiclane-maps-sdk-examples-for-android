@@ -1,34 +1,27 @@
-// -------------------------------------------------------------------------------------------------
-
 /*
- * SPDX-FileCopyrightText: 1995-2025 Magic Lane International B.V. <info@magiclane.com>
+ * SPDX-FileCopyrightText: 2021-2026 Magic Lane International B.V. <info@magiclane.com>
  * SPDX-License-Identifier: Apache-2.0
  *
  * Contact Magic Lane at <info@magiclane.com> for SDK licensing options.
  */
 
-// -------------------------------------------------------------------------------------------------
-
 package com.magiclane.sdk.examples.speedwatcher
-
-// -------------------------------------------------------------------------------------------------
 
 import android.annotation.SuppressLint
 import android.os.Bundle
 import android.view.View
 import android.widget.Button
-import android.widget.ProgressBar
 import android.widget.TextView
 import androidx.activity.addCallback
+import androidx.activity.enableEdgeToEdge
 import androidx.appcompat.app.AppCompatActivity
 import androidx.test.espresso.idling.CountingIdlingResource
 import com.google.android.material.bottomsheet.BottomSheetDialog
-import com.google.android.material.floatingactionbutton.FloatingActionButton
 import com.magiclane.sdk.core.EUnitSystem
 import com.magiclane.sdk.core.GemSdk
-import com.magiclane.sdk.core.GemSurfaceView
 import com.magiclane.sdk.core.ProgressListener
 import com.magiclane.sdk.core.SdkSettings
+import com.magiclane.sdk.examples.speedwatcher.databinding.ActivityMainBinding
 import com.magiclane.sdk.places.Landmark
 import com.magiclane.sdk.routesandnavigation.NavigationListener
 import com.magiclane.sdk.routesandnavigation.NavigationService
@@ -42,17 +35,8 @@ import com.magiclane.sdk.util.SdkCall
 import com.magiclane.sdk.util.Util
 import kotlin.system.exitProcess
 
-// -------------------------------------------------------------------------------------------------
-
-class MainActivity : AppCompatActivity()
-{
-    // ---------------------------------------------------------------------------------------------
-
-    private lateinit var gemSurfaceView: GemSurfaceView
-    private lateinit var progressBar: ProgressBar
-    private lateinit var currentSpeed: TextView
-    private lateinit var speedLimit: TextView
-    private lateinit var followCursorButton: FloatingActionButton
+class MainActivity : AppCompatActivity() {
+    private lateinit var binding: ActivityMainBinding
 
     // Define a navigation service from which we will start the simulation.
     private val navigationService = NavigationService()
@@ -60,16 +44,16 @@ class MainActivity : AppCompatActivity()
     private val navRoute: Route?
         get() = navigationService.getNavigationRoute(navigationListener)
 
-    /* 
-    Define a navigation listener that will receive notifications from the
-    navigation service.
-    We will use just the onNavigationStarted method, but for more available
-    methods you should check the documentation.
+    /**
+     * Define a navigation listener that will receive notifications from the
+     * navigation service.
+     * We will use just the onNavigationStarted method, but for more available
+     * methods you should check the documentation.
      */
     private val navigationListener: NavigationListener = NavigationListener.create(
         onNavigationStarted = {
             SdkCall.execute {
-                gemSurfaceView.mapView?.let { mapView ->
+                binding.gemSurfaceView.mapView?.let { mapView ->
                     mapView.preferences?.enableCursor = false
                     navRoute?.let { route ->
                         mapView.presentRoute(route)
@@ -90,7 +74,7 @@ class MainActivity : AppCompatActivity()
                 return@execute pair.first + " " + pair.second
             }
 
-            speedLimit.text = limit
+            binding.speedLimit.text = limit
         },
         onDestinationReached = {
             // DON'T FORGET to remove the position listener after the navigation is done.
@@ -99,21 +83,19 @@ class MainActivity : AppCompatActivity()
         },
         onNavigationError = {
             EspressoIdlingResource.decrement()
-        }
+        },
     )
 
     // Define a position listener the will help us get the current speed.
-    private val positionListener = object : PositionListener()
-    {
-        override fun onNewPosition(value: PositionData)
-        {
+    private val positionListener = object : PositionListener() {
+        override fun onNewPosition(value: PositionData) {
             // Get the current speed for every new position received
             val speed = GemUtil.getSpeedText(value.speed, EUnitSystem.Metric).let { speedPair ->
                 speedPair.first + " " + speedPair.second
             }
 
             Util.postOnMain {
-                currentSpeed.text = speed
+                binding.currentSpeed.text = speed
             }
         }
     }
@@ -121,48 +103,44 @@ class MainActivity : AppCompatActivity()
     // Define a listener that will let us know the progress of the routing process.
     private val routingProgressListener = ProgressListener.create(
         onStarted = {
-            progressBar.visibility = View.VISIBLE
+            binding.progressBar.visibility = View.VISIBLE
         },
 
         onCompleted = { _, _ ->
-            progressBar.visibility = View.GONE
+            binding.progressBar.visibility = View.GONE
         },
 
-        postOnMain = true
+        postOnMain = true,
     )
 
-    // ---------------------------------------------------------------------------------------------
-
-    override fun onCreate(savedInstanceState: Bundle?)
-    {
+    override fun onCreate(savedInstanceState: Bundle?) {
+        enableEdgeToEdge()
         super.onCreate(savedInstanceState)
-        setContentView(R.layout.activity_main)
+        binding = ActivityMainBinding.inflate(layoutInflater)
+        setContentView(binding.root)
         EspressoIdlingResource.increment()
-        gemSurfaceView = findViewById(R.id.gem_surface)
-        progressBar = findViewById(R.id.progressBar)
-        currentSpeed = findViewById(R.id.current_speed)
-        speedLimit = findViewById(R.id.speed_limit)
-        followCursorButton = findViewById(R.id.follow_cursor)
 
-        /// MAGIC LANE
-        SdkSettings.onMapDataReady = onMapDataReady@{ isReady ->
-            if (!isReady) return@onMapDataReady
-
-            // Defines an action that should be done when the world map is ready (Updated/ loaded).
+        if (SdkSettings.isMapDataReady) {
             startSimulation()
+        } else {
+            SdkSettings.onMapDataReady = onMapDataReady@{ isReady ->
+                if (!isReady) return@onMapDataReady
+
+                // Defines an action that should be done when the world map is ready (Updated/ loaded).
+                startSimulation()
+            }
         }
 
         SdkSettings.onApiTokenRejected = {
-            /* 
-            The TOKEN you provided in the AndroidManifest.xml file was rejected.
-            Make sure you provide the correct value, or if you don't have a TOKEN,
-            check the magiclane.com website, sign up/sign in and generate one. 
+            /**
+             * The TOKEN you provided in the AndroidManifest.xml file was rejected.
+             * Make sure you provide the correct value, or if you don't have a TOKEN,
+             * check the magiclane.com website, sign up/sign in and generate one.
              */
             showDialog("TOKEN REJECTED")
         }
 
-        if (!Util.isInternetConnected(this))
-        {
+        if (!Util.isInternetConnected(this)) {
             showDialog("You must be connected to the internet!")
         }
 
@@ -172,20 +150,17 @@ class MainActivity : AppCompatActivity()
         }
     }
 
-    // ---------------------------------------------------------------------------------------------
-    override fun onStop()
-    {
+    override fun onStop() {
         super.onStop()
         // Release the SDK.
-        if (isFinishing)
+        if (isFinishing) {
             GemSdk.release()
+        }
     }
 
-    // ---------------------------------------------------------------------------------------------
-
     @SuppressLint("InflateParams")
-    private fun showDialog(text: String)
-    {
+    private fun showDialog(text: String) {
+        if (isFinishing || isDestroyed) return
         val dialog = BottomSheetDialog(this)
         val view = layoutInflater.inflate(R.layout.dialog_layout, null).apply {
             findViewById<TextView>(R.id.title).text = getString(R.string.error)
@@ -201,52 +176,45 @@ class MainActivity : AppCompatActivity()
         }
     }
 
-    // ---------------------------------------------------------------------------------------------
-
-    private fun enableGPSButton()
-    {
+    private fun enableGPSButton() {
         // Set actions for entering/ exiting following position mode.
-        gemSurfaceView.mapView?.apply {
-            onExitFollowingPosition = {
-                followCursorButton.visibility = View.VISIBLE
-            }
+        binding.apply {
+            gemSurfaceView.mapView?.apply {
+                onExitFollowingPosition = {
+                    followCursorButton.visibility = View.VISIBLE
+                }
 
-            onEnterFollowingPosition = {
-                followCursorButton.visibility = View.GONE
-            }
+                onEnterFollowingPosition = {
+                    followCursorButton.visibility = View.GONE
+                }
 
-            // Set on click action for the GPS button.
-            followCursorButton.setOnClickListener {
-                SdkCall.execute { followPosition() }
+                // Set on click action for the GPS button.
+                followCursorButton.setOnClickListener {
+                    SdkCall.execute { followPosition() }
+                }
             }
         }
     }
 
-    // ---------------------------------------------------------------------------------------------
-
     private fun startSimulation() = SdkCall.execute {
         val waypoints = arrayListOf(
             Landmark("Amsterdam", 52.356971, 4.879516),
-            Landmark("Paris", 48.856693, 2.351461)
+            Landmark("Paris", 48.856693, 2.351461),
         )
 
         navigationService.startSimulation(
             waypoints,
             navigationListener,
             routingProgressListener,
-            speedMultiplier = 0.5f
+            speedMultiplier = 0.5f,
         )
     }
 }
 
-// -------------------------------------------------------------------------------------------------
-//region --------------------------------------------------FOR TESTING------------------------------
-// -------------------------------------------------------------------------------------------------
-object EspressoIdlingResource
-{
+//region TESTING
+object EspressoIdlingResource {
     val espressoIdlingResource = CountingIdlingResource("SpeedWatcherIdlingResource")
     fun increment() = espressoIdlingResource.increment()
     fun decrement() = if (!espressoIdlingResource.isIdleNow) espressoIdlingResource.decrement() else Unit
 }
-//endregion  ----------------------------------------------------------------------------------------
-// --------------------------------------------------------------------------------------------------
+//endregion

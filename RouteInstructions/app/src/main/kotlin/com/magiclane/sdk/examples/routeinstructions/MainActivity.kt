@@ -1,31 +1,24 @@
-// -------------------------------------------------------------------------------------------------
-
 /*
- * SPDX-FileCopyrightText: 1995-2025 Magic Lane International B.V. <info@magiclane.com>
+ * SPDX-FileCopyrightText: 2021-2026 Magic Lane International B.V. <info@magiclane.com>
  * SPDX-License-Identifier: Apache-2.0
  *
  * Contact Magic Lane at <info@magiclane.com> for SDK licensing options.
  */
 
-// -------------------------------------------------------------------------------------------------
-
 package com.magiclane.sdk.examples.routeinstructions
-
-// -------------------------------------------------------------------------------------------------
 
 import android.annotation.SuppressLint
 import android.content.res.Configuration
 import android.graphics.Bitmap
-import android.icu.number.Precision.increment
 import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.widget.Button
 import android.widget.ImageView
-import android.widget.ProgressBar
 import android.widget.TextView
 import androidx.activity.addCallback
+import androidx.activity.enableEdgeToEdge
 import androidx.appcompat.app.AppCompatActivity
 import androidx.recyclerview.widget.DividerItemDecoration
 import androidx.recyclerview.widget.LinearLayoutManager
@@ -36,6 +29,7 @@ import com.magiclane.sdk.core.GemError
 import com.magiclane.sdk.core.GemSdk
 import com.magiclane.sdk.core.Rgba
 import com.magiclane.sdk.core.SdkSettings
+import com.magiclane.sdk.examples.routeinstructions.databinding.ActivityMainBinding
 import com.magiclane.sdk.places.Landmark
 import com.magiclane.sdk.routesandnavigation.Route
 import com.magiclane.sdk.routesandnavigation.RouteInstruction
@@ -47,65 +41,55 @@ import com.magiclane.sdk.util.Util
 import com.magiclane.sdk.util.Util.postOnMain
 import kotlin.system.exitProcess
 
-// -------------------------------------------------------------------------------------------------
+class MainActivity : AppCompatActivity() {
 
-class MainActivity : AppCompatActivity()
-{
-    // ---------------------------------------------------------------------------------------------
-
-    private lateinit var listView: RecyclerView
-    private lateinit var progressBar: ProgressBar
+    private lateinit var binding: ActivityMainBinding
 
     private val routingService = RoutingService(
         onStarted = {
-            progressBar.visibility = View.VISIBLE
+            binding.progressBar.visibility = View.VISIBLE
         },
 
         onCompleted = onCompleted@{ routes, errorCode, _ ->
-            progressBar.visibility = View.GONE
+            binding.progressBar.visibility = View.GONE
 
-            when (errorCode)
-            {
-                GemError.NoError ->
-                {
+            when (errorCode) {
+                GemError.NoError -> {
                     if (routes.size == 0) return@onCompleted
 
                     // Get the main route from the ones that were found.
                     displayRouteInstructions(routes[0])
                 }
 
-                GemError.Cancel ->
-                {
+                GemError.Cancel -> {
                     // The routing action was cancelled.
                     showDialog("The routing action was cancelled.")
                     EspressoIdlingResource.decrement()
                 }
 
-                else ->
-                {
+                else -> {
                     // There was a problem at computing the routing operation.
                     showDialog("Routing service error: ${GemError.getMessage(errorCode)}")
                     EspressoIdlingResource.decrement()
                 }
             }
-        }
+        },
     )
 
-    // ---------------------------------------------------------------------------------------------
-
-    override fun onCreate(savedInstanceState: Bundle?)
-    {
+    override fun onCreate(savedInstanceState: Bundle?) {
+        enableEdgeToEdge()
         super.onCreate(savedInstanceState)
-        setContentView(R.layout.activity_main)
+        binding = ActivityMainBinding.inflate(layoutInflater)
+        setContentView(binding.root)
 
         EspressoIdlingResource.increment()
-        progressBar = findViewById(R.id.progressBar)
-        listView = findViewById<RecyclerView?>(R.id.list_view).also {
+        binding.listView.also {
             it.layoutManager = LinearLayoutManager(this)
-            it.addItemDecoration(DividerItemDecoration(this, (it.layoutManager as LinearLayoutManager).orientation))
+            it.addItemDecoration(
+                DividerItemDecoration(this, (it.layoutManager as LinearLayoutManager).orientation),
+            )
         }
 
-        /// MAGIC LANE
         SdkSettings.onMapDataReady = onMapDataReady@{ isReady ->
             if (!isReady) return@onMapDataReady
 
@@ -114,22 +98,20 @@ class MainActivity : AppCompatActivity()
         }
 
         SdkSettings.onApiTokenRejected = {
-            /* 
-            The TOKEN you provided in the AndroidManifest.xml file was rejected.
-            Make sure you provide the correct value, or if you don't have a TOKEN,
-            check the magiclane.com website, sign up/sign in and generate one. 
+            /**
+             * The TOKEN you provided in the AndroidManifest.xml file was rejected.
+             * Make sure you provide the correct value, or if you don't have a TOKEN,
+             * check the magiclane.com website, sign up/sign in and generate one.
              */
             showDialog("TOKEN REJECTED")
         }
 
         // This step of initialization is mandatory if you want to use the SDK without a map.
-        if (!GemSdk.initSdkWithDefaults(this))
-        {
+        if (GemSdk.initSdkWithDefaults(this) != GemError.NoError) {
             finish()
         }
 
-        if (!Util.isInternetConnected(this))
-        {
+        if (!Util.isInternetConnected(this)) {
             showDialog("You must be connected to the internet!")
         }
 
@@ -137,52 +119,38 @@ class MainActivity : AppCompatActivity()
             finish()
             exitProcess(0)
         }
-
     }
 
-    // ---------------------------------------------------------------------------------------------
-
-    override fun onDestroy()
-    {
+    override fun onDestroy() {
         super.onDestroy()
 
         // Deinitialize the SDK.
         GemSdk.release()
     }
 
-    // ---------------------------------------------------------------------------------------------
-
     private fun startCalculateRoute() = SdkCall.execute {
         val wayPoints = arrayListOf(
             Landmark("Frankfurt am Main", 50.11428, 8.68133),
             Landmark("Karlsruhe", 49.0069, 8.4037),
-            Landmark("Munich", 48.1351, 11.5820)
+            Landmark("Munich", 48.1351, 11.5820),
         )
         routingService.calculateRoute(wayPoints)
     }
 
-    // ---------------------------------------------------------------------------------------------
-
-    private fun displayRouteInstructions(route: Route)
-    {
+    private fun displayRouteInstructions(route: Route) {
         // Get the instructions from the route.
         val instructions = SdkCall.execute { route.instructions } ?: arrayListOf()
         val imageSize = resources.getDimension(R.dimen.turn_image_size).toInt()
-        listView.adapter = CustomAdapter(instructions, imageSize, isDarkThemeOn())
+        binding.listView.adapter = CustomAdapter(instructions, imageSize, isDarkThemeOn())
         EspressoIdlingResource.decrement()
     }
 
-    // ---------------------------------------------------------------------------------------------
-
-    private fun isDarkThemeOn(): Boolean
-    {
+    private fun isDarkThemeOn(): Boolean {
         return resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK == Configuration.UI_MODE_NIGHT_YES
     }
-    // ---------------------------------------------------------------------------------------------
 
     @SuppressLint("InflateParams")
-    private fun showDialog(text: String)
-    {
+    private fun showDialog(text: String) {
         val dialog = BottomSheetDialog(this)
         val view = layoutInflater.inflate(R.layout.dialog_layout, null).apply {
             findViewById<TextView>(R.id.title).text = getString(R.string.error)
@@ -199,19 +167,6 @@ class MainActivity : AppCompatActivity()
     }
 }
 
-// ---------------------------------------------------------------------------------------------------------------------------
-//region --------------------------------------------------FOR TESTING--------------------------------------------------------------
-// ---------------------------------------------------------------------------------------------------------------------------
-object EspressoIdlingResource
-{
-    val espressoIdlingResource = CountingIdlingResource("ApplyMapStyleInstrumentedTestsIdlingResource")
-    fun increment() = espressoIdlingResource.increment()
-    fun decrement() = if (!espressoIdlingResource.isIdleNow) espressoIdlingResource.decrement() else Unit
-}
-//endregion  -------------------------------------------------------------------------------------------------------------------------------
-
-// -------------------------------------------------------------------------------------------------
-
 /**
  * This custom adapter is made to facilitate the displaying of the data from the model
  * and to decide how it is displayed.
@@ -219,33 +174,24 @@ object EspressoIdlingResource
 class CustomAdapter(
     private val dataSet: ArrayList<RouteInstruction>,
     private val imageSize: Int,
-    private val isDarkThemeOn: Boolean
-) : RecyclerView.Adapter<CustomAdapter.RouteInstructionViewHolder>()
-{
-    // ---------------------------------------------------------------------------------------------
+    private val isDarkThemeOn: Boolean,
+) : RecyclerView.Adapter<CustomAdapter.RouteInstructionViewHolder>() {
 
-    class RouteInstructionViewHolder(view: View) : RecyclerView.ViewHolder(view)
-    {
+    class RouteInstructionViewHolder(view: View) : RecyclerView.ViewHolder(view) {
         val turnImage: ImageView = view.findViewById(R.id.turn_image)
         val text: TextView = view.findViewById(R.id.text)
         val status: TextView = view.findViewById(R.id.status_text)
         val description: TextView = view.findViewById(R.id.status_description)
     }
 
-    // ---------------------------------------------------------------------------------------------
-
-    override fun onCreateViewHolder(viewGroup: ViewGroup, viewType: Int): RouteInstructionViewHolder
-    {
+    override fun onCreateViewHolder(viewGroup: ViewGroup, viewType: Int): RouteInstructionViewHolder {
         val view = LayoutInflater.from(viewGroup.context)
             .inflate(R.layout.list_item, viewGroup, false)
 
         return RouteInstructionViewHolder(view)
     }
 
-    // ---------------------------------------------------------------------------------------------
-
-    override fun onBindViewHolder(viewHolder: RouteInstructionViewHolder, position: Int)
-    {
+    override fun onBindViewHolder(viewHolder: RouteInstructionViewHolder, position: Int) {
         val instruction = dataSet[position]
         var text: String
         var status: String
@@ -253,18 +199,24 @@ class CustomAdapter(
         var turnImage: Bitmap?
 
         SdkCall.execute {
-            if (instruction.hasTurnInfo())
-            {
+            if (instruction.hasTurnInfo()) {
                 val aInner = if (isDarkThemeOn) Rgba(255, 255, 255, 255) else Rgba(0, 0, 0, 255)
                 val aOuter = if (isDarkThemeOn) Rgba(0, 0, 0, 255) else Rgba(255, 255, 255, 255)
                 val iInner = Rgba(128, 128, 128, 255)
                 val iOuter = Rgba(128, 128, 128, 255)
 
-                turnImage = GemUtilImages.asBitmap(instruction.turnDetails?.abstractGeometryImage, imageSize, imageSize, aInner, aOuter, iInner, iOuter)
+                turnImage = GemUtilImages.asBitmap(
+                    instruction.turnDetails?.abstractGeometryImage,
+                    imageSize,
+                    imageSize,
+                    aInner,
+                    aOuter,
+                    iInner,
+                    iOuter,
+                )
 
                 text = instruction.turnInstruction ?: ""
-                if (text.isNotEmpty() && text.last() == '.')
-                {
+                if (text.isNotEmpty() && text.last() == '.') {
                     text.removeSuffix(".")
                 }
 
@@ -273,8 +225,7 @@ class CustomAdapter(
                 val distText = GemUtil.getDistText(distance.toInt(), SdkSettings.unitSystem)
                 status = distText.first
                 description = distText.second
-                if (status == "0.00")
-                {
+                if (status == "0.00") {
                     status = "0"
                 }
 
@@ -288,11 +239,15 @@ class CustomAdapter(
         }
     }
 
-    // ---------------------------------------------------------------------------------------------
-
     override fun getItemCount() = dataSet.size
-
-    // ---------------------------------------------------------------------------------------------
 }
 
-// -------------------------------------------------------------------------------------------------
+//region TESTING
+object EspressoIdlingResource {
+    val espressoIdlingResource =
+        CountingIdlingResource("ApplyMapStyleInstrumentedTestsIdlingResource")
+
+    fun increment() = espressoIdlingResource.increment()
+    fun decrement() = if (!espressoIdlingResource.isIdleNow) espressoIdlingResource.decrement() else Unit
+}
+//endregion

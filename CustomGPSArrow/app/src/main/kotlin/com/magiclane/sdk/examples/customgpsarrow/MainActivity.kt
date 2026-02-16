@@ -1,17 +1,11 @@
-// -------------------------------------------------------------------------------------------------
-
 /*
- * SPDX-FileCopyrightText: 1995-2025 Magic Lane International B.V. <info@magiclane.com>
+ * SPDX-FileCopyrightText: 2021-2026 Magic Lane International B.V. <info@magiclane.com>
  * SPDX-License-Identifier: Apache-2.0
  *
  * Contact Magic Lane at <info@magiclane.com> for SDK licensing options.
  */
 
-// -------------------------------------------------------------------------------------------------
-
 package com.magiclane.sdk.examples.customgpsarrow
-
-// -------------------------------------------------------------------------------------------------
 
 import android.annotation.SuppressLint
 import android.os.Bundle
@@ -20,7 +14,9 @@ import android.widget.Button
 import android.widget.ProgressBar
 import android.widget.TextView
 import androidx.activity.addCallback
+import androidx.activity.enableEdgeToEdge
 import androidx.appcompat.app.AppCompatActivity
+import androidx.databinding.DataBindingUtil
 import androidx.test.espresso.idling.CountingIdlingResource
 import com.google.android.material.bottomsheet.BottomSheetDialog
 import com.google.android.material.floatingactionbutton.FloatingActionButton
@@ -34,6 +30,7 @@ import com.magiclane.sdk.d3scene.ESceneObjectFileFormat
 import com.magiclane.sdk.d3scene.MapSceneObject
 import com.magiclane.sdk.d3scene.SceneObjectData
 import com.magiclane.sdk.d3scene.SceneObjectDataList
+import com.magiclane.sdk.examples.customgpsarrow.databinding.ActivityMainBinding
 import com.magiclane.sdk.places.Landmark
 import com.magiclane.sdk.routesandnavigation.NavigationListener
 import com.magiclane.sdk.routesandnavigation.NavigationService
@@ -44,10 +41,8 @@ import java.io.ByteArrayOutputStream
 import java.io.InputStream
 import kotlin.system.exitProcess
 
-// -------------------------------------------------------------------------------------------------
-
 class MainActivity : AppCompatActivity() {
-    // ---------------------------------------------------------------------------------------------
+    private lateinit var binding: ActivityMainBinding
 
     private lateinit var gemSurfaceView: GemSurfaceView
     private lateinit var progressBar: ProgressBar
@@ -59,11 +54,11 @@ class MainActivity : AppCompatActivity() {
     private val navRoute: Route?
         get() = navigationService.getNavigationRoute(navigationListener)
 
-    /* 
-    Define a navigation listener that will receive notifications from the
-    navigation service.
-    We will use just the onNavigationStarted method, but for more available
-    methods you should check the documentation.
+    /**
+     * Define a navigation listener that will receive notifications from the
+     * navigation service.
+     * We will use just the onNavigationStarted method, but for more available
+     * methods you should check the documentation.
      */
     private val navigationListener: NavigationListener = NavigationListener.create(
         onNavigationStarted = {
@@ -79,7 +74,7 @@ class MainActivity : AppCompatActivity() {
                 }
             }
             EspressoIdlingResource.decrement()
-        }
+        },
     )
 
     // Define a listener that will let us know the progress of the routing process.
@@ -92,39 +87,35 @@ class MainActivity : AppCompatActivity() {
             progressBar.visibility = View.GONE
         },
 
-        postOnMain = true
+        postOnMain = true,
     )
 
-    // ---------------------------------------------------------------------------------------------
-
     override fun onCreate(savedInstanceState: Bundle?) {
+        enableEdgeToEdge()
         super.onCreate(savedInstanceState)
-        setContentView(R.layout.activity_main)
+        binding = DataBindingUtil.setContentView(this, R.layout.activity_main)
         EspressoIdlingResource.increment()
         progressBar = findViewById(R.id.progressBar)
         gemSurfaceView = findViewById(R.id.gem_surface)
         followCursorButton = findViewById(R.id.followCursor)
 
-        /// MAGIC LANE
-        SdkSettings.onMapDataReady = onMapDataReady@{ isReady ->
-            if (!isReady) return@onMapDataReady
-
+        val onReady = {
             // Set custom GPS arrow
             try {
                 val objList = getSceneObjs(
-                    Pair("quad.glb", ESceneObjectFileFormat.Gltf)
+                    Pair("quad.glb", ESceneObjectFileFormat.Gltf),
                 )
                 if (objList.isNotEmpty()) {
                     SdkCall.execute {
                         val (obj, err) = MapSceneObject.getDefPositionTracker()
-                        if(GemError.isError(err)) {
-                            Util.postOnMain{showDialog(GemError.getMessage(err))}
+                        if (GemError.isError(err)) {
+                            Util.postOnMain { showDialog(GemError.getMessage(err)) }
                             return@execute
                         }
                         MapSceneObject.customizeDefPositionTracker(objList)
                         obj?.let {
                             it.visibility = true
-                            it.scaleFactor = 0.7 //0.0 - 5.0
+                            it.scaleFactor = 0.7 // 0.0 - 5.0
                         }
                     }
                 }
@@ -135,12 +126,20 @@ class MainActivity : AppCompatActivity() {
             // Defines an action that should be done when the world map is ready (Updated/ loaded).
             startSimulation()
         }
+        if (SdkSettings.isMapDataReady) {
+            onReady()
+        } else {
+            SdkSettings.onMapDataReady = onMapDataReady@{ isReady ->
+                if (!isReady) return@onMapDataReady
+                onReady()
+            }
+        }
 
         SdkSettings.onApiTokenRejected = {
-            /* 
-            The TOKEN you provided in the AndroidManifest.xml file was rejected.
-            Make sure you provide the correct value, or if you don't have a TOKEN,
-            check the magiclane.com website, sign up/sign in and generate one. 
+            /**
+             * The TOKEN you provided in the AndroidManifest.xml file was rejected.
+             * Make sure you provide the correct value, or if you don't have a TOKEN,
+             * check the magiclane.com website, sign up/sign in and generate one.
              */
             showDialog("TOKEN REJECTED")
         }
@@ -154,8 +153,6 @@ class MainActivity : AppCompatActivity() {
             exitProcess(0)
         }
     }
-
-    // ---------------------------------------------------------------------------------------------
 
     private fun getSceneObjs(vararg filesData: Pair<String, ESceneObjectFileFormat>): SceneObjectDataList {
         val list: SceneObjectDataList = arrayListOf()
@@ -171,14 +168,15 @@ class MainActivity : AppCompatActivity() {
             buffer.flush()
             inputStream.close()
             if (buffer.size() > 0) {
-                SdkCall.execute { list.add(SceneObjectData(DataBuffer(buffer.toByteArray()), format)) }
+                SdkCall.execute {
+                    list.add(
+                        SceneObjectData(DataBuffer(buffer.toByteArray()), format),
+                    )
+                }
             }
         }
         return list
     }
-
-
-    // ---------------------------------------------------------------------------------------------
 
     override fun onDestroy() {
         super.onDestroy()
@@ -186,8 +184,6 @@ class MainActivity : AppCompatActivity() {
         // Release the SDK.
         GemSdk.release()
     }
-
-    // ---------------------------------------------------------------------------------------------
 
     private fun enableGPSButton() {
         // Set actions for entering/ exiting following position mode.
@@ -207,18 +203,14 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    // ---------------------------------------------------------------------------------------------
-
     private fun startSimulation() = SdkCall.execute {
         val waypoints = arrayListOf(
             Landmark("London", 51.5073204, -0.1276475),
-            Landmark("Paris", 48.8566932, 2.3514616)
+            Landmark("Paris", 48.8566932, 2.3514616),
         )
 
         navigationService.startSimulation(waypoints, navigationListener, routingProgressListener)
     }
-
-    // ---------------------------------------------------------------------------------------------
 
     @SuppressLint("InflateParams")
     private fun showDialog(text: String) {
@@ -236,17 +228,13 @@ class MainActivity : AppCompatActivity() {
             show()
         }
     }
-
-    // ---------------------------------------------------------------------------------------------
 }
 
-//region --------------------------------------------------FOR TESTING--------------------------------------------------------------
-// ---------------------------------------------------------------------------------------------------------------------------
+//region TESTING
 public object EspressoIdlingResource {
-    val espressoIdlingResource = CountingIdlingResource("ApplyMapStyleInstrumentedTestsIdlingResource")
+    val espressoIdlingResource =
+        CountingIdlingResource("ApplyMapStyleInstrumentedTestsIdlingResource")
     fun increment() = espressoIdlingResource.increment()
     fun decrement() = if (!espressoIdlingResource.isIdleNow) espressoIdlingResource.decrement() else Unit
 }
-//endregion  -------------------------------------------------------------------------------------------------------------------------------
-
-// -------------------------------------------------------------------------------------------------
+//endregion

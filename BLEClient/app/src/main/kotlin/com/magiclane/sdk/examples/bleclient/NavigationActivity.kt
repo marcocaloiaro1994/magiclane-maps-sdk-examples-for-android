@@ -1,21 +1,20 @@
-// -------------------------------------------------------------------------------------------------------------------------------
-
 /*
- * SPDX-FileCopyrightText: 1995-2025 Magic Lane International B.V. <info@magiclane.com>
+ * SPDX-FileCopyrightText: 2021-2026 Magic Lane International B.V. <info@magiclane.com>
  * SPDX-License-Identifier: Apache-2.0
  *
  * Contact Magic Lane at <info@magiclane.com> for SDK licensing options.
  */
 
-// -------------------------------------------------------------------------------------------------------------------------------
-
 package com.magiclane.sdk.examples.bleclient
-
-// -------------------------------------------------------------------------------------------------------------------------------
 
 import android.bluetooth.BluetoothGattCharacteristic
 import android.bluetooth.BluetoothGattService
-import android.content.*
+import android.content.BroadcastReceiver
+import android.content.ComponentName
+import android.content.Context
+import android.content.Intent
+import android.content.IntentFilter
+import android.content.ServiceConnection
 import android.graphics.Color
 import android.os.Bundle
 import android.os.Handler
@@ -23,19 +22,14 @@ import android.os.IBinder
 import android.os.Looper
 import android.util.Log
 import android.view.View
-import android.view.ViewGroup
 import android.widget.*
+import androidx.activity.enableEdgeToEdge
 import androidx.appcompat.app.AppCompatActivity
-import androidx.constraintlayout.widget.ConstraintLayout
-import androidx.appcompat.widget.Toolbar
 import androidx.core.content.ContextCompat
 import androidx.core.content.res.ResourcesCompat
-import androidx.core.view.ViewCompat
-import androidx.core.view.WindowInsetsCompat
-import androidx.core.view.updateLayoutParams
+import androidx.databinding.DataBindingUtil
 import com.magiclane.sdk.examples.bleclient.BLEService.LocalBinder
-
-// -------------------------------------------------------------------------------------------------------------------------------
+import com.magiclane.sdk.examples.bleclient.databinding.NavigationActivityBinding
 
 /**
  * For a given BLE device, this Activity provides the user interface to connect, display data,
@@ -43,25 +37,16 @@ import com.magiclane.sdk.examples.bleclient.BLEService.LocalBinder
  * communicates with `BluetoothLeService`, which in turn interacts with the
  * Bluetooth LE API.
  */
-class NavigationActivity : AppCompatActivity(), BLEService.IBLEServiceObserver
-{
-    // ---------------------------------------------------------------------------------------------------------------------------
+class NavigationActivity : AppCompatActivity(), BLEService.IBLEServiceObserver {
 
-    private lateinit var toolbar: Toolbar
-    private lateinit var topPanel: ConstraintLayout
-    private lateinit var navInstruction: TextView
-    private lateinit var navInstructionDistance: TextView
-    private lateinit var navInstructionIcon: ImageView
+    private lateinit var binding: NavigationActivityBinding
     private lateinit var tag: String
     private var deviceAddress: String? = null
     private var bluetoothLeService: BLEService? = null
     private var characteristics: List<BluetoothGattCharacteristic> = listOf()
     private var padding: Int = 0
 
-    // ---------------------------------------------------------------------------------------------------------------------------
-
-    enum class ETurnEvent(val value: Int)
-    {
+    enum class ETurnEvent(val value: Int) {
         NotAvailable(0),
         Straight(1),
         Right(2),
@@ -108,47 +93,33 @@ class NavigationActivity : AppCompatActivity(), BLEService.IBLEServiceObserver
         KeepRight(43),
         Start(44),
         Intermediate(45),
-        Stop(46);
+        Stop(46),
+        ;
 
         override fun toString(): String = value.toString()
     }
 
-    // ---------------------------------------------------------------------------------------------------------------------------
-
     // Code to manage Service lifecycle.
-    private val mServiceConnection: ServiceConnection = object : ServiceConnection
-    {
-        // -----------------------------------------------------------------------------------------------------------------------
+    private val mServiceConnection: ServiceConnection = object : ServiceConnection {
 
-        override fun onServiceConnected(componentName: ComponentName, service: IBinder)
-        {
+        override fun onServiceConnected(componentName: ComponentName, service: IBinder) {
             bluetoothLeService = (service as LocalBinder).service
             bluetoothLeService?.let {
-                if (it.initialize(this@NavigationActivity, this@NavigationActivity))
-                {
+                if (it.initialize(this@NavigationActivity, this@NavigationActivity)) {
                     // Automatically connects to the device upon successful start-up initialization.
                     Handler(Looper.getMainLooper()).post {
                         it.connect(deviceAddress)
                     }
-                }
-                else
-                {
+                } else {
                     showError("Unable to initialize Bluetooth")
                 }
             }
         }
 
-        // -----------------------------------------------------------------------------------------------------------------------
-
-        override fun onServiceDisconnected(componentName: ComponentName)
-        {
+        override fun onServiceDisconnected(componentName: ComponentName) {
             bluetoothLeService = null
         }
-
-        // -----------------------------------------------------------------------------------------------------------------------
     }
-
-    // ---------------------------------------------------------------------------------------------------------------------------
 
     // Handles various events fired by the Service.
     // ACTION_GATT_CONNECTED: connected to a GATT server.
@@ -156,304 +127,239 @@ class NavigationActivity : AppCompatActivity(), BLEService.IBLEServiceObserver
     // ACTION_GATT_SERVICES_DISCOVERED: discovered GATT services.
     // ACTION_DATA_AVAILABLE: received data from the device.  This can be a result of read
     //                        or notification operations.
-    private val gattUpdateReceiver: BroadcastReceiver = object : BroadcastReceiver()
-    {
-        override fun onReceive(context: Context, intent: Intent)
-        {
+    private val gattUpdateReceiver: BroadcastReceiver = object : BroadcastReceiver() {
+        override fun onReceive(context: Context, intent: Intent) {
             val action = intent.action
 
-            when (action)
-            {
-                BLEService.ACTION_GATT_CONNECTED ->
-                {
+            when (action) {
+                BLEService.ACTION_GATT_CONNECTED -> {
                     updateConnectionState(R.string.connected)
                 }
 
-                BLEService.ACTION_GATT_DISCONNECTED ->
-                {
+                BLEService.ACTION_GATT_DISCONNECTED -> {
                     updateConnectionState(R.string.disconnected)
                     clearUI()
                 }
 
-                BLEService.ACTION_GATT_SERVICES_DISCOVERED ->
-                {
+                BLEService.ACTION_GATT_SERVICES_DISCOVERED -> {
                     // Show all the supported services and characteristics on the user interface.
                     parseGattServices(bluetoothLeService?.supportedGattServices)
                 }
 
-                BLEService.ACTION_DATA_AVAILABLE ->
-                {
+                BLEService.ACTION_DATA_AVAILABLE -> {
                     val type = intent.getIntExtra(BLEService.EXTRA_TYPE, -1)
                     Log.d(tag, "receive data, type = $type")
 
-                    when(type){
-                        0->{
-                            topPanel.visibility = View.VISIBLE
-                            navInstruction.text = intent.getStringExtra(BLEService.EXTRA_DATA)
+                    when (type) {
+                        0 -> {
+                            binding.topPanel.visibility = View.VISIBLE
+                            binding.navInstruction.text = intent.getStringExtra(BLEService.EXTRA_DATA)
                         }
-                        1->{
-                            topPanel.visibility = View.VISIBLE
-                            navInstructionDistance.text = intent.getStringExtra(BLEService.EXTRA_DATA)
+
+                        1 -> {
+                            binding.topPanel.visibility = View.VISIBLE
+                            binding.instrDistance.text = intent.getStringExtra(
+                                BLEService.EXTRA_DATA,
+                            )
                         }
-                        2->{
+
+                        2 -> {
                             val data = intent.getByteArrayExtra(BLEService.EXTRA_DATA)
 
                             Log.d(tag, "parse turn image data, data.size = ${data?.size}")
 
-                            if ((data != null) && (data.size == 4))
-                            {
+                            if ((data != null) && (data.size == 4)) {
                                 Log.d(tag, "get turn image icon, data[0] = ${data[0]}")
 
                                 var imageId = 0
-                                when (data[0].toInt())
-                                {
-                                    ETurnEvent.Straight.value ->
-                                    {
+                                when (data[0].toInt()) {
+                                    ETurnEvent.Straight.value -> {
                                         imageId = R.drawable.ic_nav_arrow_keep_going
                                     }
 
-                                    ETurnEvent.Right.value, ETurnEvent.Right1.value, ETurnEvent.Right2.value ->
-                                    {
+                                    ETurnEvent.Right.value, ETurnEvent.Right1.value, ETurnEvent.Right2.value -> {
                                         imageId = R.drawable.ic_nav_arrow_turn_right
                                     }
 
-                                    ETurnEvent.Left.value, ETurnEvent.Left1.value, ETurnEvent.Left2.value ->
-                                    {
+                                    ETurnEvent.Left.value, ETurnEvent.Left1.value, ETurnEvent.Left2.value -> {
                                         imageId = R.drawable.ic_nav_arrow_turn_left
                                     }
 
-                                    ETurnEvent.LightLeft.value, ETurnEvent.LightLeft1.value, ETurnEvent.LightLeft2.value ->
-                                    {
+                                    ETurnEvent.LightLeft.value, ETurnEvent.LightLeft1.value, ETurnEvent.LightLeft2.value -> {
                                         imageId = R.drawable.ic_nav_arrow_keep_left
                                     }
 
-                                    ETurnEvent.LightRight.value, ETurnEvent.LightRight1.value, ETurnEvent.LightRight2.value ->
-                                    {
+                                    ETurnEvent.LightRight.value, ETurnEvent.LightRight1.value, ETurnEvent.LightRight2.value -> {
                                         imageId = R.drawable.ic_nav_arrow_keep_right
                                     }
 
-                                    ETurnEvent.SharpRight.value, ETurnEvent.SharpRight1.value, ETurnEvent.SharpRight2.value ->
-                                    {
+                                    ETurnEvent.SharpRight.value, ETurnEvent.SharpRight1.value, ETurnEvent.SharpRight2.value -> {
                                         imageId = R.drawable.ic_nav_arrow_turn_hard_right
                                     }
 
-                                    ETurnEvent.SharpLeft.value, ETurnEvent.SharpLeft1.value, ETurnEvent.SharpLeft2.value ->
-                                    {
+                                    ETurnEvent.SharpLeft.value, ETurnEvent.SharpLeft1.value, ETurnEvent.SharpLeft2.value -> {
                                         imageId = R.drawable.ic_nav_arrow_turn_hard_left
                                     }
 
-                                    ETurnEvent.RoundaboutExitRight.value ->
-                                    {
+                                    ETurnEvent.RoundaboutExitRight.value -> {
                                         imageId = R.drawable.ic_nav_roundabout_exit_ccw
                                     }
 
-                                    ETurnEvent.Roundabout.value ->
-                                    {
+                                    ETurnEvent.Roundabout.value -> {
                                         imageId = R.drawable.ic_nav_roundabout_fallback
                                     }
 
-                                    ETurnEvent.RoundRight.value ->
-                                    {
+                                    ETurnEvent.RoundRight.value -> {
                                         imageId = R.drawable.ic_nav_arrow_uturn
                                     }
 
-                                    ETurnEvent.RoundLeft.value ->
-                                    {
+                                    ETurnEvent.RoundLeft.value -> {
                                         imageId = R.drawable.ic_nav_arrow_uturn
                                     }
 
-                                    ETurnEvent.ExitRight.value, ETurnEvent.ExitRight1.value, ETurnEvent.ExitRight2.value ->
-                                    {
+                                    ETurnEvent.ExitRight.value, ETurnEvent.ExitRight1.value, ETurnEvent.ExitRight2.value -> {
                                         imageId = R.drawable.ic_nav_arrow_fork_right
                                     }
 
-                                    ETurnEvent.ExitLeft.value, ETurnEvent.ExitLeft1.value, ETurnEvent.ExitLeft2.value ->
-                                    {
+                                    ETurnEvent.ExitLeft.value, ETurnEvent.ExitLeft1.value, ETurnEvent.ExitLeft2.value -> {
                                         imageId = R.drawable.ic_nav_arrow_fork_left
                                     }
 
-                                    ETurnEvent.RoundaboutExitLeft.value ->
-                                    {
+                                    ETurnEvent.RoundaboutExitLeft.value -> {
                                         imageId = R.drawable.ic_nav_roundabout_exit_cw
                                     }
 
-                                    ETurnEvent.IntoRoundabout.value ->
-                                    {
+                                    ETurnEvent.IntoRoundabout.value -> {
                                         val entrance = data[1].toInt()
                                         val exit = data[2].toInt()
                                         val rightSide = data[3].toInt() == 1
 
-                                        if (entrance == 6)
-                                        {
-                                            imageId = when (exit)
-                                            {
-                                                12 ->
-                                                {
-                                                    if (rightSide)
-                                                    {
+                                        if (entrance == 6) {
+                                            imageId = when (exit) {
+                                                12 -> {
+                                                    if (rightSide) {
                                                         R.drawable.ic_nav_roundabout_ccw1_1
-                                                    }
-                                                    else
-                                                    {
+                                                    } else {
                                                         R.drawable.ic_nav_roundabout_cw1_1
                                                     }
                                                 }
 
-                                                10, 11 ->
-                                                {
-                                                    if (rightSide)
-                                                    {
+                                                10, 11 -> {
+                                                    if (rightSide) {
                                                         R.drawable.ic_nav_roundabout_ccw2_2
-                                                    }
-                                                    else
-                                                    {
+                                                    } else {
                                                         R.drawable.ic_nav_roundabout_cw1_2
                                                     }
                                                 }
 
-                                                1, 2 ->
-                                                {
-                                                    if (rightSide)
-                                                    {
+                                                1, 2 -> {
+                                                    if (rightSide) {
                                                         R.drawable.ic_nav_roundabout_ccw1_2
-                                                    }
-                                                    else
-                                                    {
+                                                    } else {
                                                         R.drawable.ic_nav_roundabout_cw2_2
                                                     }
                                                 }
 
-                                                7, 8, 9 ->
-                                                {
-                                                    if (rightSide)
-                                                    {
+                                                7, 8, 9 -> {
+                                                    if (rightSide) {
                                                         R.drawable.ic_nav_roundabout_ccw3_3
-                                                    }
-                                                    else
-                                                    {
+                                                    } else {
                                                         R.drawable.ic_nav_roundabout_cw1_3
                                                     }
                                                 }
 
-                                                3, 4, 5 ->
-                                                {
-                                                    if (rightSide)
-                                                    {
+                                                3, 4, 5 -> {
+                                                    if (rightSide) {
                                                         R.drawable.ic_nav_roundabout_ccw1_3
-                                                    }
-                                                    else
-                                                    {
+                                                    } else {
                                                         R.drawable.ic_nav_roundabout_cw3_3
                                                     }
                                                 }
 
-                                                else ->
-                                                {
+                                                else -> {
                                                     R.drawable.ic_nav_roundabout_fallback
                                                 }
                                             }
-                                        }
-                                        else
-                                        {
+                                        } else {
                                             imageId = R.drawable.ic_nav_roundabout_fallback
                                         }
                                     }
 
-                                    ETurnEvent.StayOn.value ->
-                                    {
+                                    ETurnEvent.StayOn.value -> {
                                         imageId = R.drawable.ic_nav_arrow_keep_going
                                     }
 
-                                    ETurnEvent.BoatFerry.value ->
-                                    {
+                                    ETurnEvent.BoatFerry.value -> {
                                         imageId = R.drawable.ic_nav_boat
                                     }
 
-                                    ETurnEvent.RailFerry.value ->
-                                    {
+                                    ETurnEvent.RailFerry.value -> {
                                         imageId = R.drawable.ic_nav_train
                                     }
 
-                                    ETurnEvent.LeftRight.value ->
-                                    {
+                                    ETurnEvent.LeftRight.value -> {
                                         imageId = R.drawable.ic_nav_arrow_turn_left
                                     }
 
-                                    ETurnEvent.RightLeft.value ->
-                                    {
+                                    ETurnEvent.RightLeft.value -> {
                                         imageId = R.drawable.ic_nav_arrow_turn_right
                                     }
 
-                                    ETurnEvent.KeepLeft.value ->
-                                    {
+                                    ETurnEvent.KeepLeft.value -> {
                                         imageId = R.drawable.ic_nav_arrow_keep_left
                                     }
 
-                                    ETurnEvent.KeepRight.value ->
-                                    {
+                                    ETurnEvent.KeepRight.value -> {
                                         imageId = R.drawable.ic_nav_arrow_keep_right
                                     }
 
-                                    ETurnEvent.Start.value ->
-                                    {
+                                    ETurnEvent.Start.value -> {
                                         imageId = R.drawable.ic_nav_arrow_start
                                     }
 
-                                    ETurnEvent.Intermediate.value, ETurnEvent.Stop.value ->
-                                    {
+                                    ETurnEvent.Intermediate.value, ETurnEvent.Stop.value -> {
                                         imageId = R.drawable.ic_nav_arrow_finish
                                     }
                                 }
 
-                                if (imageId != 0)
-                                {
-                                    topPanel.visibility = View.VISIBLE
-                                    navInstructionIcon.setImageResource(imageId)
-                                    navInstructionIcon.setColorFilter(Color.WHITE)
-                                }
-                                else
-                                {
-                                    topPanel.visibility = View.GONE
+                                if (imageId != 0) {
+                                    binding.topPanel.visibility = View.VISIBLE
+                                    binding.navIcon.setImageResource(imageId)
+                                    binding.navIcon.setColorFilter(Color.WHITE)
+                                } else {
+                                    binding.topPanel.visibility = View.GONE
                                 }
                             }
                         }
-                        else->{}
+
+                        else -> {}
                     }
                 }
             }
         }
     }
 
-    // ---------------------------------------------------------------------------------------------------------------------------
-
-    override fun onCharacteristicRead(gattCharacteristic: BluetoothGattCharacteristic)
-    {
+    override fun onCharacteristicRead(gattCharacteristic: BluetoothGattCharacteristic) {
         Log.d(
             tag,
             "onCharacteristicRead(): uuid = " + SampleGattAttributes.lookup(
                 gattCharacteristic.uuid.toString(),
-                gattCharacteristic.uuid.toString()
-            )
+                gattCharacteristic.uuid.toString(),
+            ),
         )
 
-        val nextUUIDToRead = when (gattCharacteristic.uuid)
-        {
-            SampleGattAttributes.TURN_IMAGE ->
-            {
+        val nextUUIDToRead = when (gattCharacteristic.uuid) {
+            SampleGattAttributes.TURN_IMAGE -> {
                 SampleGattAttributes.TURN_DISTANCE
             }
 
-            SampleGattAttributes.TURN_DISTANCE ->
-            {
+            SampleGattAttributes.TURN_DISTANCE -> {
                 SampleGattAttributes.TURN_INSTRUCTION
             }
 
-            else ->
-            {
-                for (characteristic in characteristics)
-                {
-                    if ((characteristic.properties or BluetoothGattCharacteristic.PROPERTY_NOTIFY) > 0)
-                    {
+            else -> {
+                for (characteristic in characteristics) {
+                    if ((characteristic.properties or BluetoothGattCharacteristic.PROPERTY_NOTIFY) > 0) {
                         bluetoothLeService?.setCharacteristicNotification(characteristic, true)
                     }
                 }
@@ -462,12 +368,10 @@ class NavigationActivity : AppCompatActivity(), BLEService.IBLEServiceObserver
             }
         }
 
-        for (characteristic in characteristics)
-        {
+        for (characteristic in characteristics) {
             if (characteristic.uuid == nextUUIDToRead &&
                 (characteristic.properties or BluetoothGattCharacteristic.PROPERTY_READ) > 0
-            )
-            {
+            ) {
                 Handler(Looper.getMainLooper()).post {
                     bluetoothLeService?.readCharacteristic(characteristic)
                 }
@@ -476,72 +380,41 @@ class NavigationActivity : AppCompatActivity(), BLEService.IBLEServiceObserver
         }
     }
 
-    // ---------------------------------------------------------------------------------------------------------------------------
-
-    private fun clearUI()
-    {
-        topPanel.visibility = View.GONE
+    private fun clearUI() {
+        binding.topPanel.visibility = View.GONE
     }
 
-    // ---------------------------------------------------------------------------------------------------------------------------
-
-    public override fun onCreate(savedInstanceState: Bundle?)
-    {
+    public override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        setContentView(R.layout.navigation_activity)
+        enableEdgeToEdge()
+
+        binding = DataBindingUtil.setContentView(this, R.layout.navigation_activity)
 
         tag = getString(R.string.app_name)
         deviceAddress = intent.getStringExtra(EXTRAS_DEVICE_ADDRESS)
         padding = resources.getDimension(R.dimen.big_padding).toInt()
 
-        toolbar = findViewById(R.id.toolbar)
-        topPanel = findViewById(R.id.top_panel)
-        navInstruction = findViewById(R.id.nav_instruction)
-        navInstructionDistance = findViewById(R.id.instr_distance)
-        navInstructionIcon = findViewById(R.id.nav_icon)
-
-        setSupportActionBar(toolbar)
+        setSupportActionBar(binding.toolbar)
         supportActionBar?.setDisplayHomeAsUpEnabled(true)
 
         val upArrow = ResourcesCompat.getDrawable(resources, R.drawable.ic_arrow_back_white, theme)
         supportActionBar?.setHomeAsUpIndicator(upArrow)
-        
+
         supportActionBar?.title = intent.getStringExtra(EXTRAS_DEVICE_NAME).plus(" - ")
             .plus(getString(R.string.disconnected))
 
         val gattServiceIntent = Intent(this, BLEService::class.java)
         bindService(gattServiceIntent, mServiceConnection, BIND_AUTO_CREATE)
 
-        ContextCompat.registerReceiver(this, gattUpdateReceiver, makeGattUpdateIntentFilter(), ContextCompat.RECEIVER_EXPORTED)
-
-        ViewCompat.setOnApplyWindowInsetsListener(toolbar) { _, windowInsets ->
-            val insets = windowInsets.getInsets(WindowInsetsCompat.Type.systemBars())
-
-            toolbar.updateLayoutParams {
-                if (this is ViewGroup.MarginLayoutParams)
-                {
-                    topMargin = insets.top
-                    leftMargin = insets.left
-                    rightMargin = insets.right
-                }
-            }
-
-            topPanel.updateLayoutParams {
-                if (this is ViewGroup.MarginLayoutParams)
-                {
-                    leftMargin = insets.left + padding
-                    rightMargin = insets.right + padding
-                }
-            }
-            
-            WindowInsetsCompat.CONSUMED
-        }
+        ContextCompat.registerReceiver(
+            this,
+            gattUpdateReceiver,
+            makeGattUpdateIntentFilter(),
+            ContextCompat.RECEIVER_EXPORTED,
+        )
     }
 
-    // ---------------------------------------------------------------------------------------------------------------------------
-
-    private fun makeGattUpdateIntentFilter(): IntentFilter
-    {
+    private fun makeGattUpdateIntentFilter(): IntentFilter {
         val intentFilter = IntentFilter()
         intentFilter.addAction(BLEService.ACTION_GATT_CONNECTED)
         intentFilter.addAction(BLEService.ACTION_GATT_DISCONNECTED)
@@ -550,18 +423,12 @@ class NavigationActivity : AppCompatActivity(), BLEService.IBLEServiceObserver
         return intentFilter
     }
 
-    // ---------------------------------------------------------------------------------------------------------------------------
-
-    override fun onSupportNavigateUp(): Boolean
-    {
-        onBackPressed()
+    override fun onSupportNavigateUp(): Boolean {
+        onBackPressedDispatcher.onBackPressed()
         return true
     }
 
-    // ---------------------------------------------------------------------------------------------------------------------------
-
-    override fun onDestroy()
-    {
+    override fun onDestroy() {
         super.onDestroy()
         unregisterReceiver(gattUpdateReceiver)
         unbindService(mServiceConnection)
@@ -571,37 +438,26 @@ class NavigationActivity : AppCompatActivity(), BLEService.IBLEServiceObserver
         }
     }
 
-    // ---------------------------------------------------------------------------------------------------------------------------
-
-    private fun updateConnectionState(resourceId: Int)
-    {
+    private fun updateConnectionState(resourceId: Int) {
         runOnUiThread {
             supportActionBar?.title =
                 intent.getStringExtra(EXTRAS_DEVICE_NAME).plus(" - ").plus(getString(resourceId))
         }
     }
 
-    // ---------------------------------------------------------------------------------------------------------------------------
-
-    private fun parseGattServices(gattServices: List<BluetoothGattService>?)
-    {
+    private fun parseGattServices(gattServices: List<BluetoothGattService>?) {
         Log.d(tag, "parseGattServices(): services count = ${gattServices?.size}")
 
-        if (gattServices != null)
-        {
-            for (gattService in gattServices)
-            {
-                if (gattService.uuid == SampleGattAttributes.NAVIGATION_SERVICE)
-                {
+        if (gattServices != null) {
+            for (gattService in gattServices) {
+                if (gattService.uuid == SampleGattAttributes.NAVIGATION_SERVICE) {
                     Log.d(tag, "parseGattServices(): found navigation service!")
 
                     characteristics = gattService.characteristics
-                    for (gattCharacteristic in characteristics)
-                    {
+                    for (gattCharacteristic in characteristics) {
                         if ((gattCharacteristic.uuid == SampleGattAttributes.TURN_IMAGE) &&
                             ((gattCharacteristic.properties or BluetoothGattCharacteristic.PROPERTY_READ) > 0)
-                        )
-                        {
+                        ) {
                             bluetoothLeService?.readCharacteristic(gattCharacteristic)
                             break
                         }
@@ -613,23 +469,13 @@ class NavigationActivity : AppCompatActivity(), BLEService.IBLEServiceObserver
         }
     }
 
-    // ---------------------------------------------------------------------------------------------------------------------------
-
-    private fun showError(message: String)
-    {
+    private fun showError(message: String) {
         Log.e(tag, message)
         Toast.makeText(this, message, Toast.LENGTH_LONG).show()
     }
 
-    // ---------------------------------------------------------------------------------------------------------------------------
-
-    companion object
-    {
+    companion object {
         const val EXTRAS_DEVICE_NAME = "DEVICE_NAME"
         const val EXTRAS_DEVICE_ADDRESS = "DEVICE_ADDRESS"
     }
-
-    // ---------------------------------------------------------------------------------------------------------------------------
 }
-
-// -------------------------------------------------------------------------------------------------------------------------------

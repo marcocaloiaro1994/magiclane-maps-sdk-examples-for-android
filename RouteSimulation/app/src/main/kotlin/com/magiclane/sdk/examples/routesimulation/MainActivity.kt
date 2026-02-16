@@ -1,51 +1,36 @@
-// -------------------------------------------------------------------------------------------------
-
 /*
- * SPDX-FileCopyrightText: 1995-2025 Magic Lane International B.V. <info@magiclane.com>
+ * SPDX-FileCopyrightText: 2021-2026 Magic Lane International B.V. <info@magiclane.com>
  * SPDX-License-Identifier: Apache-2.0
  *
  * Contact Magic Lane at <info@magiclane.com> for SDK licensing options.
  */
 
-// -------------------------------------------------------------------------------------------------
-
 package com.magiclane.sdk.examples.routesimulation
-
-// -------------------------------------------------------------------------------------------------
 
 import android.annotation.SuppressLint
 import android.os.Bundle
 import android.view.View
 import android.widget.Button
-import android.widget.ProgressBar
 import android.widget.TextView
 import androidx.activity.addCallback
-import androidx.annotation.VisibleForTesting
+import androidx.activity.enableEdgeToEdge
 import androidx.appcompat.app.AppCompatActivity
-import androidx.test.espresso.IdlingResource
-import androidx.test.espresso.idling.CountingIdlingResource
+import androidx.databinding.DataBindingUtil
+import com.google.android.material.bottomsheet.BottomSheetDialog
 import com.magiclane.sdk.core.GemSdk
-import com.magiclane.sdk.core.GemSurfaceView
 import com.magiclane.sdk.core.ProgressListener
 import com.magiclane.sdk.core.SdkSettings
+import com.magiclane.sdk.examples.routesimulation.databinding.ActivityMainBinding
 import com.magiclane.sdk.places.Landmark
 import com.magiclane.sdk.routesandnavigation.NavigationListener
 import com.magiclane.sdk.routesandnavigation.NavigationService
 import com.magiclane.sdk.routesandnavigation.Route
 import com.magiclane.sdk.util.SdkCall
 import com.magiclane.sdk.util.Util
-import com.google.android.material.bottomsheet.BottomSheetDialog
-import com.google.android.material.floatingactionbutton.FloatingActionButton
 import kotlin.system.exitProcess
 
-// -------------------------------------------------------------------------------------------------
-
-class MainActivity : AppCompatActivity()
-{
-    // ---------------------------------------------------------------------------------------------
-    private lateinit var gemSurfaceView: GemSurfaceView
-    private lateinit var progressBar: ProgressBar
-    private lateinit var followCursorButton: FloatingActionButton
+class MainActivity : AppCompatActivity() {
+    private lateinit var binding: ActivityMainBinding
 
     // Define a navigation service from which we will start the simulation.
     private val navigationService = NavigationService()
@@ -53,16 +38,16 @@ class MainActivity : AppCompatActivity()
     private val navRoute: Route?
         get() = navigationService.getNavigationRoute(navigationListener)
 
-    /* 
-    Define a navigation listener that will receive notifications from the
-    navigation service.
-    We will use just the onNavigationStarted method, but for more available
-    methods you should check the documentation.
+    /**
+     * Define a navigation listener that will receive notifications from the
+     * navigation service.
+     * We will use just the onNavigationStarted method, but for more available
+     * methods you should check the documentation.
      */
     private val navigationListener: NavigationListener = NavigationListener.create(
         onNavigationStarted = {
             SdkCall.execute {
-                gemSurfaceView.mapView?.let { mapView ->
+                binding.gemSurfaceView.mapView?.let { mapView ->
                     mapView.preferences?.enableCursor = false
                     navRoute?.let { route ->
                         mapView.presentRoute(route)
@@ -73,40 +58,33 @@ class MainActivity : AppCompatActivity()
                 }
             }
         },
-        onDestinationReached = {_ ->
+        onDestinationReached = { _ ->
             SdkCall.execute {
-                gemSurfaceView.mapView?.let { mapView ->
+                binding.gemSurfaceView.mapView?.let { mapView ->
                     mapView.preferences?.routes?.clear()
                 }
             }
-        }
+        },
     )
 
     // Define a listener that will let us know the progress of the routing process.
     private val routingProgressListener = ProgressListener.create(
         onStarted = {
-            progressBar.visibility = View.VISIBLE
+            binding.progressBar.visibility = View.VISIBLE
         },
 
         onCompleted = { _, _ ->
-            progressBar.visibility = View.GONE
+            binding.progressBar.visibility = View.GONE
         },
 
-        postOnMain = true
+        postOnMain = true,
     )
 
-    // ---------------------------------------------------------------------------------------------
-
-    override fun onCreate(savedInstanceState: Bundle?)
-    {
+    override fun onCreate(savedInstanceState: Bundle?) {
+        enableEdgeToEdge()
         super.onCreate(savedInstanceState)
-        setContentView(R.layout.activity_main)
+        binding = DataBindingUtil.setContentView(this, R.layout.activity_main)
 
-        progressBar = findViewById(R.id.progressBar)
-        gemSurfaceView = findViewById(R.id.gem_surface)
-        followCursorButton = findViewById(R.id.followCursor)
-
-        /// MAGIC LANE
         SdkSettings.onMapDataReady = onMapDataReady@{ isReady ->
             if (!isReady) return@onMapDataReady
 
@@ -115,16 +93,15 @@ class MainActivity : AppCompatActivity()
         }
 
         SdkSettings.onApiTokenRejected = {
-            /* 
-            The TOKEN you provided in the AndroidManifest.xml file was rejected.
-            Make sure you provide the correct value, or if you don't have a TOKEN,
-            check the magiclane.com website, sign up/sign in and generate one. 
+            /**
+             * The TOKEN you provided in the AndroidManifest.xml file was rejected.
+             * Make sure you provide the correct value, or if you don't have a TOKEN,
+             * check the magiclane.com website, sign up/sign in and generate one.
              */
             showDialog("TOKEN REJECTED")
         }
 
-        if (!Util.isInternetConnected(this))
-        {
+        if (!Util.isInternetConnected(this)) {
             showDialog("You must be connected to the internet!")
         }
         onBackPressedDispatcher.addCallback(this) {
@@ -133,57 +110,47 @@ class MainActivity : AppCompatActivity()
         }
     }
 
-    // ---------------------------------------------------------------------------------------------
-
-    override fun onStop()
-    {
+    override fun onStop() {
         super.onStop()
 
         // Release the SDK.
         GemSdk.release()
     }
 
-    // ---------------------------------------------------------------------------------------------
-
-    private fun enableGPSButton()
-    {
+    private fun enableGPSButton() {
         // Set actions for entering/ exiting following position mode.
-        gemSurfaceView.mapView?.apply {
-            onExitFollowingPosition = {
-                val isSimulationActive = SdkCall.execute { NavigationService().isSimulationActive() } ?: false
-                if (isSimulationActive)
-                {
-                    followCursorButton.visibility = View.VISIBLE
+        binding.apply {
+            gemSurfaceView.mapView?.apply {
+                onExitFollowingPosition = {
+                    val isSimulationActive = SdkCall.execute { NavigationService().isSimulationActive() } ?: false
+                    if (isSimulationActive) {
+                        followCursorButton.visibility = View.VISIBLE
+                    }
                 }
-            }
 
-            onEnterFollowingPosition = {
-                followCursorButton.visibility = View.GONE
-            }
+                onEnterFollowingPosition = {
+                    followCursorButton.visibility = View.GONE
+                }
 
-            // Set on click action for the GPS button.
-            followCursorButton.setOnClickListener {
-                SdkCall.execute { followPosition() }
+                // Set on click action for the GPS button.
+                followCursorButton.setOnClickListener {
+                    SdkCall.execute { followPosition() }
+                }
             }
         }
     }
 
-    // ---------------------------------------------------------------------------------------------
-
     private fun startSimulation() = SdkCall.execute {
         val waypoints = arrayListOf(
             Landmark("London", 51.5073204, -0.1276475),
-            Landmark("Paris", 48.8566932, 2.3514616)
+            Landmark("Paris", 48.8566932, 2.3514616),
         )
 
         navigationService.startSimulation(waypoints, navigationListener, routingProgressListener)
     }
 
-    // ---------------------------------------------------------------------------------------------
-
     @SuppressLint("InflateParams")
-    private fun showDialog(text: String)
-    {
+    private fun showDialog(text: String) {
         val dialog = BottomSheetDialog(this)
         val view = layoutInflater.inflate(R.layout.dialog_layout, null).apply {
             findViewById<TextView>(R.id.title).text = getString(R.string.error)
@@ -199,5 +166,3 @@ class MainActivity : AppCompatActivity()
         }
     }
 }
-
-// -------------------------------------------------------------------------------------------------

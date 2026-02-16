@@ -1,9 +1,12 @@
 @file:Suppress("UnstableApiUsage")
 
+includeBuild("../build-support")
+
+include(":build-testing")
+project(":build-testing").projectDir = file("../build-testing")
+
 // This will find your gemSdkLocalMavenPath in ~/.gradle/gradle.properties
 val gemSdkLocalMavenPath: String? by settings
-
-includeBuild("../build-support")
 
 pluginManagement {
     repositories {
@@ -18,6 +21,7 @@ pluginManagement {
         gradlePluginPortal()
     }
 }
+
 dependencyResolutionManagement {
     val localMavenPath = gemSdkLocalMavenPath
         ?: System.getenv("GEM_SDK_LOCAL_MAVEN_PATH").takeIf { !it.isNullOrBlank() }
@@ -26,13 +30,13 @@ dependencyResolutionManagement {
     repositories {
         google()
         mavenCentral()
-		if(!localMavenPath.isNullOrBlank()) {
-			maven { url = uri(localMavenPath) }
-		} else {
-			maven {
-				url = uri("https://developer.magiclane.com/packages/android")
-			}
-		}
+        if (!localMavenPath.isNullOrBlank()) {
+            maven { url = uri(localMavenPath) }
+        } else {
+            maven {
+                url = uri("https://developer.magiclane.com/packages/android")
+            }
+        }
     }
     versionCatalogs {
         create("shared") {

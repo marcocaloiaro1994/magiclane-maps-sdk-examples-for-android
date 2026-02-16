@@ -1,17 +1,11 @@
-// -------------------------------------------------------------------------------------------------------------------------------
-
 /*
- * SPDX-FileCopyrightText: 1995-2025 Magic Lane International B.V. <info@magiclane.com>
+ * SPDX-FileCopyrightText: 2021-2026 Magic Lane International B.V. <info@magiclane.com>
  * SPDX-License-Identifier: Apache-2.0
  *
  * Contact Magic Lane at <info@magiclane.com> for SDK licensing options.
  */
 
-// -------------------------------------------------------------------------------------------------------------------------------
-
 package com.magiclane.sdk.examples.bleserver
-
-// -------------------------------------------------------------------------------------------------------------------------------
 
 import android.Manifest
 import android.annotation.SuppressLint
@@ -35,34 +29,25 @@ import android.os.Build
 import android.os.Bundle
 import android.util.Log
 import android.view.View
-import android.view.ViewGroup
 import android.view.WindowManager
-import android.widget.Button
-import android.widget.ImageView
-import android.widget.ProgressBar
-import android.widget.TextView
 import androidx.activity.addCallback
 import androidx.activity.enableEdgeToEdge
 import androidx.appcompat.app.AppCompatActivity
-import androidx.constraintlayout.widget.ConstraintLayout
 import androidx.core.app.ActivityCompat
-import androidx.core.view.ViewCompat
-import androidx.core.view.WindowInsetsCompat
-import androidx.core.view.updateLayoutParams
-import androidx.appcompat.widget.Toolbar
 import androidx.core.content.ContextCompat
+import androidx.databinding.DataBindingUtil
 import com.google.android.material.bottomsheet.BottomSheetDialog
-import com.google.android.material.floatingactionbutton.FloatingActionButton
 import com.magiclane.sdk.core.EUnitSystem
 import com.magiclane.sdk.core.ErrorCode
 import com.magiclane.sdk.core.GemError
 import com.magiclane.sdk.core.GemSdk
-import com.magiclane.sdk.core.GemSurfaceView
 import com.magiclane.sdk.core.ProgressListener
 import com.magiclane.sdk.core.Rgba
 import com.magiclane.sdk.core.SdkSettings
 import com.magiclane.sdk.core.TAG
 import com.magiclane.sdk.core.Time
+import com.magiclane.sdk.examples.bleserver.databinding.ActivityMainBinding
+import com.magiclane.sdk.examples.bleserver.databinding.DialogLayoutBinding
 import com.magiclane.sdk.places.Landmark
 import com.magiclane.sdk.routesandnavigation.ETurnEvent
 import com.magiclane.sdk.routesandnavigation.NavigationInstruction
@@ -76,60 +61,32 @@ import com.magiclane.sdk.util.Util
 import java.util.*
 import kotlin.system.exitProcess
 
-// -------------------------------------------------------------------------------------------------------------------------------
-
-class MainActivity : AppCompatActivity()
-{
-    // ---------------------------------------------------------------------------------------------------------------------------    
-
+class MainActivity : AppCompatActivity() {
     class TSameImage(var value: Boolean = false)
 
-    // ---------------------------------------------------------------------------------------------------------------------------
-
-    private lateinit var toolbar: Toolbar
-    private lateinit var gemSurfaceView: GemSurfaceView
-    private lateinit var progressBar: ProgressBar
-    private lateinit var followGPSButton: FloatingActionButton
-
-    private lateinit var topPanel: ConstraintLayout
-    private lateinit var navInstruction: TextView
-    private lateinit var navInstructionDistance: TextView
-    private lateinit var navInstructionIcon: ImageView
-
-    private lateinit var bottomPanel: ConstraintLayout
-    private lateinit var eta: TextView
-    private lateinit var rtt: TextView
-    private lateinit var rtd: TextView
+    private lateinit var binding: ActivityMainBinding
     private var lastTurnImageId: Long = Long.MAX_VALUE
     private var turnEvent = byteArrayOf(0, 0, 0, 0)
     private var turnImageSize: Int = 0
     private var padding: Int = 0
 
-    // ---------------------------------------------------------------------------------------------------------------------------
-
     private val permissionsRequestCode = 1
-
-    // ---------------------------------------------------------------------------------------------------------------------------
 
     /** Define a navigation service from which we will start the simulation.*/
     private val navigationService = NavigationService()
 
-    // ---------------------------------------------------------------------------------------------------------------------------
-
     private val navRoute: Route?
         get() = navigationService.getNavigationRoute(navigationListener)
 
-    // ---------------------------------------------------------------------------------------------------------------------------
-
     /**
-    Define a navigation listener that will receive notifications from the
-    navigation service.
+     * Define a navigation listener that will receive notifications from the
+     * navigation service.
      */
     private val navigationListener: NavigationListener =
         NavigationListener.create(
             onNavigationStarted = {
                 SdkCall.execute {
-                    gemSurfaceView.mapView?.let { mapView ->
+                    binding.gemSurface.mapView?.let { mapView ->
                         mapView.preferences?.enableCursor = false
                         navRoute?.let { route ->
                             mapView.presentRoute(route)
@@ -140,8 +97,8 @@ class MainActivity : AppCompatActivity()
                     }
                 }
 
-                topPanel.visibility = View.VISIBLE
-                bottomPanel.visibility = View.VISIBLE
+                binding.topPanel.visibility = View.VISIBLE
+                binding.bottomPanel.visibility = View.VISIBLE
             },
             onNavigationInstructionUpdated = { instr ->
                 var instrText = ""
@@ -151,11 +108,11 @@ class MainActivity : AppCompatActivity()
                 var rttText = ""
                 var rtdText = ""
 
-                SdkCall.execute { // Fetch data for the navigation top panel (instruction related info).
+                SdkCall.execute {
+                    // Fetch data for the navigation top panel (instruction related info).
                     instrText = instr.nextStreetName ?: ""
 
-                    if (instrText.isEmpty())
-                    {
+                    if (instrText.isEmpty()) {
                         instrText = instr.nextTurnInstruction ?: ""
                     }
 
@@ -170,29 +127,24 @@ class MainActivity : AppCompatActivity()
                 }
 
                 // Update the navigation panels info.
-                // -------------------------------------
 
                 val sameTurnImage = TSameImage()
                 val newTurnImage = getNextTurnImage(instr, turnImageSize, turnImageSize, sameTurnImage)
-                if (!sameTurnImage.value)
-                {
+                if (!sameTurnImage.value) {
                     SdkCall.execute {
-                        for (i in turnEvent.indices)
-                        {
+                        for (i in turnEvent.indices) {
                             turnEvent[i] = 0
                         }
 
                         instr.nextTurnDetails?.let {
                             turnEvent[0] = it.event.value.toByte()
 
-                            if (it.event.value == ETurnEvent.IntoRoundabout.value)
-                            {
+                            if (it.event.value == ETurnEvent.IntoRoundabout.value) {
                                 it.abstractGeometry?.let { abstractGeometry ->
                                     turnEvent[3] = abstractGeometry.driveSide.value.toByte()
 
                                     abstractGeometry.items?.let { items ->
-                                        if (items.size > 1)
-                                        {
+                                        if (items.size > 1) {
                                             turnEvent[1] = items.last().beginSlot.toByte()
                                             turnEvent[2] = items.last().endSlot.toByte()
                                         }
@@ -202,49 +154,43 @@ class MainActivity : AppCompatActivity()
                         }
                     }
 
-                    navInstructionIcon.setImageBitmap(newTurnImage)
+                    binding.navIcon.setImageBitmap(newTurnImage)
                     notifyRegisteredDevices(turnEvent, TURN_IMAGE)
                 }
 
-                if (instrText != navInstruction.text)
-                {
-                    navInstruction.text = instrText
+                if (instrText != binding.navInstruction.text) {
+                    binding.navInstruction.text = instrText
                     sendTurnInstruction()
                 }
 
-                if (instrDistance != navInstructionDistance.text)
-                {
-                    navInstructionDistance.text = instrDistance
+                if (instrDistance != binding.instrDistance.text) {
+                    binding.instrDistance.text = instrDistance
                     sendTurnDistance()
                 }
 
-                eta.text = etaText
-                rtt.text = rttText
-                rtd.text = rtdText
+                binding.eta.text = etaText
+                binding.rtt.text = rttText
+                binding.rtd.text = rtdText
             },
             onDestinationReached = {
                 onNavigationEnded()
             },
             onNavigationError = { error ->
                 onNavigationEnded(error)
-            })
+            },
+        )
 
-    // ---------------------------------------------------------------------------------------------------------------------------
-
-    private fun onNavigationEnded(errorCode: ErrorCode = GemError.NoError)
-    {
+    private fun onNavigationEnded(errorCode: ErrorCode = GemError.NoError) {
         runOnUiThread {
-            if (errorCode != GemError.NoError)
-            {
+            if (errorCode != GemError.NoError) {
                 showDialog(GemError.getMessage(errorCode))
             }
 
-            topPanel.visibility = View.GONE
-            bottomPanel.visibility = View.GONE
-            followGPSButton.visibility = View.GONE
+            binding.topPanel.visibility = View.GONE
+            binding.bottomPanel.visibility = View.GONE
+            binding.followGpsButton.visibility = View.GONE
 
-            for (i in turnEvent.indices)
-            {
+            for (i in turnEvent.indices) {
                 turnEvent[i] = 0
             }
 
@@ -252,31 +198,26 @@ class MainActivity : AppCompatActivity()
         }
 
         SdkCall.execute {
-            gemSurfaceView.mapView?.hideRoutes()
+            binding.gemSurface.mapView?.hideRoutes()
             disableGPSButton()
         }
     }
-
-    // ---------------------------------------------------------------------------------------------------------------------------
 
     private fun getNextTurnImage(
         navInstr: NavigationInstruction,
         width: Int,
         height: Int,
-        bSameImage: TSameImage
-    ): Bitmap?
-    {
+        bSameImage: TSameImage,
+    ): Bitmap? {
         return SdkCall.execute {
             if (!navInstr.hasNextTurnInfo()) return@execute null
-            if ((navInstr.nextTurnDetails?.abstractGeometryImage?.uid ?: 0) == lastTurnImageId)
-            {
+            if ((navInstr.nextTurnDetails?.abstractGeometryImage?.uid ?: 0) == lastTurnImageId) {
                 bSameImage.value = true
                 return@execute null
             }
 
             val image = navInstr.nextTurnDetails?.abstractGeometryImage
-            if (image != null)
-            {
+            if (image != null) {
                 lastTurnImageId = image.uid
             }
 
@@ -292,31 +233,26 @@ class MainActivity : AppCompatActivity()
                 aInner,
                 aOuter,
                 iInner,
-                iOuter
+                iOuter,
             )
         }
     }
 
-    // ---------------------------------------------------------------------------------------------------------------------------
-
     /** Define a listener that will let us know the progress of the routing process.*/
     private val routingProgressListener = ProgressListener.create(
         onStarted = {
-            progressBar.visibility = View.VISIBLE
+            binding.progressBar.visibility = View.VISIBLE
         },
 
         onCompleted = { errorCode, _ ->
-            progressBar.visibility = View.GONE
-            if (errorCode != GemError.NoError)
-            {
+            binding.progressBar.visibility = View.GONE
+            if (errorCode != GemError.NoError) {
                 showDialog(GemError.getMessage(errorCode))
             }
         },
 
-        postOnMain = true
+        postOnMain = true,
     )
-
-    // ---------------------------------------------------------------------------------------------------------------------------
 
     /** Bluetooth API */
     private lateinit var bluetoothManager: BluetoothManager
@@ -324,18 +260,13 @@ class MainActivity : AppCompatActivity()
     /** Collection of notification subscribers */
     private val registeredDevices = mutableSetOf<BluetoothDevice>()
 
-    // ---------------------------------------------------------------------------------------------------------------------------
-
     /**
      * Listens for Bluetooth adapter events to enable/disable
      * advertising and server functionality.
      */
-    private val bluetoothReceiver = object : BroadcastReceiver()
-    {
-        override fun onReceive(context: Context, intent: Intent)
-        {
-            when (intent.getIntExtra(BluetoothAdapter.EXTRA_STATE, BluetoothAdapter.STATE_OFF))
-            {
+    private val bluetoothReceiver = object : BroadcastReceiver() {
+        override fun onReceive(context: Context, intent: Intent) {
+            when (intent.getIntExtra(BluetoothAdapter.EXTRA_STATE, BluetoothAdapter.STATE_OFF)) {
                 BluetoothAdapter.STATE_ON ->
                     navBluetoothManager.start()
 
@@ -345,153 +276,129 @@ class MainActivity : AppCompatActivity()
         }
     }
 
-    // ---------------------------------------------------------------------------------------------------------------------------
-
     /**
      * Callback to receive information about the advertisement process.
      */
-    private val advertiseCallback = object : AdvertiseCallback()
-    {
-        override fun onStartSuccess(settingsInEffect: AdvertiseSettings)
-        {
+    private val advertiseCallback = object : AdvertiseCallback() {
+        override fun onStartSuccess(settingsInEffect: AdvertiseSettings) {
             Log.i(TAG, "LE Advertise Started.")
         }
 
-        override fun onStartFailure(errorCode: Int)
-        {
+        override fun onStartFailure(errorCode: Int) {
             Log.w(TAG, "LE Advertise Failed: $errorCode")
         }
     }
 
-    // ---------------------------------------------------------------------------------------------------------------------------
-
     private lateinit var navBluetoothManager: NavBluetoothManager
-
-    // ---------------------------------------------------------------------------------------------------------------------------
 
     /**
      * Callback to handle incoming requests to the GATT server.
      * All read/write requests for characteristics and descriptors are handled here.
      */
-    private val gattServerCallback = object : BluetoothGattServerCallback()
-    {
-        // -----------------------------------------------------------------------------------------------------------------------
+    private val gattServerCallback = object : BluetoothGattServerCallback() {
 
-        override fun onConnectionStateChange(device: BluetoothDevice, status: Int, newState: Int)
-        {
-            if (newState == BluetoothProfile.STATE_CONNECTED)
-            {
+        override fun onConnectionStateChange(device: BluetoothDevice, status: Int, newState: Int) {
+            if (newState == BluetoothProfile.STATE_CONNECTED) {
                 Log.i(TAG, "BluetoothDevice CONNECTED: $device")
-            }
-            else if (newState == BluetoothProfile.STATE_DISCONNECTED)
-            {
+            } else if (newState == BluetoothProfile.STATE_DISCONNECTED) {
                 Log.i(
                     TAG,
-                    "BluetoothDevice DISCONNECTED: $device"
-                ) //Remove device from any active subscriptions
+                    "BluetoothDevice DISCONNECTED: $device",
+                ) // Remove device from any active subscriptions
                 registeredDevices.remove(device)
             }
         }
-
-        // -----------------------------------------------------------------------------------------------------------------------
 
         override fun onCharacteristicReadRequest(
             device: BluetoothDevice,
             requestId: Int,
             offset: Int,
-            characteristic: BluetoothGattCharacteristic
-        )
-        {
+            characteristic: BluetoothGattCharacteristic,
+        ) {
             if ((Build.VERSION.SDK_INT < Build.VERSION_CODES.S) ||
-                (ActivityCompat.checkSelfPermission(
-                    this@MainActivity,
-                    Manifest.permission.BLUETOOTH_CONNECT
-                ) == PackageManager.PERMISSION_GRANTED)
-            )
-            {
-                when (characteristic.uuid)
-                {
+                (
+                    ActivityCompat.checkSelfPermission(
+                        this@MainActivity,
+                        Manifest.permission.BLUETOOTH_CONNECT,
+                    ) == PackageManager.PERMISSION_GRANTED
+                    )
+            ) {
+                when (characteristic.uuid) {
                     TURN_INSTRUCTION ->
-                    {
-                        Log.i(TAG, "Read turn instruction")
+                        {
+                            Log.i(TAG, "Read turn instruction")
 
-                        navBluetoothManager.bluetoothGattServer.sendResponse(
-                            device,
-                            requestId,
-                            BluetoothGatt.GATT_SUCCESS,
-                            0,
-                            byteArrayOf(0)
-                        )
-                    }
+                            navBluetoothManager.bluetoothGattServer.sendResponse(
+                                device,
+                                requestId,
+                                BluetoothGatt.GATT_SUCCESS,
+                                0,
+                                byteArrayOf(0),
+                            )
+                        }
 
                     TURN_IMAGE ->
-                    {
-                        Log.i(TAG, "Read turn image, turnEvent[0] = ${turnEvent[0]}")
-                        navBluetoothManager.bluetoothGattServer.sendResponse(
-                            device,
-                            requestId,
-                            BluetoothGatt.GATT_SUCCESS,
-                            0,
-                            turnEvent
-                        )
-                    }
+                        {
+                            Log.i(TAG, "Read turn image, turnEvent[0] = ${turnEvent[0]}")
+                            navBluetoothManager.bluetoothGattServer.sendResponse(
+                                device,
+                                requestId,
+                                BluetoothGatt.GATT_SUCCESS,
+                                0,
+                                turnEvent,
+                            )
+                        }
 
                     TURN_DISTANCE ->
-                    {
-                        Log.i(TAG, "Read turn distance")
+                        {
+                            Log.i(TAG, "Read turn distance")
 
-                        val turnDistance = navInstructionDistance.text ?: " "
+                            val turnDistance = binding.instrDistance.text ?: " "
 
-                        navBluetoothManager.bluetoothGattServer.sendResponse(
-                            device,
-                            requestId,
-                            BluetoothGatt.GATT_SUCCESS,
-                            0,
-                            turnDistance.toString().toByteArray()
-                        )
-                    }
+                            navBluetoothManager.bluetoothGattServer.sendResponse(
+                                device,
+                                requestId,
+                                BluetoothGatt.GATT_SUCCESS,
+                                0,
+                                turnDistance.toString().toByteArray(),
+                            )
+                        }
 
                     else ->
-                    {
-                        // Invalid characteristic
-                        Log.w(TAG, "Invalid Characteristic Read: " + characteristic.uuid)
-                        navBluetoothManager.bluetoothGattServer.sendResponse(
-                            device,
-                            requestId,
-                            BluetoothGatt.GATT_FAILURE,
-                            0,
-                            null
-                        )
-                    }
+                        {
+                            // Invalid characteristic
+                            Log.w(TAG, "Invalid Characteristic Read: " + characteristic.uuid)
+                            navBluetoothManager.bluetoothGattServer.sendResponse(
+                                device,
+                                requestId,
+                                BluetoothGatt.GATT_FAILURE,
+                                0,
+                                null,
+                            )
+                        }
                 }
             }
         }
-
-        // -----------------------------------------------------------------------------------------------------------------------
 
         override fun onDescriptorReadRequest(
             device: BluetoothDevice,
             requestId: Int,
             offset: Int,
-            descriptor: BluetoothGattDescriptor
-        )
-        {
+            descriptor: BluetoothGattDescriptor,
+        ) {
             if ((Build.VERSION.SDK_INT < Build.VERSION_CODES.S) ||
-                (ActivityCompat.checkSelfPermission(
-                    this@MainActivity,
-                    Manifest.permission.BLUETOOTH_CONNECT
-                ) == PackageManager.PERMISSION_GRANTED)
-            )
-            {
-                if (CLIENT_CONFIG == descriptor.uuid)
-                {
+                (
+                    ActivityCompat.checkSelfPermission(
+                        this@MainActivity,
+                        Manifest.permission.BLUETOOTH_CONNECT,
+                    ) == PackageManager.PERMISSION_GRANTED
+                    )
+            ) {
+                if (CLIENT_CONFIG == descriptor.uuid) {
                     Log.d(TAG, "Config descriptor read")
-                    val returnValue = if (registeredDevices.contains(device))
-                    {
+                    val returnValue = if (registeredDevices.contains(device)) {
                         BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE
-                    }
-                    else
-                    {
+                    } else {
                         BluetoothGattDescriptor.DISABLE_NOTIFICATION_VALUE
                     }
 
@@ -500,24 +407,20 @@ class MainActivity : AppCompatActivity()
                         requestId,
                         BluetoothGatt.GATT_SUCCESS,
                         0,
-                        returnValue
+                        returnValue,
                     )
-                }
-                else
-                {
+                } else {
                     Log.w(TAG, "Unknown descriptor read request")
                     navBluetoothManager.bluetoothGattServer.sendResponse(
                         device,
                         requestId,
                         BluetoothGatt.GATT_FAILURE,
                         0,
-                        null
+                        null,
                     )
                 }
             }
         }
-
-        // -----------------------------------------------------------------------------------------------------------------------
 
         override fun onDescriptorWriteRequest(
             device: BluetoothDevice,
@@ -526,22 +429,23 @@ class MainActivity : AppCompatActivity()
             preparedWrite: Boolean,
             responseNeeded: Boolean,
             offset: Int,
-            value: ByteArray
-        )
-        {
-            if (registeredDevices.isEmpty())
-            {
+            value: ByteArray,
+        ) {
+            if (registeredDevices.isEmpty()) {
                 if ((Build.VERSION.SDK_INT < Build.VERSION_CODES.S) ||
-                    (ActivityCompat.checkSelfPermission(
-                        this@MainActivity,
-                        Manifest.permission.BLUETOOTH_CONNECT
-                    ) == PackageManager.PERMISSION_GRANTED)
-                )
-                {
-                    if (CLIENT_CONFIG == descriptor.uuid)
-                    {
-                        if (Arrays.equals(BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE, value))
-                        {
+                    (
+                        ActivityCompat.checkSelfPermission(
+                            this@MainActivity,
+                            Manifest.permission.BLUETOOTH_CONNECT,
+                        ) == PackageManager.PERMISSION_GRANTED
+                        )
+                ) {
+                    if (CLIENT_CONFIG == descriptor.uuid) {
+                        if (Arrays.equals(
+                                BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE,
+                                value,
+                            )
+                        ) {
                             Log.d(TAG, "Subscribe device to notifications: $device")
                             registeredDevices.add(device)
                             Util.postOnMain {
@@ -551,68 +455,53 @@ class MainActivity : AppCompatActivity()
 
                                 sendTurnDistance()
                             }
-                        }
-                        else if (Arrays.equals(
+                        } else if (Arrays.equals(
                                 BluetoothGattDescriptor.DISABLE_NOTIFICATION_VALUE,
-                                value
+                                value,
                             )
-                        )
-                        {
+                        ) {
                             Log.d(TAG, "Unsubscribe device from notifications: $device")
                             registeredDevices.remove(device)
                         }
 
-                        if (responseNeeded)
-                        {
+                        if (responseNeeded) {
                             navBluetoothManager.bluetoothGattServer.sendResponse(
                                 device,
                                 requestId,
                                 BluetoothGatt.GATT_SUCCESS,
                                 0,
-                                null
+                                null,
                             )
                         }
-                    }
-                    else
-                    {
+                    } else {
                         Log.w(TAG, "Unknown descriptor write request")
-                        if (responseNeeded)
-                        {
+                        if (responseNeeded) {
                             navBluetoothManager.bluetoothGattServer.sendResponse(
                                 device,
                                 requestId,
                                 BluetoothGatt.GATT_FAILURE,
                                 0,
-                                null
+                                null,
                             )
                         }
                     }
                 }
             }
         }
-
-        // -----------------------------------------------------------------------------------------------------------------------
-
-        // -----------------------------------------------------------------------------------------------------------------------
     }
-
-    // ---------------------------------------------------------------------------------------------------------------------------
 
     /**
      * Verify the level of Bluetooth support provided by the hardware.
      * @param bluetoothAdapter System [BluetoothAdapter].
      * @return true if Bluetooth is properly supported, false otherwise.
      */
-    private fun checkBluetoothSupport(bluetoothAdapter: BluetoothAdapter?): Boolean
-    {
-        if (bluetoothAdapter == null)
-        {
+    private fun checkBluetoothSupport(bluetoothAdapter: BluetoothAdapter?): Boolean {
+        if (bluetoothAdapter == null) {
             Log.w(TAG, "Bluetooth is not supported")
             return false
         }
 
-        if (!packageManager.hasSystemFeature(PackageManager.FEATURE_BLUETOOTH_LE))
-        {
+        if (!packageManager.hasSystemFeature(PackageManager.FEATURE_BLUETOOTH_LE)) {
             Log.w(TAG, "Bluetooth LE is not supported")
             return false
         }
@@ -620,127 +509,93 @@ class MainActivity : AppCompatActivity()
         return true
     }
 
-    // ---------------------------------------------------------------------------------------------------------------------------
-
-    private fun registerForSystemBluetoothEvents()
-    {
+    private fun registerForSystemBluetoothEvents() {
         if ((Build.VERSION.SDK_INT < Build.VERSION_CODES.S) ||
-            (ActivityCompat.checkSelfPermission(
-                this,
-                Manifest.permission.BLUETOOTH_CONNECT
-            ) == PackageManager.PERMISSION_GRANTED)
-        )
-        {
-            bluetoothManager = getSystemService(Context.BLUETOOTH_SERVICE) as BluetoothManager
+            (
+                ActivityCompat.checkSelfPermission(
+                    this,
+                    Manifest.permission.BLUETOOTH_CONNECT,
+                ) == PackageManager.PERMISSION_GRANTED
+                )
+        ) {
+            bluetoothManager = getSystemService(BLUETOOTH_SERVICE) as BluetoothManager
             val bluetoothAdapter = bluetoothManager.adapter
             navBluetoothManager =
                 NavBluetoothManager(this, bluetoothManager, advertiseCallback, gattServerCallback)
 
             // We can't continue without proper Bluetooth support
-            if (checkBluetoothSupport(bluetoothAdapter))
-            {
+            if (checkBluetoothSupport(bluetoothAdapter)) {
                 // Register for system Bluetooth events
                 val filter = IntentFilter(BluetoothAdapter.ACTION_STATE_CHANGED)
                 ContextCompat.registerReceiver(this, bluetoothReceiver, filter, ContextCompat.RECEIVER_EXPORTED)
-                if (!bluetoothAdapter.isEnabled)
-                {
+                if (!bluetoothAdapter.isEnabled) {
                     @Suppress("DEPRECATION")
-                    if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU)
-                    {
+                    if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) {
                         Log.d(TAG, "Bluetooth is currently disabled...enabling")
                         bluetoothAdapter.enable()
                     }
-                }
-                else
-                {
+                } else {
                     Log.d(TAG, "Bluetooth enabled...starting services")
                     navBluetoothManager.start()
                 }
-            }
-            else
-            {
+            } else {
                 showDialog("Missing Bluetooth support!")
             }
         }
     }
 
-    // ---------------------------------------------------------------------------------------------------------------------------
-
-    // ---------------------------------------------------------------------------------------------------------------------------
-
-    private fun notifyRegisteredDevices(data: ByteArray, uuid: UUID)
-    {
+    private fun notifyRegisteredDevices(data: ByteArray, uuid: UUID) {
         if ((Build.VERSION.SDK_INT < Build.VERSION_CODES.S) ||
-            (ActivityCompat.checkSelfPermission(
-                this,
-                Manifest.permission.BLUETOOTH_CONNECT
-            ) == PackageManager.PERMISSION_GRANTED)
-        )
-        {
-            if (registeredDevices.isNotEmpty())
-            {
+            (
+                ActivityCompat.checkSelfPermission(
+                    this,
+                    Manifest.permission.BLUETOOTH_CONNECT,
+                ) == PackageManager.PERMISSION_GRANTED
+                )
+        ) {
+            if (registeredDevices.isNotEmpty()) {
                 Log.i(TAG, "Sending update to ${registeredDevices.size} subscribers")
-                for (device in registeredDevices)
-                {
-                    navBluetoothManager.bluetoothGattServer.getService(NAVIGATION_SERVICE)?.getCharacteristic(uuid)
+                for (device in registeredDevices) {
+                    navBluetoothManager.bluetoothGattServer.getService(
+                        NAVIGATION_SERVICE,
+                    )?.getCharacteristic(uuid)
                         ?.let {
                             @Suppress("DEPRECATION")
-                            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU)
-                            {
+                            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
                                 navBluetoothManager.bluetoothGattServer.notifyCharacteristicChanged(
                                     device,
                                     it,
                                     false,
-                                    data
+                                    data,
                                 )
-                            }
-                            else
-                            {
+                            } else {
                                 it.value = data
-                                navBluetoothManager.bluetoothGattServer.notifyCharacteristicChanged(device, it, false)
+                                navBluetoothManager.bluetoothGattServer.notifyCharacteristicChanged(
+                                    device,
+                                    it,
+                                    false,
+                                )
                             }
                         }
                 }
-            }
-            else
-            {
+            } else {
                 Log.i(TAG, "No subscribers registered")
             }
         }
     }
 
-    // ---------------------------------------------------------------------------------------------------------------------------
-
-    override fun onCreate(savedInstanceState: Bundle?)
-    {
+    override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
-        setContentView(R.layout.activity_main)
+
+        binding = DataBindingUtil.setContentView(this, R.layout.activity_main)
 
         turnImageSize = resources.getDimension(R.dimen.turn_image_size).toInt()
         padding = resources.getDimension(R.dimen.big_padding).toInt()
 
-        toolbar = findViewById(R.id.toolbar)
-        gemSurfaceView = findViewById(R.id.gem_surface)
-        progressBar = findViewById(R.id.progress_bar)
-        followGPSButton = findViewById(R.id.follow_gps_button)
-
-        topPanel = findViewById(R.id.top_panel)
-        navInstruction = findViewById(R.id.nav_instruction)
-        navInstructionDistance = findViewById(R.id.instr_distance)
-        navInstructionIcon = findViewById(R.id.nav_icon)
-
-        bottomPanel = findViewById(R.id.bottom_panel)
-        eta = findViewById(R.id.eta)
-        rtt = findViewById(R.id.rtt)
-        rtd = findViewById(R.id.rtd)
-
         // Devices with a display should not go to sleep
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
-        
-        setSupportActionBar(toolbar)
 
-        /// MAGIC LANE
         SdkSettings.onMapDataReady = onMapDataReady@{ isReady ->
             if (!isReady) return@onMapDataReady
 
@@ -749,30 +604,27 @@ class MainActivity : AppCompatActivity()
         }
 
         SdkSettings.onApiTokenRejected = {
-            /*
-            The TOKEN you provided in the AndroidManifest.xml file was rejected.
-            Make sure you provide the correct value, or if you don't have a TOKEN,
-            check the magiclane.com website, sign up/sign in and generate one.
+            /**
+             * The TOKEN you provided in the AndroidManifest.xml file was rejected.
+             * Make sure you provide the correct value, or if you don't have a TOKEN,
+             * check the magiclane.com website, sign up/sign in and generate one.
              */
             showDialog("TOKEN REJECTED")
         }
 
-        if (!Util.isInternetConnected(this))
-        {
+        if (!Util.isInternetConnected(this)) {
             showDialog("You must be connected to the internet!")
         }
 
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S)
-        {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
             requestPermissions(
                 arrayOf(
                     Manifest.permission.BLUETOOTH_CONNECT,
-                    Manifest.permission.BLUETOOTH_ADVERTISE
-                ), permissionsRequestCode
+                    Manifest.permission.BLUETOOTH_ADVERTISE,
+                ),
+                permissionsRequestCode,
             )
-        }
-        else
-        {
+        } else {
             registerForSystemBluetoothEvents()
         }
 
@@ -780,57 +632,15 @@ class MainActivity : AppCompatActivity()
             finish()
             exitProcess(0)
         }
-        
-        ViewCompat.setOnApplyWindowInsetsListener(gemSurfaceView) { _, windowInsets ->
-            val insets = windowInsets.getInsets(WindowInsetsCompat.Type.systemBars())
-            
-            toolbar.updateLayoutParams {
-                if (this is ViewGroup.MarginLayoutParams) 
-                {
-                    topMargin = insets.top
-                    leftMargin = insets.left
-                    rightMargin = insets.right
-                }
-            }
-            
-            topPanel.updateLayoutParams {
-                if (this is ViewGroup.MarginLayoutParams) 
-                {
-                    leftMargin = insets.left + padding 
-                    rightMargin = insets.right + padding
-                }
-            }
-
-            bottomPanel.updateLayoutParams {
-                if (this is ViewGroup.MarginLayoutParams)
-                {
-                    leftMargin = insets.left + padding
-                    rightMargin = insets.right + padding
-                    bottomMargin = insets.bottom + padding
-                }
-            }
-
-            followGPSButton.updateLayoutParams {
-                if (this is ViewGroup.MarginLayoutParams)
-                {
-                    leftMargin = insets.left + padding
-                    rightMargin = insets.right + padding
-                }
-            }
-            
-            WindowInsetsCompat.CONSUMED
-        }
     }
 
-    // ---------------------------------------------------------------------------------------------------------------------------
-
-    override fun onDestroy()
-    {
+    override fun onDestroy() {
         super.onDestroy()
 
         val bluetoothAdapter = bluetoothManager.adapter
-        if (bluetoothAdapter.isEnabled)
+        if (bluetoothAdapter.isEnabled) {
             navBluetoothManager.stop()
+        }
 
         unregisterReceiver(bluetoothReceiver)
 
@@ -838,46 +648,32 @@ class MainActivity : AppCompatActivity()
         GemSdk.release()
     }
 
-    // ---------------------------------------------------------------------------------------------------------------------------
-
-    // ---------------------------------------------------------------------------------------------------------------------------
-
-    override fun onRequestPermissionsResult(
-        requestCode: Int,
-        permissions: Array<out String>,
-        grantResults: IntArray
-    )
-    {
+    override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults)
 
-        if (requestCode == permissionsRequestCode)
-        {
+        if (requestCode == permissionsRequestCode) {
             if ((grantResults.size > 1) &&
                 (grantResults[0] == PackageManager.PERMISSION_GRANTED) &&
                 (grantResults[1] == PackageManager.PERMISSION_GRANTED)
-            )
-            {
+            ) {
                 registerForSystemBluetoothEvents()
             }
         }
     }
 
-    // ---------------------------------------------------------------------------------------------------------------------------
-
-    private fun enableGPSButton()
-    {
+    private fun enableGPSButton() {
         // Set actions for entering / exiting following position mode.
-        gemSurfaceView.mapView?.apply {
+        binding.gemSurface.mapView?.apply {
             onExitFollowingPosition = {
-                followGPSButton.visibility = View.VISIBLE
+                binding.followGpsButton.visibility = View.VISIBLE
             }
 
             onEnterFollowingPosition = {
-                followGPSButton.visibility = View.GONE
+                binding.followGpsButton.visibility = View.GONE
             }
 
             // Set on click action for the GPS button.
-            followGPSButton.setOnClickListener {
+            binding.followGpsButton.setOnClickListener {
                 SdkCall.execute { followPosition() }
             }
         }
@@ -885,31 +681,26 @@ class MainActivity : AppCompatActivity()
 
     // ---------------------------------------------------------------------------------------------------------------------------
 
-    private fun disableGPSButton()
-    {
-        gemSurfaceView.mapView?.apply {
+    private fun disableGPSButton() {
+        binding.gemSurface.mapView?.apply {
             onExitFollowingPosition = null
             onEnterFollowingPosition = null
 
-            followGPSButton.setOnClickListener(null)
+            binding.followGpsButton.setOnClickListener(null)
         }
     }
 
-    // ---------------------------------------------------------------------------------------------------------------------------
-
-    private fun NavigationInstruction.getDistanceInMeters(): String
-    {
+    private fun NavigationInstruction.getDistanceInMeters(): String {
         return GemUtil.getDistText(
-            this.timeDistanceToNextTurn?.totalDistance ?: 0, EUnitSystem.Metric
+            this.timeDistanceToNextTurn?.totalDistance ?: 0,
+            EUnitSystem.Metric,
         ).let { pair ->
             pair.first + " " + pair.second
         }
     }
 
-    // ---------------------------------------------------------------------------------------------------------------------------
-
-    private fun Route.getEta(): String
-    {
+    @SuppressLint("DefaultLocale")
+    private fun Route.getEta(): String {
         val etaNumber = this.getTimeDistance(true)?.totalTime ?: 0
 
         val time = Time()
@@ -918,40 +709,30 @@ class MainActivity : AppCompatActivity()
         return String.format("%d:%02d", time.hour, time.minute)
     }
 
-    // ---------------------------------------------------------------------------------------------------------------------------
-
-    private fun Route.getRtt(): String
-    {
+    private fun Route.getRtt(): String {
         return GemUtil.getTimeText(
-            this.getTimeDistance(true)?.totalTime ?: 0
+            this.getTimeDistance(true)?.totalTime ?: 0,
         ).let { pair ->
             pair.first + " " + pair.second
         }
     }
 
-    // ---------------------------------------------------------------------------------------------------------------------------
-
-    private fun Route.getRtd(): String
-    {
+    private fun Route.getRtd(): String {
         return GemUtil.getDistText(
-            this.getTimeDistance(true)?.totalDistance ?: 0, EUnitSystem.Metric
+            this.getTimeDistance(true)?.totalDistance ?: 0,
+            EUnitSystem.Metric,
         ).let { pair ->
             pair.first + " " + pair.second
         }
     }
 
-    // ---------------------------------------------------------------------------------------------------------------------------
-
-    private fun sendTurnInstruction()
-    {
-        var turnInstruction = navInstruction.text.toString()
-        if (turnInstruction.length > 128)
-        {
+    private fun sendTurnInstruction() {
+        var turnInstruction = binding.navInstruction.text.toString()
+        if (turnInstruction.length > 128) {
             turnInstruction = turnInstruction.substring(0, 125).plus("...")
         }
 
-        if (turnInstruction.isEmpty())
-        {
+        if (turnInstruction.isEmpty()) {
             turnInstruction = " "
         }
 
@@ -964,16 +745,14 @@ class MainActivity : AppCompatActivity()
         var tmp = ByteArray(20)
         var index = 0
 
-        for (i in 1..n)
-        {
+        for (i in 1..n) {
             System.arraycopy(byteArray, index, tmp, 0, 20)
             index += 20
 
             notifyRegisteredDevices(tmp, TURN_INSTRUCTION)
         }
 
-        if (r > 0)
-        {
+        if (r > 0) {
             tmp = ByteArray(r)
             System.arraycopy(byteArray, index, tmp, 0, r)
 
@@ -981,20 +760,15 @@ class MainActivity : AppCompatActivity()
         }
     }
 
-    // ---------------------------------------------------------------------------------------------------------------------------
-
-    private fun sendTurnDistance()
-    {
-        val turnDistance = navInstructionDistance.text ?: " "
+    private fun sendTurnDistance() {
+        val turnDistance = binding.instrDistance.text ?: " "
         notifyRegisteredDevices(turnDistance.toString().toByteArray(), TURN_DISTANCE)
     }
-
-    // ---------------------------------------------------------------------------------------------------------------------------
 
     private fun startSimulation() = SdkCall.execute {
         val waypoints = arrayListOf(
             Landmark("Amsterdam", 52.3585050, 4.8803423),
-            Landmark("Paris", 48.8566932, 2.3514616)
+            Landmark("Paris", 48.8566932, 2.3514616),
         )
         // val waypoints = arrayListOf(Landmark("one", 44.41972, 26.08907), Landmark("two", 44.42479, 26.09076))
         // val waypoints = arrayListOf(Landmark("one", 44.42125, 26.09267), Landmark("two", 44.42233, 26.09205))
@@ -1003,40 +777,32 @@ class MainActivity : AppCompatActivity()
         val errorCode = navigationService.startSimulation(
             waypoints,
             navigationListener,
-            routingProgressListener
+            routingProgressListener,
         )
-        if (errorCode != GemError.NoError)
-        {
+        if (errorCode != GemError.NoError) {
             runOnUiThread {
                 showDialog(GemError.getMessage(errorCode))
             }
         }
     }
 
-    // ---------------------------------------------------------------------------------------------------------------------------
-
-    @SuppressLint("InflateParams")
-    private fun showDialog(text: String)
-    {
+    private fun showDialog(text: String) {
         val dialog = BottomSheetDialog(this)
-        val view = layoutInflater.inflate(R.layout.dialog_layout, null).apply {
-            findViewById<TextView>(R.id.title).text = getString(R.string.error)
-            findViewById<TextView>(R.id.message).text = text
-            findViewById<Button>(R.id.button).setOnClickListener {
+        val dialogBinding = DialogLayoutBinding.inflate(layoutInflater).apply {
+            title.text = getString(R.string.error)
+            message.text = text
+            button.setOnClickListener {
                 dialog.dismiss()
             }
         }
         dialog.apply {
             setCancelable(false)
-            setContentView(view)
+            setContentView(dialogBinding.root)
             show()
         }
     }
 
-    // ---------------------------------------------------------------------------------------------------------------------------
-
-    companion object
-    {
+    companion object {
         /* Navigation Service UUID */
         val NAVIGATION_SERVICE: UUID = UUID.fromString("00011805-0000-1000-8000-00805f9b34fb")
 
@@ -1052,8 +818,4 @@ class MainActivity : AppCompatActivity()
         /* Mandatory Current Turn DISTANCE Characteristic */
         val TURN_DISTANCE: UUID = UUID.fromString("00012a2f-0000-1000-8000-00805f9b34fb")
     }
-
-    // ---------------------------------------------------------------------------------------------------------------------------
 }
-
-// -------------------------------------------------------------------------------------------------------------------------------

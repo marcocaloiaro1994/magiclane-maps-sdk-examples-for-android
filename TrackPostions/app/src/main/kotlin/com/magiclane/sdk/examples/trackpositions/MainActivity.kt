@@ -1,21 +1,13 @@
-// -------------------------------------------------------------------------------------------------------------------------------
-
 /*
- * SPDX-FileCopyrightText: 1995-2025 Magic Lane International B.V. <info@magiclane.com>
+ * SPDX-FileCopyrightText: 2021-2026 Magic Lane International B.V. <info@magiclane.com>
  * SPDX-License-Identifier: Apache-2.0
  *
  * Contact Magic Lane at <info@magiclane.com> for SDK licensing options.
  */
 
-// -------------------------------------------------------------------------------------------------------------------------------
-
 @file:Suppress("SameParameterValue")
 
-// -------------------------------------------------------------------------------------------------------------------------------
-
 package com.magiclane.sdk.examples.trackpositions
-
-// -------------------------------------------------------------------------------------------------------------------------------
 
 import android.annotation.SuppressLint
 import android.graphics.Bitmap
@@ -24,9 +16,11 @@ import android.widget.Button
 import android.widget.TextView
 import android.widget.Toast
 import androidx.activity.addCallback
+import androidx.activity.enableEdgeToEdge
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
 import androidx.core.view.isVisible
+import androidx.databinding.DataBindingUtil
 import androidx.test.espresso.idling.CountingIdlingResource
 import com.google.android.material.bottomsheet.BottomSheetDialog
 import com.magiclane.sdk.core.EPathFileFormat
@@ -67,14 +61,9 @@ import kotlin.math.cos
 import kotlin.math.sin
 import kotlin.system.exitProcess
 
-// -------------------------------------------------------------------------------------------------------------------------------
+class MainActivity : AppCompatActivity() {
 
-class MainActivity : AppCompatActivity()
-{
-    // ---------------------------------------------------------------------------------------------------------------------------
-
-    companion object
-    {
+    companion object {
         val positions = arrayOf(
             Pair(48.133931, 11.582914),
             Pair(48.134015, 11.583203),
@@ -165,7 +154,7 @@ class MainActivity : AppCompatActivity()
             Pair(48.140364, 11.593802),
             Pair(48.140514, 11.593876),
             Pair(48.140670, 11.593947),
-            Pair(48.140827, 11.594018)
+            Pair(48.140827, 11.594018),
         )
         val destination = Pair(48.140827, 11.594018)
         var fileType = EPathFileFormat.Gpx
@@ -186,9 +175,9 @@ class MainActivity : AppCompatActivity()
 
     private var externalDataSource: ExternalDataSource? = null
 
-    /*
-    Define a navigation listener that will receive notifications from the
-    navigation service.
+    /**
+     * Define a navigation listener that will receive notifications from the
+     * navigation service.
      */
     private val navigationListener: NavigationListener = NavigationListener.create(
         onNavigationStarted = {
@@ -246,15 +235,14 @@ class MainActivity : AppCompatActivity()
         onDestinationReached = {
             binding.gemSurfaceView.mapView?.run {
                 SdkCall.execute {
-                    //stop tracking in case user didn't
-                    if (isTrackedPositions())
-                    {
+                    // stop tracking in case user didn't
+                    if (isTrackedPositions()) {
                         saveRoute()
                         stopTrackPositions()
                     }
                 }
             }
-            //update views and present paths
+            // update views and present paths
             showPanelsAndButtons(false)
             showStatusMessage("Navigation stopped.")
             presentSavedPaths()
@@ -266,7 +254,8 @@ class MainActivity : AppCompatActivity()
                     if (isTrackedPositions()) stopTrackPositions()
                 }
             }
-        }
+            EspressoIdlingResource.decrement()
+        },
     )
 
     // Define a listener that will let us know the progress of the routing process.
@@ -279,74 +268,67 @@ class MainActivity : AppCompatActivity()
             binding.progressBar.isVisible = false
             showStatusMessage("Routing process completed.")
         },
-        postOnMain = true
+        postOnMain = true,
     )
 
-    // ---------------------------------------------------------------------------------------------------------------------------
-
-    override fun onCreate(savedInstanceState: Bundle?)
-    {
+    override fun onCreate(savedInstanceState: Bundle?) {
+        enableEdgeToEdge()
         super.onCreate(savedInstanceState)
-        binding = ActivityMainBinding.inflate(layoutInflater)
+        binding = DataBindingUtil.setContentView(this, R.layout.activity_main)
         EspressoIdlingResource.increment()
-        /// MAGIC LANE
         SdkSettings.onApiTokenRejected = {
-            /*
-            The TOKEN you provided in the AndroidManifest.xml file was rejected.
-            Make sure you provide the correct value, or if you don't have a TOKEN,
-            check the magiclane.com website, sign up/sign in and generate one.
+            /**
+             * The TOKEN you provided in the AndroidManifest.xml file was rejected.
+             * Make sure you provide the correct value, or if you don't have a TOKEN,
+             * check the magiclane.com website, sign up/sign in and generate one.
              */
             showDialog("TOKEN REJECTED")
         }
 
-        SdkSettings.onMapDataReady = { mapReady ->
-            if (mapReady)
-            {
-                SdkCall.execute {
-                    externalDataSource =
-                        DataSourceFactory.produceExternal(arrayListOf(EDataType.Position))
-                    externalDataSource?.start()
+        val onReady = {
+            SdkCall.execute {
+                externalDataSource =
+                    DataSourceFactory.produceExternal(arrayListOf(EDataType.Position))
+                externalDataSource?.start()
 
-                    positionListener = PositionListener { position: PositionData ->
-                        if (position.isValid())
-                        {
-                            navigationService.startNavigation(
-                                Landmark("Destination", destination.first, destination.second),
-                                navigationListener,
-                                routingProgressListener
-                            )
+                positionListener = PositionListener { position: PositionData ->
+                    if (position.isValid()) {
+                        navigationService.startNavigation(
+                            Landmark("Destination", destination.first, destination.second),
+                            navigationListener,
+                            routingProgressListener,
+                        )
 
-                            PositionService.removeListener(positionListener)
-                        }
+                        PositionService.removeListener(positionListener)
                     }
+                }
 
-                    PositionService.dataSource = externalDataSource
-                    PositionService.addListener(positionListener)
+                PositionService.dataSource = externalDataSource
+                PositionService.addListener(positionListener)
 
-                    var index = 0
-                    externalDataSource?.let { dataSource ->
-                        timer = fixedRateTimer("timer", false, 0L, 1000) {
-                            SdkCall.execute {
-                                val externalPosition = PositionData.produce(
-                                    System.currentTimeMillis(),
-                                    positions[index].first,
-                                    positions[index].second,
-                                    -1.0,
-                                    positions.getBearing(index),
-                                    positions.getSpeed(index)
-                                )
-                                externalPosition?.let { pos ->
-                                    dataSource.pushData(pos)
-                                }
+                var index = 0
+                externalDataSource?.let { dataSource ->
+                    timer = fixedRateTimer("timer", false, 0L, 1000) {
+                        SdkCall.execute {
+                            val externalPosition = PositionData.produce(
+                                System.currentTimeMillis(),
+                                positions[index].first,
+                                positions[index].second,
+                                -1.0,
+                                positions.getBearing(index),
+                                positions.getSpeed(index),
+                            )
+                            externalPosition?.let { pos ->
+                                dataSource.pushData(pos)
                             }
-                            index++
-                            if (index == positions.size)
-                            {
-                                timer?.cancel()
-                                Thread.sleep(3000)
-                                SdkCall.execute {
-                                    if (navigationService.isNavigationActive(navigationListener))
-                                        navigationService.cancelNavigation(navigationListener)
+                        }
+                        index++
+                        if (index == positions.size) {
+                            timer?.cancel()
+                            Thread.sleep(3000)
+                            SdkCall.execute {
+                                if (navigationService.isNavigationActive(navigationListener)) {
+                                    navigationService.cancelNavigation(navigationListener)
                                 }
                             }
                         }
@@ -354,21 +336,31 @@ class MainActivity : AppCompatActivity()
                 }
             }
         }
+        if (SdkSettings.isMapDataReady) {
+            onReady()
+        } else {
+            SdkSettings.onMapDataReady = { mapReady ->
+                if (mapReady) {
+                    onReady()
+                }
+            }
+        }
 
         binding.startStop.setOnClickListener {
             binding.gemSurfaceView.mapView?.run {
                 val isTracked: () -> Boolean = { SdkCall.execute { isTrackedPositions() }!! }
-                if (!isTracked())
+                if (!isTracked()) {
                     SdkCall.execute {
                         startTrackPositions(
-                            (intervalValue * 1000).toInt(), MarkerCollectionRenderSettings(
+                            (intervalValue * 1000).toInt(),
+                            MarkerCollectionRenderSettings(
                                 image = Image.produceWithId(SdkImages.Core.GreenBall.value),
                                 polylineInnerColor = Rgba(120, 0, 255, 255),
-                            ), externalDataSource
+                            ),
+                            externalDataSource,
                         )
                     }
-                else
-                {
+                } else {
                     SdkCall.execute {
                         saveRoute()
                         stopTrackPositions()
@@ -382,15 +374,15 @@ class MainActivity : AppCompatActivity()
             saveRoute()
         }
         binding.fileFormatsGroup.addOnButtonCheckedListener { _, checkedId, isChecked ->
-            if (isChecked)
-                fileType = when (checkedId)
-                {
+            if (isChecked) {
+                fileType = when (checkedId) {
                     R.id.ff_gpx -> EPathFileFormat.Gpx
                     R.id.ff_kml -> EPathFileFormat.Kml
                     R.id.ff_json -> EPathFileFormat.GeoJson
                     R.id.ff_lat_lon -> EPathFileFormat.LatLonTxt
                     else -> EPathFileFormat.Gpx
                 }
+            }
         }
 
         binding.intervalSlider.addOnChangeListener { _, value, _ ->
@@ -399,11 +391,14 @@ class MainActivity : AppCompatActivity()
             binding.secondsText.text = String.format(Locale.getDefault(), "%.1f s", value)
         }
 
-        binding.secondsText.text = String.format(Locale.getDefault(), "%.1f s", binding.intervalSlider.valueFrom)
+        binding.secondsText.text = String.format(
+            Locale.getDefault(),
+            "%.1f s",
+            binding.intervalSlider.valueFrom,
+        )
         binding.fileFormatsGroup.check(R.id.ff_gpx)
 
-        if (!Util.isInternetConnected(this))
-        {
+        if (!Util.isInternetConnected(this)) {
             showDialog("You must be connected to the internet!")
         }
 
@@ -411,54 +406,48 @@ class MainActivity : AppCompatActivity()
             finish()
             exitProcess(0)
         }
-        setContentView(binding.root)
     }
-
-    // ----------------------------------- ----------------------------------------------------------------------------------------
 
     /**
      * Show a visual representation of the saved tracked paths on the map
      */
-    private fun presentSavedPaths()
-    {
+    private fun presentSavedPaths() {
         if (paths.isEmpty()) return
         SdkCall.execute {
             binding.gemSurfaceView.mapView?.run {
                 displayPaths(paths, Rgba.green(), Rgba.yellow())
-                //make a view rectangle of all path's geographical area and center on it
+                // make a view rectangle of all path's geographical area and center on it
                 var area = paths[0].area
                 paths.forEach { path -> path.area?.let { area = area?.makeUnion(it) } }
                 area?.let {
                     viewport?.run {
-                        centerOnRectArea(it, viewRc = Rect(left + 100, top + 100, right - 100, bottom - 100))
+                        centerOnRectArea(
+                            it,
+                            viewRc = Rect(left + 100, top + 100, right - 100, bottom - 100),
+                        )
                     }
                 }
             }
         }
     }
 
-    // ----------------------------------- ----------------------------------------------------------------------------------------
-
     /**
-     * Saves paths in the desired file format 
+     * Saves paths in the desired file format
      */
-    private fun saveRoute()
-    {
+    private fun saveRoute() {
         SdkCall.execute {
             binding.gemSurfaceView.mapView?.getTrackedPositions()?.let {
                 val (list, err) = it
-                if (GemError.isError(err))
+                if (GemError.isError(err)) {
                     Util.postOnMain { showDialog(GemError.getMessage(err)) }
-                else
-                {
-                    //get path
+                } else {
+                    // get path
                     val path = Path.produceWithCoords(list!!)
                     paths.add(path)
-                    //export the file
+                    // export the file
                     path.exportAs(fileType)?.bytes?.let { bytes ->
                         val prefix = GemSdk.internalStoragePath + File.separator + "exported"
-                        val suffix = "path" + paths.size.toString() + '.' + when (fileType)
-                        {
+                        val suffix = "path" + paths.size.toString() + '.' + when (fileType) {
                             EPathFileFormat.Gpx -> "gpx"
                             EPathFileFormat.Kml -> "kml"
                             EPathFileFormat.GeoJson -> "json"
@@ -467,13 +456,21 @@ class MainActivity : AppCompatActivity()
                         }
                         val file = File(prefix + File.separator + suffix)
                         file.getParentFile()?.mkdirs()
-                        if (!file.exists())
+                        if (!file.exists()) {
                             file.delete()
+                        }
                         val created = file.createNewFile()
-                        if (created)
-                        {
+                        if (created) {
                             file.writeBytes(bytes)
-                            Util.postOnMain { Toast.makeText(this@MainActivity, "Saved route $suffix", Toast.LENGTH_SHORT).show() }
+                            Util.postOnMain {
+                                if (!isFinishing && !isDestroyed) {
+                                    Toast.makeText(
+                                        this@MainActivity,
+                                        "Saved route $suffix",
+                                        Toast.LENGTH_SHORT,
+                                    ).show()
+                                }
+                            }
                         }
                     }
                 }
@@ -481,23 +478,23 @@ class MainActivity : AppCompatActivity()
         }
     }
 
-    // ---------------------------------------------------------------------------------------------------------------------------
-    // ---------------------------------------------------------------------------------------------------------------------------
-
-    override fun onDestroy()
-    {
+    override fun onDestroy() {
         super.onDestroy()
         timer?.cancel()
         timer = null
+        SdkCall.execute {
+            if (navigationService.isNavigationActive(navigationListener)) {
+                navigationService.cancelNavigation(navigationListener)
+            }
+            externalDataSource?.stop()
+        }
         // Release the SDK.
         GemSdk.release()
     }
 
-    // ---------------------------------------------------------------------------------------------------------------------------
-
     @SuppressLint("InflateParams")
-    private fun showDialog(text: String)
-    {
+    private fun showDialog(text: String) {
+        if (isFinishing || isDestroyed) return
         val dialog = BottomSheetDialog(this)
         val view = layoutInflater.inflate(R.layout.dialog_layout, null).apply {
             findViewById<TextView>(R.id.title).text = getString(R.string.error)
@@ -513,23 +510,17 @@ class MainActivity : AppCompatActivity()
         }
     }
 
-    // ---------------------------------------------------------------------------------------------------------------------------
-
-    private fun showStatusMessage(text: String)
-    {
+    private fun showStatusMessage(text: String) {
         binding.apply {
             statusText.isVisible = true
             statusText.text = text
         }
     }
 
-    // ---------------------------------------------------------------------------------------------------------------------------
-
     /**
      *  Sets up GPS button to follow current position on click
      */
-    private fun enableGPSButton()
-    {
+    private fun enableGPSButton() {
         // Set actions for entering/ exiting following position mode.
         binding.apply {
             gemSurfaceView.mapView?.apply {
@@ -549,32 +540,35 @@ class MainActivity : AppCompatActivity()
         }
     }
 
-    // ---------------------------------------------------------------------------------------------------------------------------
-
     /**
-     * switch between start and stop states; Tracking related views' appearance, visibility and enabled state get updated  
+     * switch between start and stop states; Tracking related views' appearance, visibility and enabled state get updated
      */
-    private fun setupStartStopButton(isTracked: Boolean)
-    {
+    private fun setupStartStopButton(isTracked: Boolean) {
         binding.apply {
             gemSurfaceView.mapView?.run {
-                //switch between start and stop states
-                startStop.backgroundTintList = ContextCompat.getColorStateList(this@MainActivity, if (isTracked) R.color.stop_color else R.color.start_color)
-                startStop.setImageDrawable(ContextCompat.getDrawable(this@MainActivity, if (isTracked) R.drawable.stop_24 else R.drawable.play_arrow_34))
-                //update the other views
+                // switch between start and stop states
+                startStop.backgroundTintList = ContextCompat.getColorStateList(
+                    this@MainActivity,
+                    if (isTracked) R.color.stop_color else R.color.start_color,
+                )
+                startStop.setImageDrawable(
+                    ContextCompat.getDrawable(
+                        this@MainActivity,
+                        if (isTracked) R.drawable.stop_24 else R.drawable.play_arrow_34,
+                    ),
+                )
+                // update the other views
                 saveButton.isVisible = isTracked
                 intervalSlider.isEnabled = !isTracked
                 fileFormatsGroup.isEnabled = !isTracked
             }
         }
     }
-    // ---------------------------------------------------------------------------------------------------------------------------
 
     /**
      *  Hides or shows navigation and tracking related views
      */
-    private fun showPanelsAndButtons(value: Boolean)
-    {
+    private fun showPanelsAndButtons(value: Boolean) {
         binding.apply {
             topPanel.isVisible = value
             bottomPanel.isVisible = value
@@ -583,28 +577,23 @@ class MainActivity : AppCompatActivity()
         }
     }
 
-    // ---------------------------------------------------------------------------------------------------------------------------
-
     /**
      * @return formatted string of distance value
      */
-    private fun NavigationInstruction.getDistanceInMeters(): String
-    {
+    private fun NavigationInstruction.getDistanceInMeters(): String {
         return GemUtil.getDistText(
-            this.timeDistanceToNextTurn?.totalDistance ?: 0, EUnitSystem.Metric
+            this.timeDistanceToNextTurn?.totalDistance ?: 0,
+            EUnitSystem.Metric,
         ).let { pair ->
             pair.first + " " + pair.second
         }
     }
 
-    // ---------------------------------------------------------------------------------------------------------------------------
-
     /**
      * @return estimated time of arrival
      */
     @SuppressLint("DefaultLocale")
-    private fun Route.getEta(): String
-    {
+    private fun Route.getEta(): String {
         val etaNumber = this.getTimeDistance(true)?.totalTime ?: 0
 
         val time = Time()
@@ -613,45 +602,36 @@ class MainActivity : AppCompatActivity()
         return String.format("%d:%02d", time.hour, time.minute)
     }
 
-    // ---------------------------------------------------------------------------------------------------------------------------
     /**
      * @return remaining travel time
      */
-    private fun Route.getRtt(): String
-    {
+    private fun Route.getRtt(): String {
         return GemUtil.getTimeText(
-            this.getTimeDistance(true)?.totalTime ?: 0
+            this.getTimeDistance(true)?.totalTime ?: 0,
         ).let { pair ->
             pair.first + " " + pair.second
         }
     }
-
-    // ---------------------------------------------------------------------------------------------------------------------------
 
     /**
      * @return remaining travel distance
      */
-    private fun Route.getRtd(): String
-    {
+    private fun Route.getRtd(): String {
         return GemUtil.getDistText(
-            this.getTimeDistance(true)?.totalDistance ?: 0, EUnitSystem.Metric
+            this.getTimeDistance(true)?.totalDistance ?: 0,
+            EUnitSystem.Metric,
         ).let { pair ->
             pair.first + " " + pair.second
         }
     }
-
-    // ---------------------------------------------------------------------------------------------------------------------------
 }
-// ---------------------------------------------------------------------------------------------------------------------------
 
-//region EXTENDED FUNCTIONS ------------------------------------------------------------------------------------------------------
-// -------------------------------------------------------------------------------------------------------------------------------
+//region EXTENDED FUNCTIONS
 /**
  * Mathematical formula for calculating real distance between 2 coordinates
  * @return real distance between 2 geographical points
  */
-fun Pair<Double, Double>.getDistanceOnGeoid(to: Pair<Double, Double>): Double
-{
+fun Pair<Double, Double>.getDistanceOnGeoid(to: Pair<Double, Double>): Double {
     val (latitude1, longitude1) = this
     val (latitude2, longitude2) = to
     // convert degrees to radians
@@ -680,46 +660,40 @@ fun Pair<Double, Double>.getDistanceOnGeoid(to: Pair<Double, Double>): Double
     return (r * theta)
 }
 
-// -------------------------------------------------------------------------------------------------------------------------------
 /**
  * @return speed value equal with distance between point at [index] and previous point.
  * If there is no previous point returns -1.0
  */
-fun Array<Pair<Double, Double>>.getSpeed(index: Int): Double
-{
-    if ((index > 0) && (index < size))
+fun Array<Pair<Double, Double>>.getSpeed(index: Int): Double {
+    if ((index > 0) && (index < size)) {
         return this[index - 1].getDistanceOnGeoid(this[index])
+    }
     return -1.0
 }
 
-// -------------------------------------------------------------------------------------------------------------------------------
 /**
  * Calculates bearing between 2 points Formula β = atan2(X,Y) where  X and Y are two quantities
  * that can be calculated based on the given latitude and longitude
  * @return Bearing value between point at [index] and previous point.
  * If there is no previous point returns -1.0
  */
-fun Array<Pair<Double, Double>>.getBearing(index: Int): Double
-{
-    if ((index > 0) && (index < size))
-    {
+fun Array<Pair<Double, Double>>.getBearing(index: Int): Double {
+    if ((index > 0) && (index < size)) {
         val x = cos(this[index].first) * sin(this[index].second - this[index - 1].second)
         val y =
             cos(this[index - 1].first) * sin(this[index].first) - sin(this[index - 1].first) * cos(
-                this[index].first
+                this[index].first,
             ) * cos(this[index].second - this[index - 1].second)
         return (atan2(x, y) * 180) / Math.PI
     }
     return -1.0
 }
-//endregion ----------------------------------------------------------------------------------------------------------------------
+//endregion
 
-// region FOR TESTING ------------------------------------------------------------------------------------------------------------
-// -------------------------------------------------------------------------------------------------------------------------------
-object EspressoIdlingResource
-{
+// region TESTING
+object EspressoIdlingResource {
     val espressoIdlingResource = CountingIdlingResource("TracPositionsIdlingResource")
     fun increment() = espressoIdlingResource.increment()
     fun decrement() = if (!espressoIdlingResource.isIdleNow) espressoIdlingResource.decrement() else Unit
 }
-//endregion -------------------------------------------------------------------------------------------------------------------------------
+//endregion

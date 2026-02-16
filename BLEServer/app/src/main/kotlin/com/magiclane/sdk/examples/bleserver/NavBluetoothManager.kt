@@ -1,14 +1,9 @@
-// -------------------------------------------------------------------------------------------------------------------------------
-
 /*
- * SPDX-FileCopyrightText: 1995-2025 Magic Lane International B.V. <info@magiclane.com>
+ * SPDX-FileCopyrightText: 2021-2026 Magic Lane International B.V. <info@magiclane.com>
  * SPDX-License-Identifier: Apache-2.0
  *
  * Contact Magic Lane at <info@magiclane.com> for SDK licensing options.
  */
-
-// -------------------------------------------------------------------------------------------------------------------------------
-
 
 package com.magiclane.sdk.examples.bleserver
 
@@ -40,40 +35,40 @@ class NavBluetoothManager(
     private val context: Context,
     private val bluetoothManager: BluetoothManager,
     private val advertiseCallback: AdvertiseCallback,
-    private val gattServerCallback : BluetoothGattServerCallback
-)
-{
+    private val gattServerCallback: BluetoothGattServerCallback,
+) {
     private val turnInstruction = BluetoothGattCharacteristic(
         MainActivity.TURN_INSTRUCTION, // Read-only characteristic, supports notifications
         BluetoothGattCharacteristic.PROPERTY_READ or BluetoothGattCharacteristic.PROPERTY_NOTIFY,
-        BluetoothGattCharacteristic.PERMISSION_READ
+        BluetoothGattCharacteristic.PERMISSION_READ,
     )
     private val turnInstructionDescriptor = BluetoothGattDescriptor(
         MainActivity.CLIENT_CONFIG, // Read/write descriptor
-        BluetoothGattDescriptor.PERMISSION_READ or BluetoothGattDescriptor.PERMISSION_WRITE
+        BluetoothGattDescriptor.PERMISSION_READ or BluetoothGattDescriptor.PERMISSION_WRITE,
     )
     private val turnImage = BluetoothGattCharacteristic(
         MainActivity.TURN_IMAGE, // Read-only characteristic, supports notifications
         BluetoothGattCharacteristic.PROPERTY_READ or BluetoothGattCharacteristic.PROPERTY_NOTIFY,
-        BluetoothGattCharacteristic.PERMISSION_READ
+        BluetoothGattCharacteristic.PERMISSION_READ,
     )
     private val turnImageDescriptor = BluetoothGattDescriptor(
         MainActivity.CLIENT_CONFIG, // Read/write descriptor
-        BluetoothGattDescriptor.PERMISSION_READ or BluetoothGattDescriptor.PERMISSION_WRITE
+        BluetoothGattDescriptor.PERMISSION_READ or BluetoothGattDescriptor.PERMISSION_WRITE,
     )
     private val turnDistance = BluetoothGattCharacteristic(
         MainActivity.TURN_DISTANCE, // Read-only characteristic, supports notifications
         BluetoothGattCharacteristic.PROPERTY_READ or BluetoothGattCharacteristic.PROPERTY_NOTIFY,
-        BluetoothGattCharacteristic.PERMISSION_READ
+        BluetoothGattCharacteristic.PERMISSION_READ,
     )
     private val turnDistanceDescriptor = BluetoothGattDescriptor(
         MainActivity.CLIENT_CONFIG, // Read/write descriptor
-        BluetoothGattDescriptor.PERMISSION_READ or BluetoothGattDescriptor.PERMISSION_WRITE
+        BluetoothGattDescriptor.PERMISSION_READ or BluetoothGattDescriptor.PERMISSION_WRITE,
     )
 
-    private val gattService = BluetoothGattService(MainActivity.NAVIGATION_SERVICE, SERVICE_TYPE_PRIMARY)
+    private val gattService =
+        BluetoothGattService(MainActivity.NAVIGATION_SERVICE, SERVICE_TYPE_PRIMARY)
 
-    lateinit var bluetoothGattServer : BluetoothGattServer
+    lateinit var bluetoothGattServer: BluetoothGattServer
 
     init
     {
@@ -91,15 +86,15 @@ class NavBluetoothManager(
      * Begin advertising over Bluetooth that this device is connectable
      * and supports the Current Time Service.
      */
-    private fun startAdvertising()
-    {
+    private fun startAdvertising() {
         if ((Build.VERSION.SDK_INT < Build.VERSION_CODES.S) ||
-            (ActivityCompat.checkSelfPermission(
-                context,
-                Manifest.permission.BLUETOOTH_ADVERTISE
-            ) == PackageManager.PERMISSION_GRANTED)
-        )
-        {
+            (
+                ActivityCompat.checkSelfPermission(
+                    context,
+                    Manifest.permission.BLUETOOTH_ADVERTISE,
+                ) == PackageManager.PERMISSION_GRANTED
+                )
+        ) {
             val bluetoothLeAdvertiser: BluetoothLeAdvertiser? =
                 bluetoothManager.adapter.bluetoothLeAdvertiser
 
@@ -124,20 +119,20 @@ class NavBluetoothManager(
     /**
      * Stop Bluetooth advertisements.
      */
-    private fun stopAdvertising()
-    {
+    private fun stopAdvertising() {
         if ((Build.VERSION.SDK_INT < Build.VERSION_CODES.S) ||
-            (ActivityCompat.checkSelfPermission(
-                context,
-                Manifest.permission.BLUETOOTH_ADVERTISE
-            ) == PackageManager.PERMISSION_GRANTED)
-        )
-        {
+            (
+                ActivityCompat.checkSelfPermission(
+                    context,
+                    Manifest.permission.BLUETOOTH_ADVERTISE,
+                ) == PackageManager.PERMISSION_GRANTED
+                )
+        ) {
             val bluetoothLeAdvertiser: BluetoothLeAdvertiser? =
                 bluetoothManager.adapter.bluetoothLeAdvertiser
             bluetoothLeAdvertiser?.stopAdvertising(advertiseCallback) ?: Log.w(
                 TAG,
-                "Failed to create advertiser"
+                "Failed to create advertiser",
             )
         }
     }
@@ -145,15 +140,15 @@ class NavBluetoothManager(
     /**
      * Shut down the GATT server.
      */
-    private fun stopServer()
-    {
+    private fun stopServer() {
         if ((Build.VERSION.SDK_INT < Build.VERSION_CODES.S) ||
-            (ActivityCompat.checkSelfPermission(
-                context,
-                Manifest.permission.BLUETOOTH_CONNECT
-            ) == PackageManager.PERMISSION_GRANTED)
-        )
-        {
+            (
+                ActivityCompat.checkSelfPermission(
+                    context,
+                    Manifest.permission.BLUETOOTH_CONNECT,
+                ) == PackageManager.PERMISSION_GRANTED
+                )
+        ) {
             bluetoothGattServer.close()
         }
     }
@@ -162,15 +157,15 @@ class NavBluetoothManager(
      * Initialize the GATT server instance with the services/characteristics
      * from the Time Profile.
      */
-    private fun startServer()
-    {
+    private fun startServer() {
         if ((Build.VERSION.SDK_INT < Build.VERSION_CODES.S) ||
-            (ActivityCompat.checkSelfPermission(
-                context,
-                Manifest.permission.BLUETOOTH_CONNECT
-            ) == PackageManager.PERMISSION_GRANTED)
-        )
-        {
+            (
+                ActivityCompat.checkSelfPermission(
+                    context,
+                    Manifest.permission.BLUETOOTH_CONNECT,
+                ) == PackageManager.PERMISSION_GRANTED
+                )
+        ) {
             bluetoothGattServer = bluetoothManager.openGattServer(context, gattServerCallback)
             bluetoothGattServer.addService(gattService)
         }
@@ -181,7 +176,7 @@ class NavBluetoothManager(
         startServer()
     }
 
-    fun stop(){
+    fun stop() {
         stopServer()
         stopAdvertising()
     }

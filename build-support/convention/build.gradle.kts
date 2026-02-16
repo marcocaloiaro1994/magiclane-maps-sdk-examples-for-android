@@ -25,27 +25,32 @@ repositories {
 }
 
 dependencies {
-    compileOnly(libs.build.android.gradle)
-    compileOnly(libs.build.kotlin)
-    compileOnly(libs.detekt.gradle)
-    compileOnly(libs.ktlint.gradle)
+    implementation(shared.build.android.gradle)
+    implementation(shared.build.kotlin)
+    implementation(shared.detekt.gradle)
+    implementation(shared.ktlint.gradle)
 }
 
 gradlePlugin {
     plugins {
         register("AndroidKtlint") {
-            id = "com.magiclane.examples.sdk.gradle.ktlint"
+            id = "com.magiclane.sdk.examples.gradle.ktlint"
             implementationClass = "GradleKtlintConventionPlugin"
         }
 
         register("AndroidDetekt") {
-            id = "com.magiclane.examples.sdk.gradle.detekt"
+            id = "com.magiclane.sdk.examples.gradle.detekt"
             implementationClass = "DetektConventionPlugin"
         }
 
         register("MagicLaneExamplesApplication") {
-            id = "com.magiclane.examples.sdk.gradle.application"
+            id = "com.magiclane.sdk.examples.gradle.application"
             implementationClass = "ApplicationModulePlugin"
+        }
+
+        register("MagicLaneExamplesLibrary") {
+            id = "com.magiclane.sdk.examples.gradle.library"
+            implementationClass = "LibraryModulePlugin"
         }
     }
 }

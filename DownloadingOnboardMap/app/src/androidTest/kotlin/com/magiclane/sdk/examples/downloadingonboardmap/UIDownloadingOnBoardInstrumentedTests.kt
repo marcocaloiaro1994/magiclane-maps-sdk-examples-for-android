@@ -1,17 +1,12 @@
-// -------------------------------------------------------------------------------------------------------------------------------
-
 /*
- * SPDX-FileCopyrightText: 1995-2025 Magic Lane International B.V. <info@magiclane.com>
+ * SPDX-FileCopyrightText: 2021-2026 Magic Lane International B.V. <info@magiclane.com>
  * SPDX-License-Identifier: Apache-2.0
  *
  * Contact Magic Lane at <info@magiclane.com> for SDK licensing options.
  */
 
-// -------------------------------------------------------------------------------------------------------------------------------
-
 package com.magiclane.sdk.examples.downloadingonboardmap
 
-import android.net.ConnectivityManager
 import android.view.View
 import androidx.lifecycle.Lifecycle
 import androidx.test.espresso.Espresso.onView
@@ -26,35 +21,36 @@ import androidx.test.espresso.matcher.ViewMatchers.withText
 import androidx.test.ext.junit.rules.ActivityScenarioRule
 import androidx.test.filters.LargeTest
 import androidx.test.internal.runner.junit4.AndroidJUnit4ClassRunner
-import androidx.test.platform.app.InstrumentationRegistry
-import com.magiclane.sdk.core.GemSdk
-import com.magiclane.sdk.core.SdkSettings
-import com.magiclane.sdk.util.SdkCall
+import com.magiclane.sdk.examples.testing.GemSdkTestRule
+import java.util.concurrent.TimeUnit
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.runBlocking
 import org.hamcrest.Matcher
 import org.hamcrest.Matchers.allOf
 import org.junit.After
 import org.junit.Before
+import org.junit.ClassRule
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
-import java.util.concurrent.TimeUnit
 
 @LargeTest
 @RunWith(AndroidJUnit4ClassRunner::class)
-class UIDownloadingOnBoardInstrumentedTests
-{
+class UIDownloadingOnBoardInstrumentedTests {
+
+    companion object {
+        @get:ClassRule
+        @JvmStatic
+        val sdkRule = GemSdkTestRule()
+    }
+
     @Rule
     @JvmField
     val activityScenarioRule: ActivityScenarioRule<MainActivity> =
         ActivityScenarioRule(MainActivity::class.java)
-    
-    private val appContext = InstrumentationRegistry.getInstrumentation().targetContext
 
     @Before
-    fun registerIdlingResource()
-    {
+    fun setUp() {
         activityScenarioRule.scenario.moveToState(Lifecycle.State.RESUMED)
         IdlingRegistry.getInstance().register(EspressoIdlingResource.espressoIdlingResource)
         IdlingPolicies.setIdlingResourceTimeout(3, TimeUnit.MINUTES)
@@ -62,14 +58,10 @@ class UIDownloadingOnBoardInstrumentedTests
         activityScenarioRule.scenario.onActivity { _ ->
             EspressoIdlingResource.espressoIdlingResource.decrement()
         }
-        //verify token and internet connection
-        SdkCall.execute { assert(GemSdk.getTokenFromManifest(appContext)?.isNotEmpty() == true) { "Invalid token." } }
-        assert(appContext.getSystemService(ConnectivityManager::class.java).activeNetwork != null) { " No internet connection." }
     }
 
     @After
-    fun closeActivity()
-    {
+    fun tearDown() {
         activityScenarioRule.scenario.close()
         IdlingRegistry.getInstance().unregister(EspressoIdlingResource.espressoIdlingResource)
     }
@@ -77,7 +69,9 @@ class UIDownloadingOnBoardInstrumentedTests
     @Test
     fun checkMapDownloading(): Unit = runBlocking {
         delay(5000)
-        onView(firstPositionInParent(R.id.list_view)).check(matches(withChild(withText("Afghanistan"))))
+        onView(
+            firstPositionInParent(R.id.list_view),
+        ).check(matches(withChild(withText("Afghanistan"))))
     }
 
     private fun firstPositionInParent(parentViewId: Int): Matcher<View> =
