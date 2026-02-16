@@ -127,7 +127,6 @@ If no API Key is set, you can still test your apps, but a watermark will be disp
 
 - [Android SDK documentation](https://developer.magiclane.com/docs/android): Detailed guides and API references for the SDK.
 - [Magic Lane Developer Portal](https://developer.magiclane.com/api/login): Manage API tokens and create custom styles.
-- [Build with AI](https://www.magiclane.com/web/build-with-ai): Accelerate development with AI-powered tools and workflows. Compatible with all AI agents.
 
 ## License
 
