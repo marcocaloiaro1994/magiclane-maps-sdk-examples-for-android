@@ -39,7 +39,7 @@ class SecondFragment : Fragment() {
         }
     }
 
-    private fun applyCustomAssetStyle(mapView: MapView?) = SdkCall.execute {
+    private fun applyCustomAssetStyle(mapView: MapView?) {
         val filename = "(Desktop) Monochrome Deep Blue (5a1da93a-dbf2-4a36-9b5c-1370386c1496).style"
 
         // Opens GPX input stream.

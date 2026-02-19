@@ -4,4 +4,10 @@
     <dimen name="standard_text_size">16sp</dimen>
     <dimen name="big_padding">10dp</dimen>
     <dimen name="small_padding">4dp</dimen>
+    <dimen name="cursor_size">70dp</dimen>
+    <dimen name="no_extra_inset">0dp</dimen>
+    <dimen name="speed_sign_size">60dp</dimen>
+    <dimen name="speed_place_size">70dp</dimen>
+    <dimen name="speed_panel_font_size">21dp</dimen>
+    <dimen name="padding">7.5dp</dimen>
 </resources>

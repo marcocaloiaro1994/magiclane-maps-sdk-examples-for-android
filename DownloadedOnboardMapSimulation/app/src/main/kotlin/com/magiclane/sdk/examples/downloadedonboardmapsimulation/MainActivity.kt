@@ -234,7 +234,7 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    private fun startSimulation() = SdkCall.execute {
+    private fun startSimulation() {
         val waypoints = arrayListOf(
             Landmark("Luxembourg", 49.61588784436375, 6.135843869736401),
             Landmark("Mersch", 49.74785494642988, 6.103323786692679),
