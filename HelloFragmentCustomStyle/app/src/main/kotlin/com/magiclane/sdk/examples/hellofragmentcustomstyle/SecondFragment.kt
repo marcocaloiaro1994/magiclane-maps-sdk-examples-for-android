@@ -47,7 +47,7 @@ class SecondFragment : Fragment() {
 
         // Take bytes.
         val data = inputStream.readBytes()
-        if (data.isEmpty()) return@execute
+        if (data.isEmpty()) return
 
         // Apply style.
         mapView?.preferences?.setMapStyleByDataBuffer(DataBuffer(data))
