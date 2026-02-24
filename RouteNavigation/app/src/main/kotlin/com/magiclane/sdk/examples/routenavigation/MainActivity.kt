@@ -27,9 +27,11 @@ import com.magiclane.sdk.core.SdkSettings
 import com.magiclane.sdk.core.TAG
 import com.magiclane.sdk.examples.routenavigation.databinding.ActivityMainBinding
 import com.magiclane.sdk.places.Landmark
+import com.magiclane.sdk.routesandnavigation.ERouteTransportMode
 import com.magiclane.sdk.routesandnavigation.NavigationListener
 import com.magiclane.sdk.routesandnavigation.NavigationService
 import com.magiclane.sdk.routesandnavigation.Route
+import com.magiclane.sdk.routesandnavigation.RoutePreferences
 import com.magiclane.sdk.sensordatasource.PositionListener
 import com.magiclane.sdk.sensordatasource.PositionService
 import com.magiclane.sdk.util.PermissionsHelper
@@ -96,6 +98,8 @@ class MainActivity : AppCompatActivity() {
 
         SdkSettings.onMapDataReady = onMapDataReady@{ isReady ->
             if (!isReady) return@onMapDataReady
+
+            SdkCall.execute { GemSdk.generateGPSLog(true) }
 
             // Defines an action that should be done when the world map is ready (Updated/ loaded).
             startNavigation()
@@ -189,15 +193,19 @@ class MainActivity : AppCompatActivity() {
                 PermissionsHelper.hasPermission(this, Manifest.permission.ACCESS_FINE_LOCATION)
 
             if (hasPermissions) {
-                val destination = Landmark("Paris", 48.8566932, 2.3514616)
+                val destination = Landmark("Nemo Science Museum", 52.3654114, 4.9119633)
+                val routePreferences = RoutePreferences().apply {
+                    transportMode = ERouteTransportMode.Bicycle
+                }
 
-                // Cancel any navigation in progress.
+// Cancel any navigation in progress.
                 navigationService.cancelNavigation(navigationListener)
-                // Start the new navigation.
+// Start the new navigation.
                 val error = navigationService.startNavigation(
                     destination,
                     navigationListener,
                     routingProgressListener,
+                    routePreferences
                 )
                 Log.i(TAG, "MainActivity.startNavigation: after = $error")
             }
