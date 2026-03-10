@@ -22,6 +22,7 @@ import androidx.activity.enableEdgeToEdge
 import androidx.appcompat.app.AppCompatActivity
 import com.google.android.material.bottomsheet.BottomSheetDialog
 import com.magiclane.sdk.core.GemSdk
+import com.magiclane.sdk.core.Parameter
 import com.magiclane.sdk.core.ProgressListener
 import com.magiclane.sdk.core.SdkSettings
 import com.magiclane.sdk.core.TAG
@@ -32,8 +33,10 @@ import com.magiclane.sdk.routesandnavigation.NavigationListener
 import com.magiclane.sdk.routesandnavigation.NavigationService
 import com.magiclane.sdk.routesandnavigation.Route
 import com.magiclane.sdk.routesandnavigation.RoutePreferences
+import com.magiclane.sdk.sensordatasource.ESConfigKeys
 import com.magiclane.sdk.sensordatasource.PositionListener
 import com.magiclane.sdk.sensordatasource.PositionService
+import com.magiclane.sdk.sensordatasource.enums.EDataType
 import com.magiclane.sdk.util.PermissionsHelper
 import com.magiclane.sdk.util.SdkCall
 import com.magiclane.sdk.util.Util
@@ -103,6 +106,13 @@ class MainActivity : AppCompatActivity() {
 
             // Defines an action that should be done when the world map is ready (Updated/ loaded).
             startNavigation()
+        }
+
+        binding.gemSurfaceView.onDefaultMapViewCreated = {
+            val parametersList = arrayListOf(Parameter(ESConfigKeys.Position.ImprovedPosPreferRouteSnap, "1"),
+                Parameter(ESConfigKeys.Position.ImprovedPositionDefTransportMode, "bike")
+            )
+            PositionService.dataSource?.setPreferences(EDataType.Position, parametersList)
         }
 
         SdkSettings.onApiTokenRejected = {
